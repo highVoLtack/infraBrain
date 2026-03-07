@@ -109,51 +109,51 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | — | Pending |
-| CORE-02 | — | Pending |
-| CORE-03 | — | Pending |
-| CORE-04 | — | Pending |
-| CORE-05 | — | Pending |
-| CORE-06 | — | Pending |
-| CORE-07 | — | Pending |
-| CORE-08 | — | Pending |
-| CORE-09 | — | Pending |
-| CORE-10 | — | Pending |
-| SAFE-01 | — | Pending |
-| SAFE-02 | — | Pending |
-| SAFE-03 | — | Pending |
-| SAFE-04 | — | Pending |
-| SAFE-05 | — | Pending |
-| SAFE-06 | — | Pending |
-| SAFE-07 | — | Pending |
-| SAFE-08 | — | Pending |
-| SAFE-09 | — | Pending |
-| SAFE-10 | — | Pending |
-| SAFE-11 | — | Pending |
-| SAFE-12 | — | Pending |
-| INTF-01 | — | Pending |
-| INTF-02 | — | Pending |
-| INTF-03 | — | Pending |
-| INTF-04 | — | Pending |
-| INTF-05 | — | Pending |
-| INTF-06 | — | Pending |
-| INTF-07 | — | Pending |
-| INTF-08 | — | Pending |
-| INTF-09 | — | Pending |
-| INTF-10 | — | Pending |
-| SKIL-01 | — | Pending |
-| SKIL-02 | — | Pending |
-| SKIL-03 | — | Pending |
-| SKIL-04 | — | Pending |
-| POC-01 | — | Pending |
-| POC-02 | — | Pending |
-| POC-03 | — | Pending |
+| CORE-01 | Phase 1 | Pending |
+| CORE-02 | Phase 1 | Pending |
+| CORE-03 | Phase 2 | Pending |
+| CORE-04 | Phase 2 | Pending |
+| CORE-05 | Phase 2 | Pending |
+| CORE-06 | Phase 3 | Pending |
+| CORE-07 | Phase 3 | Pending |
+| CORE-08 | Phase 3 | Pending |
+| CORE-09 | Phase 1 | Pending |
+| CORE-10 | Phase 1 | Pending |
+| SAFE-01 | Phase 1 | Pending |
+| SAFE-02 | Phase 1 | Pending |
+| SAFE-03 | Phase 1 | Pending |
+| SAFE-04 | Phase 3 | Pending |
+| SAFE-05 | Phase 3 | Pending |
+| SAFE-06 | Phase 3 | Pending |
+| SAFE-07 | Phase 3 | Pending |
+| SAFE-08 | Phase 3 | Pending |
+| SAFE-09 | Phase 1 | Pending |
+| SAFE-10 | Phase 1 | Pending |
+| SAFE-11 | Phase 4 | Pending |
+| SAFE-12 | Phase 3 | Pending |
+| INTF-01 | Phase 1 | Pending |
+| INTF-02 | Phase 4 | Pending |
+| INTF-03 | Phase 4 | Pending |
+| INTF-04 | Phase 4 | Pending |
+| INTF-05 | Phase 1 | Pending |
+| INTF-06 | Phase 1 | Pending |
+| INTF-07 | Phase 4 | Pending |
+| INTF-08 | Phase 3 | Pending |
+| INTF-09 | Phase 3 | Pending |
+| INTF-10 | Phase 3 | Pending |
+| SKIL-01 | Phase 2 | Pending |
+| SKIL-02 | Phase 2 | Pending |
+| SKIL-03 | Phase 2 | Pending |
+| SKIL-04 | Phase 2 | Pending |
+| POC-01 | Phase 5 | Pending |
+| POC-02 | Phase 5 | Pending |
+| POC-03 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 39 total
-- Mapped to phases: 0
-- Unmapped: 39 ⚠️
+- Mapped to phases: 39
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-07*
-*Last updated: 2026-03-07 after initial definition*
+*Last updated: 2026-03-07 after roadmap creation*

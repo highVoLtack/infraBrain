@@ -1,0 +1,117 @@
+# Roadmap: InfraBrain
+
+## Overview
+
+InfraBrain goes from zero to a working AI IT operations platform in five phases. We start by laying the foundation -- LLM abstraction, state persistence, CLI shell, and the critical safety gates that must exist before any command ever touches infrastructure. Then we build the skill system that gives the orchestrator its "brain," followed by the execution engine with full safety net (circuit breakers, damage budgets, rollback). Session management and CLI polish come next, and finally the Docker/Nginx 502 POC proves the entire Diagnose-Plan-Execute-Verify loop end-to-end.
+
+## Phases
+
+**Phase Numbering:**
+- Integer phases (1, 2, 3): Planned milestone work
+- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 1: Foundation and Safety Gates** - LLM provider, state storage, CLI shell, HITL approval, command validation, and audit logging
+- [ ] **Phase 2: Skill System and Orchestrator** - Markdown skill loader, skill validation, orchestrator reasoning, and core skill library
+- [ ] **Phase 3: Execution Engine and Safety Net** - Sub-agent isolation, circuit breaker, damage budget, rollback, and concurrency locks
+- [ ] **Phase 4: Session Management and CLI Polish** - Status/history commands, JSON output, session resumability, and queryable audit
+- [ ] **Phase 5: POC Scenario and Integration** - Docker/Nginx 502 end-to-end demo proving the full DPEV loop
+
+## Phase Details
+
+### Phase 1: Foundation and Safety Gates
+**Goal**: Admin can connect to a local LLM, issue a CLI command, and see safety-gated command validation with full audit logging -- the platform skeleton that everything else builds on
+**Depends on**: Nothing (first phase)
+**Requirements**: CORE-01, CORE-02, CORE-09, CORE-10, SAFE-01, SAFE-02, SAFE-03, SAFE-09, SAFE-10, INTF-01, INTF-05, INTF-06
+**Success Criteria** (what must be TRUE):
+  1. Admin can start InfraBrain and it connects to a running Ollama instance, sends a prompt, and receives a response
+  2. Admin can issue a CLI command (e.g., `/infra:debug "test"`) and see it accepted and routed through the system
+  3. System classifies commands by risk level and applies correct approval gate (read auto-approves, write needs Y/N, destructive needs typed confirmation)
+  4. System validates generated commands against allowlist/blocklist and rejects disallowed commands before they reach approval
+  5. Every decision and state change is logged as structured JSON to both human-readable files and SQLite
+**Plans**: TBD
+
+Plans:
+- [ ] 01-01: TBD
+- [ ] 01-02: TBD
+- [ ] 01-03: TBD
+
+### Phase 2: Skill System and Orchestrator
+**Goal**: Orchestrator can load Markdown skill files, select the right skill for a problem, and produce a diagnostic assessment with a structured fix plan
+**Depends on**: Phase 1
+**Requirements**: CORE-03, CORE-04, CORE-05, SKIL-01, SKIL-02, SKIL-03, SKIL-04
+**Success Criteria** (what must be TRUE):
+  1. System loads Markdown skill files from a skills directory and validates them against the format spec (rejects malformed files with clear errors)
+  2. Orchestrator selects an appropriate skill based on user input and injects skill context into the LLM prompt
+  3. Planning skill decomposes a problem into a structured fix plan with discrete steps
+  4. Verification skill generates health checks that can determine pass/fail for a given fix
+  5. Log analysis skill pre-filters logs before LLM analysis and handles syslog, JSON, Docker, and journald formats
+**Plans**: TBD
+
+Plans:
+- [ ] 02-01: TBD
+- [ ] 02-02: TBD
+
+### Phase 3: Execution Engine and Safety Net
+**Goal**: System can execute fix plan steps through isolated sub-agents with circuit breaker, damage budget, automatic rollback, and concurrency protection
+**Depends on**: Phase 2
+**Requirements**: CORE-06, CORE-07, CORE-08, SAFE-04, SAFE-05, SAFE-06, SAFE-07, SAFE-08, SAFE-12, INTF-08, INTF-09, INTF-10
+**Success Criteria** (what must be TRUE):
+  1. Each sub-agent task runs in a separate child process with its own LLM context -- no shared state between sub-agents
+  2. Circuit breaker halts execution after configured max retries and alerts the admin
+  3. Damage budget tracks cumulative state changes per fix plan and halts when budget is exceeded (with failed retries consuming double)
+  4. System captures pre-execution state snapshots and automatically rolls back to last-known-good state when safety limits trigger
+  5. Lock system prevents concurrent fixes on the same target, shows lock status to other admins, and supports force-override
+**Plans**: TBD
+
+Plans:
+- [ ] 03-01: TBD
+- [ ] 03-02: TBD
+- [ ] 03-03: TBD
+
+### Phase 4: Session Management and CLI Polish
+**Goal**: Admin has full operational visibility -- status checks, audit history, session resumability, and machine-parseable output for scripting
+**Depends on**: Phase 3
+**Requirements**: INTF-02, INTF-03, INTF-04, INTF-07, SAFE-11
+**Success Criteria** (what must be TRUE):
+  1. Admin can check system and session status via `/infra:status` and see current fix plans, locks, and agent state
+  2. Admin can view audit history via `/infra:history` with queryable filters over the SQLite audit log
+  3. All CLI commands support `--json` flag for machine-parseable output suitable for scripting
+  4. Admin can resume an interrupted fix plan from where it left off without re-running completed steps
+**Plans**: TBD
+
+Plans:
+- [ ] 04-01: TBD
+- [ ] 04-02: TBD
+
+### Phase 5: POC Scenario and Integration
+**Goal**: The Docker/Nginx 502 demo proves the entire Diagnose-Plan-Execute-Verify loop end-to-end with full audit trail -- the investor/customer proof point
+**Depends on**: Phase 4
+**Requirements**: POC-01, POC-02, POC-03
+**Success Criteria** (what must be TRUE):
+  1. Docker Compose test environment starts with intentionally broken Nginx that returns 502 errors
+  2. Admin triggers `/infra:debug "Why is Nginx returning 502?"` and the system diagnoses the root cause, generates a fix plan, executes (with approval), and verifies the fix via health check -- all without manual intervention beyond approval
+  3. Full audit trail is available showing decision reasoning, options considered, commands executed, and before/after state diffs for every change
+**Plans**: TBD
+
+Plans:
+- [ ] 05-01: TBD
+- [ ] 05-02: TBD
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Foundation and Safety Gates | 0/3 | Not started | - |
+| 2. Skill System and Orchestrator | 0/2 | Not started | - |
+| 3. Execution Engine and Safety Net | 0/3 | Not started | - |
+| 4. Session Management and CLI Polish | 0/2 | Not started | - |
+| 5. POC Scenario and Integration | 0/2 | Not started | - |
+
+---
+*Roadmap created: 2026-03-07*
+*Last updated: 2026-03-07*
