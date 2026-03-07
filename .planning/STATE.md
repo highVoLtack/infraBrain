@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-04-PLAN.md
-last_updated: "2026-03-07T14:31:08.804Z"
-last_activity: 2026-03-07 -- Plan 01-03 executed (command validation + approval gates)
+stopped_at: Completed 01-05-PLAN.md
+last_updated: "2026-03-07T22:46:00Z"
+last_activity: 2026-03-07 -- Plan 01-05 executed (token budget + approval gate wiring)
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
-  percent: 15
+  total_plans: 5
+  completed_plans: 5
+  percent: 19
 ---
 
 # Project State
@@ -26,33 +26,34 @@ See: .planning/PROJECT.md (updated 2026-03-07)
 ## Current Position
 
 Phase: 1 of 5 (Foundation and Safety Gates)
-Plan: 3 of 4 in current phase
+Plan: 5 of 5 in current phase
 Status: Executing
-Last activity: 2026-03-07 -- Plan 01-03 executed (command validation + approval gates)
+Last activity: 2026-03-07 -- Plan 01-05 executed (token budget + approval gate wiring)
 
-Progress: [##........] 15%
+Progress: [##........] 19%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 4min
-- Total execution time: 0.20 hours
+- Total plans completed: 5
+- Average duration: 7min
+- Total execution time: 0.55 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1 - Foundation | 3 | 12min | 4min |
+| 1 - Foundation | 5 | 35min | 7min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (5min), 01-02 (4min), 01-03 (3min)
-- Trend: improving
+- Last 5 plans: 01-01 (5min), 01-02 (4min), 01-03 (3min), 01-04 (20min), 01-05 (3min)
+- Trend: stable
 
 *Updated after each plan completion*
 | Phase 01 P01 | 5min | 2 tasks | 12 files |
 | Phase 01 P03 | 3min | 2 tasks | 9 files |
 | Phase 01 P04 | 20min | 3 tasks | 11 files |
+| Phase 01 P05 | 3min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Factory pattern for route creation with injectable dependencies for testability
 - [Phase 01]: CLI calls REST API internally -- API is the single execution path
 - [Phase 01]: Ollama not required at build/test time -- fully mocked; runtime connectivity via /health
+- [Phase 01]: setReadline() late-binding pattern for injecting readline from REPL into commands module
+- [Phase 01]: Budget check throws Error on overflow (fail-fast, caller must handle)
+- [Phase 01]: Approval gate skipped in one-shot CLI mode (no readline = no interactive approval)
 
 ### Pending Todos
 
@@ -88,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-07T14:31:08.802Z
-Stopped at: Completed 01-04-PLAN.md
+Last session: 2026-03-07T22:46:00Z
+Stopped at: Completed 01-05-PLAN.md
 Resume file: None
