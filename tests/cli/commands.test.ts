@@ -140,6 +140,10 @@ describe('registerCommands', () => {
       resume: vi.fn(),
     } as any;
 
+    beforeEach(() => {
+      vi.mocked(requestApproval).mockClear();
+    });
+
     it('debug command calls requestApproval for each allowed command', async () => {
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,

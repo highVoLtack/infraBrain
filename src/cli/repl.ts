@@ -3,6 +3,7 @@ import { stdin, stdout } from 'node:process';
 import type { Command } from 'commander';
 import chalk from 'chalk';
 import { REPL_PROMPT, formatError } from './formatter.js';
+import { setReadline } from './commands.js';
 
 interface ReplConfig {
   apiBaseUrl: string;
@@ -25,6 +26,9 @@ export async function startRepl(config: ReplConfig): Promise<void> {
     input: stdin,
     output: stdout,
   });
+
+  // Wire readline into commands for interactive approval prompts
+  setReadline(rl);
 
   // Display welcome banner
   console.log(chalk.bold('\nInfraBrain v1.0.0'));
