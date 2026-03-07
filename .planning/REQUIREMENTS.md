@@ -1,0 +1,159 @@
+# Requirements: InfraBrain
+
+**Defined:** 2026-03-07
+**Core Value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control — every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
+
+## v1 Requirements
+
+Requirements for initial release. Each maps to roadmap phases.
+
+### Core Engine
+
+- [ ] **CORE-01**: System provides an abstracted LLM provider interface with Ollama as default backend
+- [ ] **CORE-02**: System supports pluggable LLM providers (vLLM, llama.cpp) without code changes
+- [ ] **CORE-03**: System loads and parses Markdown skill files containing prompts and tool definitions
+- [ ] **CORE-04**: System validates skill files against a defined format spec on load
+- [ ] **CORE-05**: Orchestrator reads user input and selects appropriate skills from the library
+- [ ] **CORE-06**: Orchestrator executes the Diagnose → Plan → Execute → Verify loop end-to-end
+- [ ] **CORE-07**: Each sub-agent task runs in a separate LLM conversation with isolated context
+- [ ] **CORE-08**: Each sub-agent task runs in a sandboxed child process (execFile/spawn, no shell)
+- [ ] **CORE-09**: System tracks context token budget and prevents silent truncation by Ollama
+- [ ] **CORE-10**: System validates all generated commands against a whitelist/blocklist before execution
+
+### Safety & Trust
+
+- [ ] **SAFE-01**: Read-only commands auto-approve without human intervention
+- [ ] **SAFE-02**: Write commands require explicit Y/N approval from the admin
+- [ ] **SAFE-03**: Destructive commands require typed confirmation from the admin
+- [ ] **SAFE-04**: Circuit breaker halts execution after max retries per task (configurable, default 3)
+- [ ] **SAFE-05**: Damage budget limits total state changes per fix plan (configurable)
+- [ ] **SAFE-06**: Failed retries consume double the damage budget
+- [ ] **SAFE-07**: System captures pre-execution state snapshot before every write operation
+- [ ] **SAFE-08**: System automatically rolls back to last-known-good state when safety limits are hit
+- [ ] **SAFE-09**: System logs every decision as structured JSON (what was diagnosed, options considered, why chosen)
+- [ ] **SAFE-10**: System captures before/after state diffs for every change made
+- [ ] **SAFE-11**: Audit log is queryable via SQLite
+- [ ] **SAFE-12**: System alerts the admin when circuit breaker or damage budget triggers
+
+### Interface
+
+- [ ] **INTF-01**: Admin can run diagnostic commands via CLI (e.g., `/infra:debug "Why is Nginx returning 502?"`)
+- [ ] **INTF-02**: Admin can check system and session status via CLI (`/infra:status`)
+- [ ] **INTF-03**: Admin can view audit history via CLI (`/infra:history`)
+- [ ] **INTF-04**: CLI supports machine-parseable JSON output mode for scripting
+- [ ] **INTF-05**: REST API backend serves all CLI functionality
+- [ ] **INTF-06**: System persists fix plan state to disk (human-readable file + SQLite)
+- [ ] **INTF-07**: Admin can resume an interrupted fix plan from where it left off
+- [ ] **INTF-08**: Lock system prevents concurrent fixes on the same target
+- [ ] **INTF-09**: Admin sees "fix in progress by [admin]" when a target is locked
+- [ ] **INTF-10**: Admin can force-override a lock with explicit confirmation
+
+### Skills (Standard Library)
+
+- [ ] **SKIL-01**: Core planning skill decomposes problems into 2-5 minute fix plan steps
+- [ ] **SKIL-02**: Core verification skill writes health checks that fail before fix and pass after
+- [ ] **SKIL-03**: Log analysis skill pre-filters logs (grep, journalctl) before LLM analysis
+- [ ] **SKIL-04**: Log analysis skill handles common formats (syslog, JSON structured, Docker, journald)
+
+### POC Scenario
+
+- [ ] **POC-01**: Docker Compose test environment with intentionally broken Nginx (returns 502)
+- [ ] **POC-02**: End-to-end demo: admin triggers debug → system diagnoses → writes fix plan → generates corrected config → admin approves → fix applied → health check passes
+- [ ] **POC-03**: Demo shows full audit trail of the fix including decision reasoning and state diffs
+
+## v2 Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### Differentiators
+
+- **DIFF-01**: Progressive autonomy levels (Observe / Guided / Autonomous per skill and environment)
+- **DIFF-02**: Composable skill chaining (skills invoke other skills as sub-steps)
+- **DIFF-03**: Infrastructure mapping skill (nmap, osquery, Docker topology)
+
+### Additional Skills
+
+- **SKIL-05**: Database troubleshooting skill (SQL query analysis, connection pool issues)
+- **SKIL-06**: Security auditing skill (open ports, outdated packages, CVE checks)
+
+### Distribution
+
+- **DIST-01**: Standalone binary via Node.js SEA (no Node.js required on target)
+- **DIST-02**: Cross-platform support (Linux, macOS)
+
+### Enterprise
+
+- **ENTR-01**: Multi-team support with RBAC
+- **ENTR-02**: Private skill repositories via git integration
+- **ENTR-03**: ChatOps integration (Slack/Teams)
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| Web UI / dashboard | Doubles development surface; CLI-first, API is the product. Web UI is a consumer of the API for v2+ |
+| Full autonomous mode (no human) | Existential risk; EU AI Act requires human oversight; one bad `rm -rf` ends the company |
+| Cloud-hosted SaaS | Contradicts core value prop (100% on-premise). Separate product if demand materializes |
+| GraphRAG / Neo4j | Overkill for v1; JSON/SQLite state is sufficient. Upgrade when managing 1000+ node environments |
+| Public skill marketplace | Requires trust infrastructure, hosting, moderation. Ship after community exists |
+| Multi-tenant architecture | Massive auth/RBAC complexity; v1 is single-instance single-team |
+| Real-time streaming dashboards | Not an observability platform; integrate with existing tools (Prometheus, Grafana) via skills |
+| Natural language for everything | LLMs unreliable for parsing ambiguous NL into precise commands; structured CLI for actions, NL for diagnostics |
+| OAuth/SAML authentication | v1 is local single-team; filesystem permissions as stopgap |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| CORE-01 | — | Pending |
+| CORE-02 | — | Pending |
+| CORE-03 | — | Pending |
+| CORE-04 | — | Pending |
+| CORE-05 | — | Pending |
+| CORE-06 | — | Pending |
+| CORE-07 | — | Pending |
+| CORE-08 | — | Pending |
+| CORE-09 | — | Pending |
+| CORE-10 | — | Pending |
+| SAFE-01 | — | Pending |
+| SAFE-02 | — | Pending |
+| SAFE-03 | — | Pending |
+| SAFE-04 | — | Pending |
+| SAFE-05 | — | Pending |
+| SAFE-06 | — | Pending |
+| SAFE-07 | — | Pending |
+| SAFE-08 | — | Pending |
+| SAFE-09 | — | Pending |
+| SAFE-10 | — | Pending |
+| SAFE-11 | — | Pending |
+| SAFE-12 | — | Pending |
+| INTF-01 | — | Pending |
+| INTF-02 | — | Pending |
+| INTF-03 | — | Pending |
+| INTF-04 | — | Pending |
+| INTF-05 | — | Pending |
+| INTF-06 | — | Pending |
+| INTF-07 | — | Pending |
+| INTF-08 | — | Pending |
+| INTF-09 | — | Pending |
+| INTF-10 | — | Pending |
+| SKIL-01 | — | Pending |
+| SKIL-02 | — | Pending |
+| SKIL-03 | — | Pending |
+| SKIL-04 | — | Pending |
+| POC-01 | — | Pending |
+| POC-02 | — | Pending |
+| POC-03 | — | Pending |
+
+**Coverage:**
+- v1 requirements: 39 total
+- Mapped to phases: 0
+- Unmapped: 39 ⚠️
+
+---
+*Requirements defined: 2026-03-07*
+*Last updated: 2026-03-07 after initial definition*
