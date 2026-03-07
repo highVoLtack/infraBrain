@@ -9,15 +9,15 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Core Engine
 
-- [ ] **CORE-01**: System provides an abstracted LLM provider interface with Ollama as default backend
-- [ ] **CORE-02**: System supports pluggable LLM providers (vLLM, llama.cpp) without code changes
+- [x] **CORE-01**: System provides an abstracted LLM provider interface with Ollama as default backend
+- [x] **CORE-02**: System supports pluggable LLM providers (vLLM, llama.cpp) without code changes
 - [ ] **CORE-03**: System loads and parses Markdown skill files containing prompts and tool definitions
 - [ ] **CORE-04**: System validates skill files against a defined format spec on load
 - [ ] **CORE-05**: Orchestrator reads user input and selects appropriate skills from the library
 - [ ] **CORE-06**: Orchestrator executes the Diagnose → Plan → Execute → Verify loop end-to-end
 - [ ] **CORE-07**: Each sub-agent task runs in a separate LLM conversation with isolated context
 - [ ] **CORE-08**: Each sub-agent task runs in a sandboxed child process (execFile/spawn, no shell)
-- [ ] **CORE-09**: System tracks context token budget and prevents silent truncation by Ollama
+- [x] **CORE-09**: System tracks context token budget and prevents silent truncation by Ollama
 - [ ] **CORE-10**: System validates all generated commands against a whitelist/blocklist before execution
 
 ### Safety & Trust
@@ -109,15 +109,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CORE-01 | Phase 1 | Pending |
-| CORE-02 | Phase 1 | Pending |
+| CORE-01 | Phase 1 | Complete |
+| CORE-02 | Phase 1 | Complete |
 | CORE-03 | Phase 2 | Pending |
 | CORE-04 | Phase 2 | Pending |
 | CORE-05 | Phase 2 | Pending |
 | CORE-06 | Phase 3 | Pending |
 | CORE-07 | Phase 3 | Pending |
 | CORE-08 | Phase 3 | Pending |
-| CORE-09 | Phase 1 | Pending |
+| CORE-09 | Phase 1 | Complete |
 | CORE-10 | Phase 1 | Pending |
 | SAFE-01 | Phase 1 | Pending |
 | SAFE-02 | Phase 1 | Pending |
