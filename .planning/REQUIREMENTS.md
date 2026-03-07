@@ -37,11 +37,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Interface
 
-- [ ] **INTF-01**: Admin can run diagnostic commands via CLI (e.g., `/infra:debug "Why is Nginx returning 502?"`)
+- [x] **INTF-01**: Admin can run diagnostic commands via CLI (e.g., `/infra:debug "Why is Nginx returning 502?"`)
 - [ ] **INTF-02**: Admin can check system and session status via CLI (`/infra:status`)
 - [ ] **INTF-03**: Admin can view audit history via CLI (`/infra:history`)
 - [ ] **INTF-04**: CLI supports machine-parseable JSON output mode for scripting
-- [ ] **INTF-05**: REST API backend serves all CLI functionality
+- [x] **INTF-05**: REST API backend serves all CLI functionality
 - [x] **INTF-06**: System persists fix plan state to disk (human-readable file + SQLite)
 - [ ] **INTF-07**: Admin can resume an interrupted fix plan from where it left off
 - [ ] **INTF-08**: Lock system prevents concurrent fixes on the same target
@@ -131,11 +131,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SAFE-10 | Phase 1 | Complete |
 | SAFE-11 | Phase 4 | Pending |
 | SAFE-12 | Phase 3 | Pending |
-| INTF-01 | Phase 1 | Pending |
+| INTF-01 | Phase 1 | Complete |
 | INTF-02 | Phase 4 | Pending |
 | INTF-03 | Phase 4 | Pending |
 | INTF-04 | Phase 4 | Pending |
-| INTF-05 | Phase 1 | Pending |
+| INTF-05 | Phase 1 | Complete |
 | INTF-06 | Phase 1 | Complete |
 | INTF-07 | Phase 4 | Pending |
 | INTF-08 | Phase 3 | Pending |
