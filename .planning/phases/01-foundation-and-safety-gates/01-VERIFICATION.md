@@ -1,37 +1,24 @@
 ---
 phase: 01-foundation-and-safety-gates
-verified: 2026-03-07T15:35:00Z
-status: gaps_found
-score: 4/5 must-haves verified
-gaps:
-  - truth: "System classifies commands by risk level and applies correct approval gate (read auto-approves, write needs Y/N, destructive needs typed confirmation)"
-    status: partial
-    reason: "requestApproval exists and is tested (9 tests pass), but is never called from the REPL or any command flow. The debug route validates commands and returns risk levels, but the approval gate is not wired into the execution path. Commands are classified and displayed but never go through the actual approval interaction."
-    artifacts:
-      - path: "src/cli/approval.ts"
-        issue: "Orphaned -- requestApproval is exported but never imported or called by any other module"
-      - path: "src/cli/formatter.ts"
-        issue: "formatApprovalResult is exported but never imported or called anywhere"
-    missing:
-      - "Wire requestApproval into REPL command flow so that after /infra:debug returns commands, the user is prompted to approve them based on risk level"
-      - "Connect formatApprovalResult to display the outcome after approval"
-  - truth: "Token budget is enforced before LLM calls (pre-flight check)"
-    status: partial
-    reason: "checkBudget and estimateTokens exist in token-budget.ts with 7 passing tests. However they are only re-exported from index.ts -- provider.ts does NOT call checkBudget before streamDiagnosis or generateCommand. The PLAN key_link 'pre-flight token check before LLM call' (pattern: checkBudget|estimateTokens) is not wired."
-    artifacts:
-      - path: "src/llm/provider.ts"
-        issue: "No import or call to checkBudget/estimateTokens -- token budget is not enforced before LLM calls"
-    missing:
-      - "Import checkBudget from token-budget.ts into provider.ts"
-      - "Call checkBudget before streamText/generateText and throw/return error if budget exceeded"
+verified: 2026-03-07T23:48:00Z
+status: passed
+score: 5/5 must-haves verified
+re_verification:
+  previous_status: gaps_found
+  previous_score: 4/5
+  gaps_closed:
+    - "System classifies commands by risk level and applies correct approval gate (read auto-approves, write needs Y/N, destructive needs typed confirmation)"
+    - "Token budget is enforced before LLM calls (pre-flight check)"
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 1: Foundation and Safety Gates Verification Report
 
 **Phase Goal:** Admin can connect to a local LLM, issue a CLI command, and see safety-gated command validation with full audit logging -- the platform skeleton that everything else builds on
-**Verified:** 2026-03-07T15:35:00Z
-**Status:** gaps_found
-**Re-verification:** No -- initial verification
+**Verified:** 2026-03-07T23:48:00Z
+**Status:** passed
+**Re-verification:** Yes -- after gap closure (plan 01-05)
 
 ## Goal Achievement
 
@@ -41,74 +28,63 @@ gaps:
 |---|-------|--------|----------|
 | 1 | Admin can start InfraBrain and it connects to a running Ollama instance, sends a prompt, and receives a response | VERIFIED | src/index.ts wires createOllamaModel -> createProvider -> createServer -> startRepl. Health route checks /api/tags. Tests confirm end-to-end mock flow. |
 | 2 | Admin can issue a CLI command (e.g., /infra:debug "test") and see it accepted and routed through the system | VERIFIED | src/cli/repl.ts parses /infra: prefix, dispatches to Commander. src/cli/commands.ts sends fetch POST to /debug API. Debug route calls provider.generateCommand. 6 CLI tests + 6 API tests pass. |
-| 3 | System classifies commands by risk level and applies correct approval gate (read auto-approves, write needs Y/N, destructive needs typed confirmation) | PARTIAL | Classification works (classifyCommand tested with 11 cases). Approval gate exists (requestApproval tested with 9 cases). BUT requestApproval is NEVER CALLED from any command flow -- it is orphaned code. |
+| 3 | System classifies commands by risk level and applies correct approval gate (read auto-approves, write needs Y/N, destructive needs typed confirmation) | VERIFIED | requestApproval (src/cli/approval.ts) is imported and called in src/cli/commands.ts line 75 for every allowed command. setReadline (line 31 of repl.ts) injects the readline instance. 4 new approval wiring tests pass (approval called, result displayed, blocked skipped, rejection shown). 9 existing approval unit tests pass. |
 | 4 | System validates generated commands against allowlist/blocklist and rejects disallowed commands before they reach approval | VERIFIED | Debug route (src/api/routes/debug.ts) calls validator(cmd) for every extracted command. validateCommand checks BLOCKED_PATTERNS -> config blocklist -> allowlist -> classifyCommand. 6 validator tests pass. |
 | 5 | Every decision and state change is logged as structured JSON to both human-readable files and SQLite | VERIFIED | AuditLogger.logDecision/logCommandValidation/logApproval/logStateDiff/logError all call store.appendAudit which writes to both audit.jsonl (appendFileSync) and SQLite (INSERT INTO audit_log). WriteThrough.persistState writes state.json + SQLite. 22 state/audit tests pass. |
 
-**Score:** 4/5 truths verified (1 partial)
+**Score:** 5/5 truths verified
 
 ### Required Artifacts
 
-**Plan 01-01: LLM Provider Abstraction**
+**Plan 01-05 (gap closure) -- previously failed artifacts now verified:**
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `src/llm/provider.ts` | LLM provider with streamDiagnosis and generateCommand | VERIFIED | Exports createProvider, wraps streamText/generateText from AI SDK |
-| `src/llm/ollama.ts` | Ollama-specific model factory | VERIFIED | Sole ai-sdk-ollama import point, exports createOllamaModel |
-| `src/llm/token-budget.ts` | Token budget tracking and enforcement | VERIFIED (code) / PARTIAL (wiring) | estimateTokens, checkBudget, trackUsage all exist and tested. But NOT called from provider.ts |
-| `src/llm/types.ts` | Shared LLM type definitions | VERIFIED | LLMProvider, TokenUsage, TaskBudget exported |
+| `src/llm/provider.ts` | Pre-flight token budget enforcement before streamText/generateText | VERIFIED | Imports checkBudget from token-budget.js (line 4). Calls checkBudget before streamDiagnosis (line 16) and generateCommand (line 41). Throws on overflow. 4 new budget tests pass. |
+| `src/cli/commands.ts` | Approval gate wired into debug command flow | VERIFIED | Imports requestApproval (line 4) and formatApprovalResult (line 3). Calls requestApproval for allowed commands when rl available (line 75). Displays result via formatApprovalResult (line 76). 4 new approval wiring tests pass. |
+| `src/cli/repl.ts` | Passes readline to commands module | VERIFIED | Imports setReadline from commands.js (line 6). Calls setReadline(rl) after creating readline (line 31). |
 
-**Plan 01-02: State Storage and Audit Logging**
+**Previously verified artifacts (regression check):**
 
-| Artifact | Expected | Status | Details |
-|----------|----------|--------|---------|
-| `src/state/db.ts` | SQLite schema initialization | VERIFIED | initDatabase creates sessions + audit_log tables with WAL, indexes, FK |
-| `src/state/store.ts` | Write-through dual storage | VERIFIED | WriteThrough.persistState (file first + SQLite) and appendAudit (JSONL + SQLite) |
-| `src/state/session.ts` | Session lifecycle management | VERIFIED | createSession (UUID v7, dir structure), loadSession |
-| `src/audit/logger.ts` | Structured JSON audit logging with state diffs | VERIFIED | AuditLogger with 5 log methods, delegates to WriteThrough.appendAudit |
-| `src/audit/types.ts` | Audit entry type definitions | VERIFIED | AuditEntry, AuditEventType, StateDiff exported |
-
-**Plan 01-03: Command Validation and Approval Gates**
-
-| Artifact | Expected | Status | Details |
-|----------|----------|--------|---------|
-| `src/safety/classifier.ts` | Risk level classification | VERIFIED | classifyCommand with BLOCKED_PATTERNS first, then rules, safe WRITE default |
-| `src/safety/validator.ts` | Allowlist/blocklist validation | VERIFIED | validateCommand with 4-step pipeline |
-| `src/safety/rules.ts` | Hardcoded + configurable safety rules | VERIFIED | BLOCKED_PATTERNS (5 patterns), DEFAULT_RULES (21 patterns), loadCustomRules |
-| `src/cli/approval.ts` | Risk-tiered human approval prompts | ORPHANED | requestApproval exists and tested, but never imported/called outside its own file |
-
-**Plan 01-04: API, CLI, and Wiring**
-
-| Artifact | Expected | Status | Details |
-|----------|----------|--------|---------|
-| `src/api/server.ts` | Express 5 server setup | VERIFIED | createServer with middleware, routes, error handler |
-| `src/api/routes/debug.ts` | POST /debug endpoint | VERIFIED | createDebugRoute with LLM call, command extraction, validation, audit logging |
-| `src/api/routes/health.ts` | GET /health endpoint | VERIFIED | createHealthRoute checks Ollama /api/tags |
-| `src/cli/repl.ts` | Interactive REPL loop | VERIFIED | startRepl with welcome banner, Ollama check, /infra: command dispatch |
-| `src/cli/commands.ts` | Commander.js command definitions | VERIFIED | registerCommands with debug and health commands calling REST API |
-| `src/cli/formatter.ts` | Chalk-based formatting | VERIFIED | formatDiagnosis, formatCommand, REPL_PROMPT. formatApprovalResult orphaned. |
-| `src/index.ts` | Application entry point | VERIFIED | Wires all components: config -> LLM -> DB -> session -> store -> audit -> server -> REPL |
+| Artifact | Status | Regression Check |
+|----------|--------|-----------------|
+| `src/llm/ollama.ts` | VERIFIED | Still sole ai-sdk-ollama import point |
+| `src/llm/token-budget.ts` | VERIFIED | Now imported by provider.ts (no longer orphaned) |
+| `src/llm/types.ts` | VERIFIED | Exports LLMProvider, TaskBudget |
+| `src/state/db.ts` | VERIFIED | SQLite init with WAL mode |
+| `src/state/store.ts` | VERIFIED | Write-through dual storage |
+| `src/state/session.ts` | VERIFIED | Session lifecycle |
+| `src/audit/logger.ts` | VERIFIED | Structured audit logging |
+| `src/safety/classifier.ts` | VERIFIED | Risk classification |
+| `src/safety/validator.ts` | VERIFIED | Allowlist/blocklist validation |
+| `src/safety/rules.ts` | VERIFIED | Safety rules |
+| `src/cli/approval.ts` | VERIFIED | Now imported by commands.ts (no longer orphaned) |
+| `src/cli/formatter.ts` | VERIFIED | formatApprovalResult now called from commands.ts (no longer orphaned) |
+| `src/api/server.ts` | VERIFIED | Express 5 server |
+| `src/api/routes/debug.ts` | VERIFIED | POST /debug endpoint |
+| `src/api/routes/health.ts` | VERIFIED | GET /health endpoint |
+| `src/cli/repl.ts` | VERIFIED | REPL loop with setReadline wiring |
+| `src/index.ts` | VERIFIED | Application entry point |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|----|-----|--------|---------|
-| src/llm/provider.ts | ai (Vercel AI SDK) | streamText/generateText imports | WIRED | `import { streamText, generateText } from 'ai'` confirmed |
-| src/llm/ollama.ts | ai-sdk-ollama | ollama provider import | WIRED | `import { ollama } from 'ai-sdk-ollama'` confirmed |
-| src/llm/provider.ts | src/llm/token-budget.ts | pre-flight token check | NOT WIRED | provider.ts does not import or call checkBudget/estimateTokens |
-| src/state/store.ts | src/state/db.ts | SQLite write on every state change | WIRED | db.prepare + stmt.run in persistState and appendAudit |
-| src/state/store.ts | filesystem | writeFileSync to session directory | WIRED | writeFileSync in persistState, appendFileSync in appendAudit |
-| src/audit/logger.ts | src/state/store.ts | audit entries persisted through store | WIRED | this.store.appendAudit called in every log method |
-| src/safety/validator.ts | src/safety/rules.ts | loads blocked patterns | WIRED | imports BLOCKED_PATTERNS |
-| src/safety/classifier.ts | src/safety/rules.ts | uses rules for pattern matching | WIRED | imports BLOCKED_PATTERNS, DEFAULT_RULES from ./rules.js |
-| src/cli/approval.ts | src/safety/classifier.ts | gets risk level for approval UX | NOT WIRED | approval.ts imports RiskLevel type only; no import of classifyCommand; approval is standalone |
-| src/cli/commands.ts | src/api/server.ts | CLI calls REST API internally | WIRED | fetch(`${config.apiBaseUrl}/debug`) and fetch(`${config.apiBaseUrl}/health`) |
-| src/cli/repl.ts | src/cli/commands.ts | REPL dispatches to Commander | WIRED | program.parseAsync(parts) called from REPL loop |
-| src/api/routes/debug.ts | src/llm/provider.ts | debug route calls LLM provider | WIRED | provider.generateCommand(prompt, systemPrompt) called |
-| src/api/routes/debug.ts | src/safety/validator.ts | validates commands | WIRED | validator(cmd) called for each extracted command |
-| src/api/routes/health.ts | Ollama /api/tags | health check | WIRED | fetch(`${ollamaBaseUrl}/api/tags`) |
-| src/index.ts | src/api/server.ts | starts Express server | WIRED | createServer(deps) + start(config.apiPort) |
-| src/index.ts | src/cli/repl.ts | starts REPL | WIRED | startRepl({ apiBaseUrl, program }) |
+| src/llm/provider.ts | src/llm/token-budget.ts | import and call checkBudget before LLM calls | WIRED | Line 4: import, Lines 16+41: calls before streamText/generateText |
+| src/cli/commands.ts | src/cli/approval.ts | import and call requestApproval for each command | WIRED | Line 4: import, Line 75: call for each allowed cmd |
+| src/cli/commands.ts | src/cli/formatter.ts | import and call formatApprovalResult | WIRED | Line 3: import, Line 76: call after approval |
+| src/cli/repl.ts | src/cli/commands.ts | setReadline injects rl | WIRED | Line 6: import, Line 31: setReadline(rl) |
+| src/llm/provider.ts | ai (Vercel AI SDK) | streamText/generateText | WIRED | Line 1: imports |
+| src/llm/ollama.ts | ai-sdk-ollama | ollama provider import | WIRED | Confirmed |
+| src/state/store.ts | src/state/db.ts | SQLite write on state change | WIRED | db.prepare + stmt.run |
+| src/audit/logger.ts | src/state/store.ts | audit through store | WIRED | this.store.appendAudit |
+| src/safety/validator.ts | src/safety/rules.ts | blocked patterns | WIRED | imports BLOCKED_PATTERNS |
+| src/cli/commands.ts | src/api/server.ts | CLI calls REST API | WIRED | fetch to /debug and /health |
+| src/cli/repl.ts | src/cli/commands.ts | REPL dispatches to Commander | WIRED | program.parseAsync |
+| src/api/routes/debug.ts | src/llm/provider.ts | debug route calls LLM | WIRED | provider.generateCommand |
+| src/api/routes/debug.ts | src/safety/validator.ts | validates commands | WIRED | validator(cmd) |
+| src/index.ts | src/api/server.ts | starts server | WIRED | createServer + start |
+| src/index.ts | src/cli/repl.ts | starts REPL | WIRED | startRepl call |
 
 ### Requirements Coverage
 
@@ -116,25 +92,24 @@ gaps:
 |-------------|------------|-------------|--------|----------|
 | CORE-01 | 01-01 | Abstracted LLM provider interface with Ollama | SATISFIED | createProvider wraps AI SDK; createOllamaModel is Ollama factory |
 | CORE-02 | 01-01 | Pluggable LLM providers without code changes | SATISFIED | ollama.ts is sole ai-sdk-ollama import; provider.ts accepts any LanguageModel |
-| CORE-09 | 01-01 | Token budget prevents silent truncation | PARTIAL | estimateTokens + checkBudget exist and tested, but NOT called in actual LLM call path |
+| CORE-09 | 01-01, 01-05 | Token budget prevents silent truncation | SATISFIED | checkBudget called before every LLM call in provider.ts; throws on overflow with descriptive message |
 | CORE-10 | 01-03 | Validates commands against allowlist/blocklist | SATISFIED | validateCommand enforces BLOCKED_PATTERNS + config blocklist/allowlist |
-| SAFE-01 | 01-03 | Read-only commands auto-approve | PARTIAL | requestApproval handles READ auto-approve in code + tests, but never called from command flow |
-| SAFE-02 | 01-03 | Write commands require Y/N approval | PARTIAL | requestApproval handles WRITE Y/n in code + tests, but never called |
-| SAFE-03 | 01-03 | Destructive commands require typed confirmation | PARTIAL | requestApproval handles DESTRUCTIVE typed confirmation in code + tests, but never called |
-| SAFE-09 | 01-02 | Every decision logged as structured JSON | SATISFIED | AuditLogger.logDecision + logCommandValidation + logApproval write to audit.jsonl + SQLite |
-| SAFE-10 | 01-02 | Before/after state diffs captured | SATISFIED | AuditLogger.logStateDiff captures JSON before/after with change detection |
-| INTF-01 | 01-04 | Admin runs diagnostic commands via CLI | SATISFIED | /infra:debug command routed through REPL -> API -> LLM |
-| INTF-05 | 01-04 | REST API backend serves CLI functionality | SATISFIED | Express 5 with /health and /debug endpoints, CLI calls API internally |
-| INTF-06 | 01-02 | Fix plan state persists to disk (file + SQLite) | SATISFIED | WriteThrough.persistState writes state.json + SQLite, file first |
+| SAFE-01 | 01-03, 01-05 | Read-only commands auto-approve | SATISFIED | requestApproval handles READ auto-approve and is wired into debug command flow |
+| SAFE-02 | 01-03, 01-05 | Write commands require Y/N approval | SATISFIED | requestApproval handles WRITE Y/n prompt and is wired into debug command flow |
+| SAFE-03 | 01-03, 01-05 | Destructive commands require typed confirmation | SATISFIED | requestApproval handles DESTRUCTIVE typed confirmation and is wired into debug command flow |
+| SAFE-09 | 01-02 | Every decision logged as structured JSON | SATISFIED | AuditLogger writes to audit.jsonl + SQLite |
+| SAFE-10 | 01-02 | Before/after state diffs captured | SATISFIED | AuditLogger.logStateDiff captures JSON before/after |
+| INTF-01 | 01-04 | Admin runs diagnostic commands via CLI | SATISFIED | /infra:debug routed through REPL -> API -> LLM |
+| INTF-05 | 01-04 | REST API backend serves CLI functionality | SATISFIED | Express 5 with /health and /debug endpoints |
+| INTF-06 | 01-02 | Fix plan state persists to disk (file + SQLite) | SATISFIED | WriteThrough.persistState writes state.json + SQLite |
+
+All 12 requirements SATISFIED. No orphaned requirements.
 
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 |------|------|---------|----------|--------|
-| (none) | - | No TODO/FIXME/HACK/placeholder found | - | Clean codebase |
-| src/cli/approval.ts | - | Orphaned module | Warning | requestApproval never called from production code |
-| src/cli/formatter.ts | 44 | Orphaned function | Info | formatApprovalResult never imported |
-| src/llm/token-budget.ts | - | Orphaned wiring | Warning | checkBudget/estimateTokens only re-exported, never called in LLM path |
+| (none found) | - | No TODO/FIXME/HACK/placeholder in src/ | - | Clean codebase |
 
 ### Human Verification Required
 
@@ -144,35 +119,35 @@ gaps:
 **Expected:** Welcome banner shows "Ollama: connected" with model list
 **Why human:** Requires live Ollama instance; all tests use mocks
 
-### 2. Debug command with live LLM
+### 2. Interactive approval flow
 
-**Test:** Type `/infra:debug "What processes are using port 80?"` in REPL
-**Expected:** LLM returns diagnostic text, any suggested commands show risk levels
-**Why human:** Requires live LLM response; tests use mocked provider
+**Test:** Run `/infra:debug "What processes are using port 80?"` and observe approval prompts
+**Expected:** Allowed commands trigger risk-appropriate prompts (auto for READ, Y/n for WRITE, typed for DESTRUCTIVE); blocked commands show rejection without prompt
+**Why human:** Requires live LLM response and interactive terminal input
 
-### 3. Audit trail on disk
+### 3. Token budget rejection
+
+**Test:** Send an extremely long prompt that would exceed the 4096-token diagnosis budget
+**Expected:** Error message: "Token budget exceeded for diagnosis: estimated N tokens, budget 4096 (overflow: M)"
+**Why human:** Budget threshold depends on actual prompt size vs heuristic estimation
+
+### 4. Audit trail on disk
 
 **Test:** After running a debug command, check `.infrabrain/sessions/` directory
 **Expected:** Session directory with state.json and audit.jsonl containing structured entries
 **Why human:** Requires running the full application to generate real session data
 
-### 4. REPL feel assessment
+## Gap Closure Summary
 
-**Test:** Interact with the REPL prompt
-**Expected:** Feels like a dedicated tool (psql-style) with `infrabrain>` prompt, not a chatbot
-**Why human:** Subjective UX assessment
+Both gaps from the initial verification have been closed:
 
-### Gaps Summary
+**Gap 1 (approval gate not wired):** Plan 01-05 Task 2 wired `requestApproval` into the debug command flow in `src/cli/commands.ts`. The `setReadline()` late-binding pattern injects the REPL's readline instance into the commands module. Allowed commands now go through risk-tiered approval; blocked commands are displayed but skip the gate. 4 new tests verify the wiring. Commits: 6b3df92 (test), a66c8aa (feat).
 
-Two related gaps prevent full Phase 1 goal achievement:
+**Gap 2 (token budget not enforced):** Plan 01-05 Task 1 wired `checkBudget` into `src/llm/provider.ts` as a pre-flight check before both `streamDiagnosis` and `generateCommand`. Budget overflow throws an error (fail-fast). 4 new tests verify the enforcement. Commits: b0e5d77 (test), 388a3ca (feat).
 
-**1. Approval gate not wired (SAFE-01, SAFE-02, SAFE-03):** The `requestApproval` function in `src/cli/approval.ts` is fully implemented and tested with 9 passing tests covering all 4 risk tiers. However, it is never called from any production code path. When `/infra:debug` returns commands with risk levels, the REPL displays them but never prompts the user for approval. The approval gate is "shelf code" -- correct but disconnected.
-
-**2. Token budget not enforced (CORE-09 partial):** `checkBudget` and `estimateTokens` in `src/llm/token-budget.ts` are implemented and tested with 7 passing tests. However, `provider.ts` does not call `checkBudget` before `streamText` or `generateText`. The budget tracking exists but is not enforced in the actual LLM call path.
-
-Both gaps share a common root cause: the components were built and tested in isolation (per TDD) but the final wiring step -- connecting them into the live execution path -- was not completed. The artifacts are substantive and correct; they just need to be connected.
+**Test suite:** 88 tests passing across 10 test files. No regressions. 8 new tests added by plan 01-05.
 
 ---
 
-_Verified: 2026-03-07T15:35:00Z_
+_Verified: 2026-03-07T23:48:00Z_
 _Verifier: Claude (gsd-verifier)_
