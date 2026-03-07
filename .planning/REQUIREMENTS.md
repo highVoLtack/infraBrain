@@ -30,8 +30,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **SAFE-06**: Failed retries consume double the damage budget
 - [ ] **SAFE-07**: System captures pre-execution state snapshot before every write operation
 - [ ] **SAFE-08**: System automatically rolls back to last-known-good state when safety limits are hit
-- [ ] **SAFE-09**: System logs every decision as structured JSON (what was diagnosed, options considered, why chosen)
-- [ ] **SAFE-10**: System captures before/after state diffs for every change made
+- [x] **SAFE-09**: System logs every decision as structured JSON (what was diagnosed, options considered, why chosen)
+- [x] **SAFE-10**: System captures before/after state diffs for every change made
 - [ ] **SAFE-11**: Audit log is queryable via SQLite
 - [ ] **SAFE-12**: System alerts the admin when circuit breaker or damage budget triggers
 
@@ -42,7 +42,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **INTF-03**: Admin can view audit history via CLI (`/infra:history`)
 - [ ] **INTF-04**: CLI supports machine-parseable JSON output mode for scripting
 - [ ] **INTF-05**: REST API backend serves all CLI functionality
-- [ ] **INTF-06**: System persists fix plan state to disk (human-readable file + SQLite)
+- [x] **INTF-06**: System persists fix plan state to disk (human-readable file + SQLite)
 - [ ] **INTF-07**: Admin can resume an interrupted fix plan from where it left off
 - [ ] **INTF-08**: Lock system prevents concurrent fixes on the same target
 - [ ] **INTF-09**: Admin sees "fix in progress by [admin]" when a target is locked
@@ -127,8 +127,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SAFE-06 | Phase 3 | Pending |
 | SAFE-07 | Phase 3 | Pending |
 | SAFE-08 | Phase 3 | Pending |
-| SAFE-09 | Phase 1 | Pending |
-| SAFE-10 | Phase 1 | Pending |
+| SAFE-09 | Phase 1 | Complete |
+| SAFE-10 | Phase 1 | Complete |
 | SAFE-11 | Phase 4 | Pending |
 | SAFE-12 | Phase 3 | Pending |
 | INTF-01 | Phase 1 | Pending |
@@ -136,7 +136,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INTF-03 | Phase 4 | Pending |
 | INTF-04 | Phase 4 | Pending |
 | INTF-05 | Phase 1 | Pending |
-| INTF-06 | Phase 1 | Pending |
+| INTF-06 | Phase 1 | Complete |
 | INTF-07 | Phase 4 | Pending |
 | INTF-08 | Phase 3 | Pending |
 | INTF-09 | Phase 3 | Pending |
