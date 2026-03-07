@@ -7,8 +7,15 @@ vi.mock('ai', () => ({
   generateText: vi.fn(),
 }));
 
+// Mock the token-budget module
+vi.mock('../../src/llm/token-budget.js', () => ({
+  checkBudget: vi.fn(),
+}));
+
 import { createProvider } from '../../src/llm/provider.js';
+import { checkBudget } from '../../src/llm/token-budget.js';
 import type { LLMProvider } from '../../src/llm/types.js';
+import type { BudgetCheck } from '../../src/llm/token-budget.js';
 
 // Create a minimal mock LanguageModel (LanguageModelV3-compatible shape)
 function createMockModel(): LanguageModel {
@@ -28,6 +35,12 @@ describe('LLM Provider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockModel = createMockModel();
+    // Default: budget check allows all calls (existing tests don't test budget)
+    vi.mocked(checkBudget).mockReturnValue({
+      allowed: true,
+      estimatedTokens: 50,
+      budgetTokens: 4096,
+    });
   });
 
   it('createProvider returns object with streamDiagnosis and generateCommand methods', () => {
@@ -91,6 +104,94 @@ describe('LLM Provider', () => {
         system: 'system prompt',
       }),
     );
+  });
+
+  it('generateCommand throws error when token budget is exceeded', async () => {
+    vi.mocked(checkBudget).mockReturnValue({
+      allowed: false,
+      estimatedTokens: 5000,
+      budgetTokens: 2048,
+      overflow: 2952,
+    });
+
+    const provider = createProvider(mockModel);
+
+    await expect(
+      provider.generateCommand('very long prompt', 'system prompt'),
+    ).rejects.toThrow('Token budget exceeded');
+  });
+
+  it('streamDiagnosis throws error when token budget is exceeded', async () => {
+    vi.mocked(checkBudget).mockReturnValue({
+      allowed: false,
+      estimatedTokens: 8000,
+      budgetTokens: 4096,
+      overflow: 3904,
+    });
+
+    const provider = createProvider(mockModel);
+
+    await expect(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _chunk of provider.streamDiagnosis('very long prompt', 'system prompt')) {
+        // should not reach here
+      }
+    }).rejects.toThrow('Token budget exceeded');
+  });
+
+  it('generateCommand proceeds normally when budget check passes', async () => {
+    const { generateText } = await import('ai');
+    const mockedGenerateText = vi.mocked(generateText);
+
+    vi.mocked(checkBudget).mockReturnValue({
+      allowed: true,
+      estimatedTokens: 100,
+      budgetTokens: 2048,
+    });
+
+    mockedGenerateText.mockResolvedValue({
+      text: 'systemctl restart nginx',
+      usage: { promptTokens: 100, completionTokens: 10, totalTokens: 110 },
+    } as any);
+
+    const provider = createProvider(mockModel);
+    const result = await provider.generateCommand('restart nginx', 'system');
+
+    expect(result).toBe('systemctl restart nginx');
+    expect(checkBudget).toHaveBeenCalledWith('restart nginx', 'system', {
+      maxTokens: 2048,
+      taskType: 'command',
+    });
+  });
+
+  it('streamDiagnosis proceeds normally when budget check passes', async () => {
+    const { streamText } = await import('ai');
+    const mockedStreamText = vi.mocked(streamText);
+
+    vi.mocked(checkBudget).mockReturnValue({
+      allowed: true,
+      estimatedTokens: 200,
+      budgetTokens: 4096,
+    });
+
+    mockedStreamText.mockReturnValue({
+      textStream: (async function* () {
+        yield 'diagnosis';
+      })(),
+      usage: Promise.resolve({ promptTokens: 200, completionTokens: 50, totalTokens: 250 }),
+    } as any);
+
+    const provider = createProvider(mockModel);
+    const chunks: string[] = [];
+    for await (const chunk of provider.streamDiagnosis('check disk', 'system')) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks).toEqual(['diagnosis']);
+    expect(checkBudget).toHaveBeenCalledWith('check disk', 'system', {
+      maxTokens: 4096,
+      taskType: 'diagnosis',
+    });
   });
 
   it('provider abstraction does not import ollama directly', async () => {
