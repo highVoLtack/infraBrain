@@ -18,13 +18,13 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **CORE-07**: Each sub-agent task runs in a separate LLM conversation with isolated context
 - [ ] **CORE-08**: Each sub-agent task runs in a sandboxed child process (execFile/spawn, no shell)
 - [x] **CORE-09**: System tracks context token budget and prevents silent truncation by Ollama
-- [ ] **CORE-10**: System validates all generated commands against a whitelist/blocklist before execution
+- [x] **CORE-10**: System validates all generated commands against a whitelist/blocklist before execution
 
 ### Safety & Trust
 
-- [ ] **SAFE-01**: Read-only commands auto-approve without human intervention
-- [ ] **SAFE-02**: Write commands require explicit Y/N approval from the admin
-- [ ] **SAFE-03**: Destructive commands require typed confirmation from the admin
+- [x] **SAFE-01**: Read-only commands auto-approve without human intervention
+- [x] **SAFE-02**: Write commands require explicit Y/N approval from the admin
+- [x] **SAFE-03**: Destructive commands require typed confirmation from the admin
 - [ ] **SAFE-04**: Circuit breaker halts execution after max retries per task (configurable, default 3)
 - [ ] **SAFE-05**: Damage budget limits total state changes per fix plan (configurable)
 - [ ] **SAFE-06**: Failed retries consume double the damage budget
@@ -118,10 +118,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CORE-07 | Phase 3 | Pending |
 | CORE-08 | Phase 3 | Pending |
 | CORE-09 | Phase 1 | Complete |
-| CORE-10 | Phase 1 | Pending |
-| SAFE-01 | Phase 1 | Pending |
-| SAFE-02 | Phase 1 | Pending |
-| SAFE-03 | Phase 1 | Pending |
+| CORE-10 | Phase 1 | Complete |
+| SAFE-01 | Phase 1 | Complete |
+| SAFE-02 | Phase 1 | Complete |
+| SAFE-03 | Phase 1 | Complete |
 | SAFE-04 | Phase 3 | Pending |
 | SAFE-05 | Phase 3 | Pending |
 | SAFE-06 | Phase 3 | Pending |
