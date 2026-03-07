@@ -30,12 +30,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. System classifies commands by risk level and applies correct approval gate (read auto-approves, write needs Y/N, destructive needs typed confirmation)
   4. System validates generated commands against allowlist/blocklist and rejects disallowed commands before they reach approval
   5. Every decision and state change is logged as structured JSON to both human-readable files and SQLite
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md — Project scaffolding, LLM provider abstraction, and token budget enforcement
+- [ ] 01-02-PLAN.md — State storage, session management, and structured audit logging
+- [ ] 01-03-PLAN.md — Command validation, risk classification, and approval gates
+- [ ] 01-04-PLAN.md — Express REST API, CLI REPL, and full application wiring
 
 ### Phase 2: Skill System and Orchestrator
 **Goal**: Orchestrator can load Markdown skill files, select the right skill for a problem, and produce a diagnostic assessment with a structured fix plan
@@ -106,7 +107,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation and Safety Gates | 0/3 | Not started | - |
+| 1. Foundation and Safety Gates | 0/4 | Planning complete | - |
 | 2. Skill System and Orchestrator | 0/2 | Not started | - |
 | 3. Execution Engine and Safety Net | 0/3 | Not started | - |
 | 4. Session Management and CLI Polish | 0/2 | Not started | - |
