@@ -1,11 +1,12 @@
 import { Command } from 'commander';
 import type * as readline from 'node:readline/promises';
-import { formatDiagnosis, formatCommand, formatError, formatApprovalResult, formatStatusDashboard } from './formatter.js';
+import { formatDiagnosis, formatCommand, formatError, formatApprovalResult, formatStatusDashboard, formatHistoryTable } from './formatter.js';
 import { requestApproval } from './approval.js';
 import type { RiskLevel } from '../safety/types.js';
 import { formatPlanTable } from '../orchestrator/planner.js';
 import type { FixPlan } from '../orchestrator/types.js';
 import { envelope, errorEnvelope } from './json-envelope.js';
+import { parseTimeInput } from './time-parser.js';
 
 export interface CommandConfig {
   apiBaseUrl: string;
@@ -184,6 +185,70 @@ export function registerCommands(config: CommandConfig): Command {
       } catch (err) {
         if (jsonMode) {
           console.log(JSON.stringify(errorEnvelope('status', (err as Error).message)));
+          return;
+        }
+        console.log(formatError(`Failed to connect to API: ${(err as Error).message}`));
+      }
+    });
+
+  program
+    .command('history')
+    .alias('/infra:history')
+    .description('Query the audit log with filters')
+    .option('--session <id>', 'Filter by session ID')
+    .option('--type <event>', 'Filter by event type')
+    .option('--risk <level>', 'Filter by risk level')
+    .option('--since <time>', 'Filter entries after time (e.g., "1h ago", ISO 8601)')
+    .option('--until <time>', 'Filter entries before time (e.g., "30m ago", ISO 8601)')
+    .option('--limit <n>', 'Maximum entries to return (default 20)', '20')
+    .option('--verbose', 'Show expanded entry details')
+    .action(async function (this: Command, options: { session?: string; type?: string; risk?: string; since?: string; until?: string; limit?: string; verbose?: boolean }) {
+      const jsonMode = this.optsWithGlobals().json;
+      const verbose = options.verbose ?? false;
+      try {
+        // Build query params
+        const params = new URLSearchParams();
+        if (options.session) params.set('session', options.session);
+        if (options.type) params.set('type', options.type);
+        if (options.risk) params.set('risk', options.risk);
+        if (options.since) {
+          // Validate time input client-side for better error messages
+          parseTimeInput(options.since);
+          params.set('since', options.since);
+        }
+        if (options.until) {
+          parseTimeInput(options.until);
+          params.set('until', options.until);
+        }
+        if (options.limit) params.set('limit', options.limit);
+        if (verbose) params.set('verbose', 'true');
+
+        const qs = params.toString();
+        const url = `${config.apiBaseUrl}/history${qs ? `?${qs}` : ''}`;
+        const res = await fetch(url);
+
+        if (!res.ok) {
+          const body = await res.json() as { error: string };
+          if (jsonMode) {
+            console.log(JSON.stringify(errorEnvelope('history', body.error)));
+            return;
+          }
+          console.log(formatError(`Error: ${body.error}`));
+          return;
+        }
+
+        const data = await res.json() as { entries: Array<Record<string, unknown>>; count: number; filters: Record<string, string> };
+
+        if (jsonMode) {
+          // In verbose JSON mode, include full entry details; in non-verbose, include as-is
+          console.log(JSON.stringify(envelope('history', data)));
+          return;
+        }
+
+        console.log('\n' + formatHistoryTable(data.entries as any, verbose) + '\n');
+      } catch (err) {
+        if (jsonMode) {
+          console.log(JSON.stringify(errorEnvelope('history', (err as Error).message)));
           return;
         }
         console.log(formatError(`Failed to connect to API: ${(err as Error).message}`));

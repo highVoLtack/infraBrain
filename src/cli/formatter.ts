@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { RiskLevel } from '../safety/types.js';
 import type { ApprovalResult } from './approval.js';
+import type { AuditEntry } from '../audit/types.js';
 
 /**
  * REPL prompt -- tool-like (psql-style), not chatbot.
@@ -156,6 +157,101 @@ export function formatStatusDashboard(data: StatusData): string {
   }
 
   return lines.join('\n');
+}
+
+// ---------- History Table ----------
+
+/**
+ * Format audit entries as a compact table or verbose listing.
+ * Compact mode: one line per entry (TIMESTAMP | TYPE | RISK | SUMMARY).
+ * Verbose mode: adds reasoning, diffBefore/diffAfter below each entry.
+ */
+export function formatHistoryTable(entries: AuditEntry[], verbose: boolean): string {
+  if (entries.length === 0) {
+    return 'No audit entries found matching filters.';
+  }
+
+  const COL_TIMESTAMP = 18;
+  const COL_TYPE = 22;
+  const COL_RISK = 14;
+  const COL_SUMMARY = 60;
+
+  const lines: string[] = [];
+
+  // Header
+  lines.push(
+    chalk.bold(
+      'TIMESTAMP'.padEnd(COL_TIMESTAMP) +
+        'TYPE'.padEnd(COL_TYPE) +
+        'RISK'.padEnd(COL_RISK) +
+        'SUMMARY'
+    )
+  );
+
+  for (const entry of entries) {
+    // Format timestamp: MM-DD HH:MM:SS
+    const ts = entry.timestamp;
+    const d = new Date(ts);
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mm = String(d.getUTCMinutes()).padStart(2, '0');
+    const ss = String(d.getUTCSeconds()).padStart(2, '0');
+    const shortTs = `${month}-${day} ${hh}:${mm}:${ss}`;
+
+    // Type column (truncated)
+    const eventType = entry.eventType.length > COL_TYPE - 2
+      ? entry.eventType.slice(0, COL_TYPE - 2)
+      : entry.eventType;
+
+    // Risk column with color
+    const risk = entry.riskLevel ?? '-';
+    let riskFormatted: string;
+    switch (risk) {
+      case 'read':
+        riskFormatted = chalk.green(risk.padEnd(COL_RISK));
+        break;
+      case 'write':
+        riskFormatted = chalk.yellow(risk.padEnd(COL_RISK));
+        break;
+      case 'destructive':
+        riskFormatted = chalk.red(risk.padEnd(COL_RISK));
+        break;
+      default:
+        riskFormatted = risk.padEnd(COL_RISK);
+    }
+
+    // Summary: command or decision, truncated
+    const summary = (entry.command ?? entry.decision ?? '').slice(0, COL_SUMMARY);
+
+    lines.push(
+      shortTs.padEnd(COL_TIMESTAMP) +
+        eventType.padEnd(COL_TYPE) +
+        riskFormatted +
+        summary
+    );
+
+    // Verbose details
+    if (verbose) {
+      if (entry.reasoning) {
+        lines.push(chalk.dim(`    Reasoning: ${truncateLines(entry.reasoning, 3)}`));
+      }
+      if (entry.diffBefore) {
+        lines.push(chalk.dim(`    Before: ${truncateLines(entry.diffBefore, 3)}`));
+      }
+      if (entry.diffAfter) {
+        lines.push(chalk.dim(`    After:  ${truncateLines(entry.diffAfter, 3)}`));
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
+
+function truncateLines(text: string, maxLines: number): string {
+  const lines = text.split('\n');
+  if (lines.length <= maxLines) return text;
+  return lines.slice(0, maxLines).join('\n') + '...';
 }
 
 function formatAge(ms: number): string {
