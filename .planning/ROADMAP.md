@@ -66,12 +66,12 @@ Plans:
   3. Damage budget tracks cumulative state changes per fix plan and halts when budget is exceeded (with failed retries consuming double)
   4. System captures pre-execution state snapshots and automatically rolls back to last-known-good state when safety limits trigger
   5. Lock system prevents concurrent fixes on the same target, shows lock status to other admins, and supports force-override
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
-- [ ] 03-03: TBD
+- [ ] 03-01-PLAN.md — Execution types, config extensions, command runner, circuit breaker, and damage budget
+- [ ] 03-02-PLAN.md — Target locking system with conflict detection, stale locks, and force-override
+- [ ] 03-03-PLAN.md — Snapshot capture, rollback, rolling context, executor loop, and API/CLI wiring
 
 ### Phase 4: Session Management and CLI Polish
 **Goal**: Admin has full operational visibility -- status checks, audit history, session resumability, and machine-parseable output for scripting
