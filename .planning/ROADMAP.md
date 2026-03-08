@@ -82,11 +82,12 @@ Plans:
   2. Admin can view audit history via `/infra:history` with queryable filters over the SQLite audit log
   3. All CLI commands support `--json` flag for machine-parseable output suitable for scripting
   4. Admin can resume an interrupted fix plan from where it left off without re-running completed steps
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md — JSON envelope, global --json option, status API route, and /infra:status command
+- [ ] 04-02-PLAN.md — Audit query methods, history API route, and /infra:history command with filters
+- [ ] 04-03-PLAN.md — Session resume types, executor startFromStep, /infra:resume command, and debug auto-detect
 
 ### Phase 5: POC Scenario and Integration
 **Goal**: The Docker/Nginx 502 demo proves the entire Diagnose-Plan-Execute-Verify loop end-to-end with full audit trail -- the investor/customer proof point
@@ -112,7 +113,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. Foundation and Safety Gates | 5/5 | Complete   | 2026-03-07 |
 | 2. Skill System and Orchestrator | 3/3 | Complete   | 2026-03-08 |
 | 3. Execution Engine and Safety Net | 3/3 | Complete   | 2026-03-08 |
-| 4. Session Management and CLI Polish | 0/2 | Not started | - |
+| 4. Session Management and CLI Polish | 0/3 | Not started | - |
 | 5. POC Scenario and Integration | 0/2 | Not started | - |
 
 ---
