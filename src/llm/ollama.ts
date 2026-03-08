@@ -1,5 +1,6 @@
-import { ollama } from 'ai-sdk-ollama';
+import { createOllama } from 'ai-sdk-ollama';
 
-export function createOllamaModel(modelName = 'llama3.3:70b') {
-  return ollama(modelName);
+export function createOllamaModel(modelName = 'llama3.3:70b', baseURL?: string) {
+  const provider = createOllama({ baseURL: baseURL ?? 'http://localhost:11434' });
+  return provider(modelName);
 }

@@ -31,7 +31,7 @@ async function main(): Promise<void> {
   const config = loadConfig(baseDir);
 
   // Initialize LLM
-  const model = createOllamaModel(config.modelName);
+  const model = createOllamaModel(config.modelName, config.ollamaBaseUrl);
   const provider = createProvider(model);
 
   // Initialize state storage

@@ -211,7 +211,7 @@ describe('Ollama Model Factory', () => {
   it('createOllamaModel returns a LanguageModel-compatible object', async () => {
     // We mock ai-sdk-ollama since Ollama isn't running
     vi.mock('ai-sdk-ollama', () => ({
-      ollama: vi.fn((modelName: string) => ({
+      createOllama: vi.fn(() => (modelName: string) => ({
         specificationVersion: 'v2',
         provider: 'ollama',
         modelId: modelName,
