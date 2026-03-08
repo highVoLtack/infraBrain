@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@toon-format/toon": "^2.1.0",
     "ai": "^6.0.116",
     "ai-sdk-ollama": "^3.8.0",
     "better-sqlite3": "^12.6.2",

@@ -64,9 +64,9 @@ describe('encodeForLLM', () => {
   it('returns TOON string without prefix when no label given', () => {
     const data = { host: 'nginx' };
     const result = encodeForLLM(data);
-    expect(result).not.toContain(':');
-    // Actually it will contain "host: nginx" which has a colon, but should not start with a label
+    // Should not start with a label line — just raw TOON
     expect(result).toBe(encodeToon(data));
+    expect(result).toBe('host: nginx');
   });
 });
 
