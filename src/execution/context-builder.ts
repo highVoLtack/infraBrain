@@ -1,5 +1,6 @@
 import type { FixStep, RunResult } from './types.js';
 import { estimateTokens } from '../llm/token-budget.js';
+import { encodeToon } from '../llm/toon-encoder.js';
 
 interface StepEntry {
   stepIndex: number;
@@ -75,13 +76,32 @@ export class RollingContext {
 
   private formatFull(entry: StepEntry): string {
     const { stepIndex, step, result } = entry;
-    let output = `## Step ${stepIndex}: ${step.description}\nCommand: ${step.command}\nExit code: ${result.exitCode}\nOutput:\n${result.stdout}`;
+    const formattedOutput = this.toonEncodeIfJson(result.stdout);
+    let output = `## Step ${stepIndex}: ${step.description}\nCommand: ${step.command}\nExit code: ${result.exitCode}\nOutput:\n${formattedOutput}`;
 
     if (result.stderr) {
       output += `\nErrors:\n${result.stderr}`;
     }
 
     return output;
+  }
+
+  /**
+   * If stdout looks like JSON (starts with { or [), parse and TOON-encode it
+   * for token savings. Otherwise return as-is.
+   */
+  private toonEncodeIfJson(stdout: string): string {
+    const trimmed = stdout.trim();
+    if ((trimmed.startsWith('{') || trimmed.startsWith('[')) && trimmed.length > 1) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        return encodeToon(parsed);
+      } catch {
+        // Not valid JSON, return as-is
+        return stdout;
+      }
+    }
+    return stdout;
   }
 
   private formatCompressed(entry: StepEntry): string {
