@@ -59,7 +59,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **POC-01**: Docker Compose test environment with intentionally broken Nginx (returns 502)
 - [x] **POC-02**: End-to-end demo: admin triggers debug → system diagnoses → writes fix plan → generates corrected config → admin approves → fix applied → health check passes
-- [ ] **POC-03**: Demo shows full audit trail of the fix including decision reasoning and state diffs
+- [x] **POC-03**: Demo shows full audit trail of the fix including decision reasoning and state diffs
 
 ## v2 Requirements
 
@@ -147,7 +147,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SKIL-04 | Phase 2 | Complete |
 | POC-01 | Phase 5 | Complete |
 | POC-02 | Phase 5 | Complete |
-| POC-03 | Phase 5 | Pending |
+| POC-03 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 39 total

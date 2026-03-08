@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Skill System and Orchestrator** - Markdown skill loader, skill validation, orchestrator reasoning, and core skill library (completed 2026-03-08)
 - [x] **Phase 3: Execution Engine and Safety Net** - Sub-agent isolation, circuit breaker, damage budget, rollback, and concurrency locks (completed 2026-03-08)
 - [x] **Phase 4: Session Management and CLI Polish** - Status/history commands, JSON output, session resumability, TOON encoder, and queryable audit (completed 2026-03-08)
-- [ ] **Phase 5: POC Scenario and Integration** - Docker/Nginx 502 end-to-end demo proving the full DPEV loop
+- [x] **Phase 5: POC Scenario and Integration** - Docker/Nginx 502 end-to-end demo proving the full DPEV loop (completed 2026-03-08)
 
 ## Phase Details
 
@@ -115,7 +115,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 2. Skill System and Orchestrator | 3/3 | Complete   | 2026-03-08 |
 | 3. Execution Engine and Safety Net | 3/3 | Complete   | 2026-03-08 |
 | 4. Session Management and CLI Polish | 4/4 | Complete | 2026-03-08 |
-| 5. POC Scenario and Integration | 1/2 | In Progress|  |
+| 5. POC Scenario and Integration | 2/2 | Complete   | 2026-03-08 |
 
 ---
 *Roadmap created: 2026-03-07*
