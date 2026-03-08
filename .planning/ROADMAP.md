@@ -37,7 +37,7 @@ Plans:
 - [x] 01-02-PLAN.md — State storage, session management, and structured audit logging
 - [x] 01-03-PLAN.md — Command validation, risk classification, and approval gates
 - [x] 01-04-PLAN.md — Express REST API, CLI REPL, and full application wiring
-- [ ] 01-05-PLAN.md — Gap closure: wire token budget enforcement and approval gate into execution path
+- [x] 01-05-PLAN.md — Gap closure: wire token budget enforcement and approval gate into execution path
 
 ### Phase 2: Skill System and Orchestrator
 **Goal**: Orchestrator can load Markdown skill files, select the right skill for a problem, and produce a diagnostic assessment with a structured fix plan
@@ -49,11 +49,12 @@ Plans:
   3. Planning skill decomposes a problem into a structured fix plan with discrete steps
   4. Verification skill generates health checks that can determine pass/fail for a given fix
   5. Log analysis skill pre-filters logs before LLM analysis and handles syslog, JSON, Docker, and journald formats
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — Skill types, loader, validator, registry, allowlist, and core skill files
+- [ ] 02-02-PLAN.md — Log analysis parsers, format detector, and pre-filter with token budget truncation
+- [ ] 02-03-PLAN.md — Orchestrator router, context builder, fix plan generator, and CLI/API wiring
 
 ### Phase 3: Execution Engine and Safety Net
 **Goal**: System can execute fix plan steps through isolated sub-agents with circuit breaker, damage budget, automatic rollback, and concurrency protection
@@ -109,11 +110,11 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation and Safety Gates | 5/5 | Complete   | 2026-03-07 |
-| 2. Skill System and Orchestrator | 0/2 | Not started | - |
+| 2. Skill System and Orchestrator | 0/3 | Not started | - |
 | 3. Execution Engine and Safety Net | 0/3 | Not started | - |
 | 4. Session Management and CLI Polish | 0/2 | Not started | - |
 | 5. POC Scenario and Integration | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-07*
+*Last updated: 2026-03-08*
