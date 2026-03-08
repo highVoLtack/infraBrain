@@ -12,6 +12,7 @@ export function createSession(baseDir: string): SessionState {
   // Create session directory structure
   mkdirSync(sessionDir, { recursive: true });
   mkdirSync(join(sessionDir, 'diffs'), { recursive: true });
+  mkdirSync(join(sessionDir, 'snapshots'), { recursive: true });
 
   const state: SessionState = {
     sessionId,

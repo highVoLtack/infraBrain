@@ -6,6 +6,8 @@ import type { ValidationResult } from '../safety/types.js';
 import type { SkillRegistry } from '../skills/registry.js';
 import { createHealthRoute } from './routes/health.js';
 import { createDebugRoute } from './routes/debug.js';
+import { createExecuteRoute } from './routes/execute.js';
+import type { InfraBrainConfig } from '../config/types.js';
 
 export interface ServerDeps {
   provider: LLMProvider;
@@ -13,6 +15,9 @@ export interface ServerDeps {
   validator: (command: string) => ValidationResult;
   ollamaBaseUrl: string;
   registry?: SkillRegistry;
+  config?: InfraBrainConfig;
+  sessionId?: string;
+  sessionDir?: string;
 }
 
 export interface ServerInstance {
@@ -33,6 +38,16 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
   // Routes
   app.use('/health', createHealthRoute(deps.ollamaBaseUrl));
   app.use('/debug', createDebugRoute(deps.provider, deps.auditLogger, deps.validator, deps.registry));
+
+  // Mount execute route if config available
+  if (deps.config && deps.sessionId && deps.sessionDir) {
+    app.use('/execute', createExecuteRoute({
+      auditLogger: deps.auditLogger,
+      config: deps.config,
+      sessionId: deps.sessionId,
+      sessionDir: deps.sessionDir,
+    }));
+  }
 
   // Error handler (Express 5 catches async throws natively)
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

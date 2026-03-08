@@ -8,6 +8,7 @@ import { generateFixPlan, generatePlanMarkdown, formatPlanTable } from '../../or
 import { enforceSkillAllowlist } from '../../skills/allowlist.js';
 import { buildMessages } from '../../orchestrator/context.js';
 import type { FixPlan } from '../../orchestrator/types.js';
+import { extractTarget } from '../../cli/approval.js';
 import { v7 as uuidv7 } from 'uuid';
 
 /**
@@ -149,6 +150,15 @@ export function createDebugRoute(
             'diagnosis_complete',
           );
 
+          // Extract target from first WRITE/DESTRUCTIVE step for downstream execution
+          let planTarget: string | undefined;
+          if (fixPlan) {
+            const firstWriteStep = fixPlan.steps.find(s => s.risk === 'write' || s.risk === 'destructive');
+            if (firstWriteStep) {
+              planTarget = extractTarget(firstWriteStep.command);
+            }
+          }
+
           res.json({
             sessionId,
             skillMessage,
@@ -157,6 +167,8 @@ export function createDebugRoute(
             ...(fixPlan && { fixPlan }),
             ...(planMarkdown && { planMarkdown }),
             ...(planTable && { planTable }),
+            ...(planTarget && { target: planTarget }),
+            ...(fixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName }' }),
           });
           return;
         } catch (skillErr) {

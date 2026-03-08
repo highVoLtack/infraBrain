@@ -68,6 +68,9 @@ async function main(): Promise<void> {
     validator: validateCommand,
     ollamaBaseUrl: config.ollamaBaseUrl,
     registry,
+    config,
+    sessionId: session.sessionId,
+    sessionDir,
   });
 
   // Start server

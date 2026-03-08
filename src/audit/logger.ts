@@ -69,6 +69,13 @@ export class AuditLogger {
     });
   }
 
+  logExecution(eventType: AuditEventType, details: Record<string, unknown>): void {
+    this.log({
+      eventType,
+      metadata: details,
+    });
+  }
+
   private log(fields: Partial<AuditEntry> & { eventType: AuditEventType }): void {
     const entry: AuditEntry = {
       timestamp: new Date().toISOString(),

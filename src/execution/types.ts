@@ -1,7 +1,7 @@
 import type { FixPlan, FixStep } from '../orchestrator/types.js';
 import type { InfraBrainConfig } from '../config/types.js';
-import type { AuditEntry } from '../audit/types.js';
-import type { Interface as ReadlineInterface } from 'node:readline';
+import type { AuditEventType } from '../audit/types.js';
+import type { Interface as ReadlineInterface } from 'node:readline/promises';
 
 export interface RunResult {
   stdout: string;
@@ -38,7 +38,7 @@ export interface ExecutionDeps {
   };
   requestApproval: (command: string, risk: FixStep['risk']) => Promise<{ approved: boolean }>;
   auditLogger: {
-    log: (entry: Omit<AuditEntry, 'timestamp' | 'sessionId'>) => void;
+    logExecution: (eventType: AuditEventType, details: Record<string, unknown>) => void;
   };
   config: InfraBrainConfig;
   readline?: ReadlineInterface;
