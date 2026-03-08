@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import type * as readline from 'node:readline/promises';
-import { formatDiagnosis, formatCommand, formatError, formatApprovalResult, formatStatusDashboard, formatHistoryTable } from './formatter.js';
+import { formatDiagnosis, formatCommand, formatError, formatApprovalResult, formatStatusDashboard, formatHistoryTable, formatResumeSummary } from './formatter.js';
 import { requestApproval } from './approval.js';
 import type { RiskLevel } from '../safety/types.js';
 import { formatPlanTable } from '../orchestrator/planner.js';
@@ -16,6 +16,14 @@ export interface CommandConfig {
 // Module-level rl reference for late binding (REPL creates rl after commands are registered)
 let moduleRl: readline.Interface | undefined;
 
+interface IncompleteSessionInfo {
+  sessionId: string;
+  target?: string;
+  stoppedAtStep: number;
+  totalSteps: number;
+  stoppedAt: string;
+}
+
 interface DebugResponse {
   sessionId: string;
   skillMessage?: string;
@@ -27,6 +35,16 @@ interface DebugResponse {
     reason?: string;
   }>;
   fixPlan?: FixPlan;
+  incompleteSession?: IncompleteSessionInfo;
+}
+
+interface ResumeResponse {
+  status: string;
+  sessionId: string;
+  resumedFrom: number;
+  action: string;
+  warning?: string;
+  stepResults: Array<{ stepIndex: number; status: string }>;
 }
 
 interface HealthResponse {
@@ -81,6 +99,33 @@ export function registerCommands(config: CommandConfig): Command {
         if (jsonMode) {
           console.log(JSON.stringify(envelope('debug', data)));
           return;
+        }
+
+        // Auto-detect incomplete session
+        if (data.incompleteSession) {
+          const inc = data.incompleteSession;
+          const rl = config.rl ?? moduleRl;
+          if (rl) {
+            console.log(`\nFound incomplete plan for '${inc.target ?? 'unknown'}' at step ${inc.stoppedAtStep}/${inc.totalSteps}.`);
+            const answer = await rl.question('Resume from last step or start fresh? (resume/fresh) ');
+            if (answer.trim().toLowerCase() === 'resume') {
+              try {
+                const resumeRes = await fetch(`${config.apiBaseUrl}/resume`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ sessionId: inc.sessionId, action: 'retry' }),
+                });
+                const resumeData = await resumeRes.json() as ResumeResponse;
+                console.log(`\nResumed session ${inc.sessionId}: ${resumeData.status}`);
+                if (resumeData.warning) {
+                  console.log(formatError(resumeData.warning));
+                }
+              } catch (err) {
+                console.log(formatError(`Resume failed: ${(err as Error).message}`));
+              }
+              return;
+            }
+          }
         }
 
         // Display skill selection message
@@ -249,6 +294,67 @@ export function registerCommands(config: CommandConfig): Command {
       } catch (err) {
         if (jsonMode) {
           console.log(JSON.stringify(errorEnvelope('history', (err as Error).message)));
+          return;
+        }
+        console.log(formatError(`Failed to connect to API: ${(err as Error).message}`));
+      }
+    });
+
+  program
+    .command('resume')
+    .alias('/infra:resume')
+    .description('Resume an interrupted fix plan')
+    .argument('<session-id>', 'Session ID to resume')
+    .action(async function (this: Command, sessionId: string) {
+      const jsonMode = this.optsWithGlobals().json;
+      try {
+        // First fetch session info to show summary (use resume with a GET-like check)
+        const rl = config.rl ?? moduleRl;
+        let action: 'retry' | 'skip' = 'retry';
+
+        if (!jsonMode && rl) {
+          const answer = await rl.question('Retry the failed step or skip to next? (retry/skip) ');
+          if (answer.trim().toLowerCase() === 'skip') {
+            action = 'skip';
+          }
+        }
+
+        const res = await fetch(`${config.apiBaseUrl}/resume`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, action }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json() as { error: string };
+          if (jsonMode) {
+            console.log(JSON.stringify(errorEnvelope('resume', body.error)));
+            return;
+          }
+          console.log(formatError(`Error: ${body.error}`));
+          return;
+        }
+
+        const data = await res.json() as ResumeResponse;
+
+        if (jsonMode) {
+          console.log(JSON.stringify(envelope('resume', data)));
+          return;
+        }
+
+        console.log(`\nResumed session ${sessionId}: ${data.status}`);
+        console.log(`  Resumed from step ${data.resumedFrom}, action: ${data.action}`);
+
+        if (data.warning) {
+          console.log(formatError(data.warning));
+        }
+
+        const completed = data.stepResults.filter(s => s.status === 'success').length;
+        const skipped = data.stepResults.filter(s => s.status === 'skipped').length;
+        console.log(`  Results: ${completed} completed, ${skipped} skipped\n`);
+      } catch (err) {
+        if (jsonMode) {
+          console.log(JSON.stringify(errorEnvelope('resume', (err as Error).message)));
           return;
         }
         console.log(formatError(`Failed to connect to API: ${(err as Error).message}`));

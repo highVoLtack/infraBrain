@@ -3,6 +3,8 @@ import type { LLMProvider } from '../../llm/types.js';
 import type { AuditLogger } from '../../audit/logger.js';
 import type { ValidationResult } from '../../safety/types.js';
 import type { SkillRegistry } from '../../skills/registry.js';
+import type { WriteThrough } from '../../state/store.js';
+import type { InfraBrainConfig } from '../../config/types.js';
 import { selectSkill } from '../../orchestrator/router.js';
 import { generateFixPlan, generatePlanMarkdown, formatPlanTable } from '../../orchestrator/planner.js';
 import { enforceSkillAllowlist } from '../../skills/allowlist.js';
@@ -52,11 +54,17 @@ function extractCommands(text: string): string[] {
  * Accepts a prompt, generates a diagnosis via LLM, validates any commands.
  * When a SkillRegistry is provided, uses orchestrator for skill selection and fix plans.
  */
+export interface DebugRouteDeps {
+  store?: WriteThrough;
+  config?: InfraBrainConfig;
+}
+
 export function createDebugRoute(
   provider: LLMProvider,
   auditLogger: AuditLogger,
   validator: (command: string) => ValidationResult,
   registry?: SkillRegistry,
+  extraDeps?: DebugRouteDeps,
 ): Router {
   const router = Router();
 
@@ -67,6 +75,31 @@ export function createDebugRoute(
       if (!prompt || typeof prompt !== 'string') {
         res.status(400).json({ error: 'prompt is required' });
         return;
+      }
+
+      // Auto-detect incomplete sessions for resume prompt
+      let incompleteSession: {
+        sessionId: string;
+        target?: string;
+        stoppedAtStep: number;
+        totalSteps: number;
+        stoppedAt: string;
+      } | undefined;
+
+      if (extraDeps?.store && extraDeps?.config) {
+        const incomplete = extraDeps.store.getIncompleteSessions(extraDeps.config.resumeWindowMs);
+        if (incomplete.length > 0) {
+          const first = incomplete[0];
+          if (first.resumeMetadata && first.currentPlan) {
+            incompleteSession = {
+              sessionId: first.sessionId,
+              target: first.resumeMetadata.target,
+              stoppedAtStep: first.resumeMetadata.lastCompletedStep + 1,
+              totalSteps: first.currentPlan.steps.length,
+              stoppedAt: first.resumeMetadata.stoppedAt,
+            };
+          }
+        }
       }
 
       const sessionId = uuidv7();
@@ -169,6 +202,7 @@ export function createDebugRoute(
             ...(planTable && { planTable }),
             ...(planTarget && { target: planTarget }),
             ...(fixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName }' }),
+            ...(incompleteSession && { incompleteSession }),
           });
           return;
         } catch (skillErr) {
@@ -199,7 +233,7 @@ export function createDebugRoute(
         'diagnosis_complete',
       );
 
-      res.json({ sessionId, diagnosis, commands });
+      res.json({ sessionId, diagnosis, commands, ...(incompleteSession && { incompleteSession }) });
     } catch (err) {
       next(err);
     }

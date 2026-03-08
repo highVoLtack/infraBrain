@@ -43,7 +43,10 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
 
   // Routes
   app.use('/health', createHealthRoute(deps.ollamaBaseUrl));
-  app.use('/debug', createDebugRoute(deps.provider, deps.auditLogger, deps.validator, deps.registry));
+  app.use('/debug', createDebugRoute(deps.provider, deps.auditLogger, deps.validator, deps.registry, {
+    store: deps.store,
+    config: deps.config,
+  }));
 
   // Mount status route if store available
   if (deps.store && deps.config && deps.lockDir) {

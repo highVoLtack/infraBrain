@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import { RiskLevel } from '../safety/types.js';
 import type { ApprovalResult } from './approval.js';
 import type { AuditEntry } from '../audit/types.js';
+import type { SessionState } from '../state/types.js';
 
 /**
  * REPL prompt -- tool-like (psql-style), not chatbot.
@@ -243,6 +244,48 @@ export function formatHistoryTable(entries: AuditEntry[], verbose: boolean): str
         lines.push(chalk.dim(`    After:  ${truncateLines(entry.diffAfter, 3)}`));
       }
     }
+  }
+
+  return lines.join('\n');
+}
+
+// ---------- Resume Summary ----------
+
+/**
+ * Format a resume summary for CLI display.
+ * Shows plan description, progress, stopped reason, and time stopped.
+ */
+export function formatResumeSummary(session: SessionState): string {
+  const lines: string[] = [];
+  const plan = session.currentPlan;
+  const meta = session.resumeMetadata;
+
+  if (!plan || !meta) {
+    return chalk.red('No resumable plan in session.');
+  }
+
+  const totalSteps = plan.steps.length;
+  const stoppedStep = meta.lastCompletedStep + 1;
+  const stoppedAgoMs = Date.now() - new Date(meta.stoppedAt).getTime();
+  const stoppedAgoStr = formatAge(stoppedAgoMs);
+
+  lines.push(chalk.bold(`Session ${session.sessionId}`));
+  lines.push(`  Plan: ${plan.description}`);
+  lines.push(`  Progress: step ${stoppedStep}/${totalSteps}`);
+
+  if (meta.error) {
+    lines.push(`  Stopped: ${chalk.red(meta.error)}`);
+  }
+
+  lines.push(`  Time: ${chalk.yellow(stoppedAgoStr)}`);
+
+  // Stale warning
+  if (stoppedAgoMs > 86400000) {
+    lines.push(chalk.yellow(`  WARNING: This plan is ${stoppedAgoStr}. Infrastructure state may have changed.`));
+  }
+
+  if (meta.target) {
+    lines.push(`  Target: ${meta.target}`);
   }
 
   return lines.join('\n');
