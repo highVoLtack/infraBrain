@@ -98,11 +98,11 @@ Plans:
   1. Docker Compose test environment starts with intentionally broken Nginx that returns 502 errors
   2. Admin triggers `/infra:debug "Why is Nginx returning 502?"` and the system diagnoses the root cause, generates a fix plan, executes (with approval), and verifies the fix via health check -- all without manual intervention beyond approval
   3. Full audit trail is available showing decision reasoning, options considered, commands executed, and before/after state diffs for every change
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
+- [ ] 05-01-PLAN.md — Docker demo environment, Nginx troubleshoot skill, debug route fix plan generation, and snapshot extensions
+- [ ] 05-02-PLAN.md — E2E integration test proving full DPEV loop with audit trail verification
 
 ## Progress
 
