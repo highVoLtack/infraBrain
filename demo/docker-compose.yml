@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: demo-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - frontend
+    depends_on:
+      - backend
+
+  backend:
+    image: kennethreitz/httpbin
+    container_name: demo-backend
+    networks:
+      - backend
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
