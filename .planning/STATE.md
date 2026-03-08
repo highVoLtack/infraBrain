@@ -21,32 +21,33 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control -- every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** Phase 1: Foundation and Safety Gates
+**Current focus:** Phase 2: Skill System and Orchestrator
 
 ## Current Position
 
-Phase: 1 of 5 (Foundation and Safety Gates)
-Plan: 5 of 5 in current phase
+Phase: 2 of 5 (Skill System and Orchestrator)
+Plan: 1 of 3 in current phase
 Status: Executing
-Last activity: 2026-03-07 -- Plan 01-05 executed (token budget + approval gate wiring)
+Last activity: 2026-03-08 -- Plan 02-01 executed (skill types, loader, registry, allowlist, core skills)
 
-Progress: [##........] 19%
+Progress: [###.......] 24%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 7min
-- Total execution time: 0.55 hours
+- Total plans completed: 6
+- Average duration: 6min
+- Total execution time: 0.60 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 - Foundation | 5 | 35min | 7min |
+| 2 - Skill System | 1 | 3min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (5min), 01-02 (4min), 01-03 (3min), 01-04 (20min), 01-05 (3min)
+- Last 5 plans: 01-02 (4min), 01-03 (3min), 01-04 (20min), 01-05 (3min), 02-01 (3min)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -54,6 +55,7 @@ Progress: [##........] 19%
 | Phase 01 P03 | 3min | 2 tasks | 9 files |
 | Phase 01 P04 | 20min | 3 tasks | 11 files |
 | Phase 01 P05 | 3min | 2 tasks | 5 files |
+| Phase 02 P01 | 3min | 2 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -79,6 +81,9 @@ Recent decisions affecting current work:
 - [Phase 01]: setReadline() late-binding pattern for injecting readline from REPL into commands module
 - [Phase 01]: Budget check throws Error on overflow (fail-fast, caller must handle)
 - [Phase 01]: Approval gate skipped in one-shot CLI mode (no readline = no interactive approval)
+- [Phase 02]: gray-matter for YAML frontmatter parsing (CJS module, works via default import in ESM)
+- [Phase 02]: camelCase section keys from Markdown headings (System Prompt -> systemPrompt)
+- [Phase 02]: Empty tools array means no restriction (unrestricted skill)
 
 ### Pending Todos
 
@@ -88,10 +93,10 @@ None yet.
 
 - Research flag: Ollama AI SDK v6 compatibility needs hands-on validation in Phase 1
 - RESOLVED: node:sqlite vs. better-sqlite3 -- chose better-sqlite3 (synchronous API, production-proven)
-- Research flag: Skill file format specification needs design iteration in Phase 2
+- RESOLVED: Skill file format specification -- implemented obra/superpowers-style Markdown with YAML frontmatter + ## sections
 
 ## Session Continuity
 
-Last session: 2026-03-08T01:18:36.809Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-skill-system-and-orchestrator/02-CONTEXT.md
+Last session: 2026-03-08T01:44:30Z
+Stopped at: Completed 02-01-PLAN.md
+Resume file: .planning/phases/02-skill-system-and-orchestrator/02-01-SUMMARY.md

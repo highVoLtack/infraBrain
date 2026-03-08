@@ -52,7 +52,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Skill types, loader, validator, registry, allowlist, and core skill files
+- [x] 02-01-PLAN.md — Skill types, loader, validator, registry, allowlist, and core skill files
 - [ ] 02-02-PLAN.md — Log analysis parsers, format detector, and pre-filter with token budget truncation
 - [ ] 02-03-PLAN.md — Orchestrator router, context builder, fix plan generator, and CLI/API wiring
 
@@ -110,7 +110,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation and Safety Gates | 5/5 | Complete   | 2026-03-07 |
-| 2. Skill System and Orchestrator | 0/3 | Not started | - |
+| 2. Skill System and Orchestrator | 1/3 | In progress | - |
 | 3. Execution Engine and Safety Net | 0/3 | Not started | - |
 | 4. Session Management and CLI Polish | 0/2 | Not started | - |
 | 5. POC Scenario and Integration | 0/2 | Not started | - |
