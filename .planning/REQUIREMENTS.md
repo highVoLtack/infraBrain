@@ -44,9 +44,9 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **INTF-05**: REST API backend serves all CLI functionality
 - [x] **INTF-06**: System persists fix plan state to disk (human-readable file + SQLite)
 - [ ] **INTF-07**: Admin can resume an interrupted fix plan from where it left off
-- [ ] **INTF-08**: Lock system prevents concurrent fixes on the same target
-- [ ] **INTF-09**: Admin sees "fix in progress by [admin]" when a target is locked
-- [ ] **INTF-10**: Admin can force-override a lock with explicit confirmation
+- [x] **INTF-08**: Lock system prevents concurrent fixes on the same target
+- [x] **INTF-09**: Admin sees "fix in progress by [admin]" when a target is locked
+- [x] **INTF-10**: Admin can force-override a lock with explicit confirmation
 
 ### Skills (Standard Library)
 
@@ -138,9 +138,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INTF-05 | Phase 1 | Complete |
 | INTF-06 | Phase 1 | Complete |
 | INTF-07 | Phase 4 | Pending |
-| INTF-08 | Phase 3 | Pending |
-| INTF-09 | Phase 3 | Pending |
-| INTF-10 | Phase 3 | Pending |
+| INTF-08 | Phase 3 | Complete |
+| INTF-09 | Phase 3 | Complete |
+| INTF-10 | Phase 3 | Complete |
 | SKIL-01 | Phase 2 | Complete |
 | SKIL-02 | Phase 2 | Complete |
 | SKIL-03 | Phase 2 | Complete |
