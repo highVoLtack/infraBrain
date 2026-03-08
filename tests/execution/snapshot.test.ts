@@ -45,6 +45,14 @@ describe('getSnapshotCommand', () => {
     expect(getSnapshotCommand('tee /etc/hosts')).toBe('cat /etc/hosts');
   });
 
+  it('maps "docker network connect frontend backend" to "docker network inspect frontend"', () => {
+    expect(getSnapshotCommand('docker network connect frontend backend')).toBe('docker network inspect frontend');
+  });
+
+  it('maps "docker network disconnect frontend backend" to "docker network inspect frontend"', () => {
+    expect(getSnapshotCommand('docker network disconnect frontend backend')).toBe('docker network inspect frontend');
+  });
+
   it('returns null for unknown WRITE command', () => {
     expect(getSnapshotCommand('some-unknown-tool --flag')).toBeNull();
   });

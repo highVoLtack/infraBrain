@@ -14,6 +14,8 @@ export const SNAPSHOT_COMMANDS: Record<string, (args: string[]) => string> = {
   'docker restart': (args) => `docker inspect ${args[args.length - 1]}`,
   'systemctl stop': (args) => `systemctl show ${args[args.length - 1]}`,
   'systemctl restart': (args) => `systemctl show ${args[args.length - 1]}`,
+  'docker network connect': (args) => `docker network inspect ${args[0]}`,
+  'docker network disconnect': (args) => `docker network inspect ${args[0]}`,
   'cp': (args) => `cat ${args[0]}`,
   'mv': (args) => `cat ${args[0]}`,
   'tee': (args) => `cat ${args[0]}`,

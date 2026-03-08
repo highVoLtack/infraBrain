@@ -135,12 +135,13 @@ export function createDebugRoute(
           // Generate diagnosis with skill context
           const diagnosis = await provider.generateCommand(prompt, systemPrompt);
 
-          // If the selected skill is "planning", generate a fix plan
-          if (selection.skill.frontmatter.name === 'planning') {
+          // Always attempt fix plan generation from any skill's diagnosis
+          const planningSkill = registry.get('planning');
+          if (planningSkill) {
             try {
               fixPlan = await generateFixPlan({
                 model: provider.model,
-                skill: selection.skill,
+                skill: planningSkill,
                 userInput: prompt,
                 diagnosis,
               });
