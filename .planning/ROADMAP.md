@@ -115,7 +115,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 2. Skill System and Orchestrator | 3/3 | Complete   | 2026-03-08 |
 | 3. Execution Engine and Safety Net | 3/3 | Complete   | 2026-03-08 |
 | 4. Session Management and CLI Polish | 4/4 | Complete | 2026-03-08 |
-| 5. POC Scenario and Integration | 0/2 | Not started | - |
+| 5. POC Scenario and Integration | 1/2 | In Progress|  |
 
 ---
 *Roadmap created: 2026-03-07*

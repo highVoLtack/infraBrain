@@ -57,8 +57,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### POC Scenario
 
-- [ ] **POC-01**: Docker Compose test environment with intentionally broken Nginx (returns 502)
-- [ ] **POC-02**: End-to-end demo: admin triggers debug → system diagnoses → writes fix plan → generates corrected config → admin approves → fix applied → health check passes
+- [x] **POC-01**: Docker Compose test environment with intentionally broken Nginx (returns 502)
+- [x] **POC-02**: End-to-end demo: admin triggers debug → system diagnoses → writes fix plan → generates corrected config → admin approves → fix applied → health check passes
 - [ ] **POC-03**: Demo shows full audit trail of the fix including decision reasoning and state diffs
 
 ## v2 Requirements
@@ -145,8 +145,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SKIL-02 | Phase 2 | Complete |
 | SKIL-03 | Phase 2 | Complete |
 | SKIL-04 | Phase 2 | Complete |
-| POC-01 | Phase 5 | Pending |
-| POC-02 | Phase 5 | Pending |
+| POC-01 | Phase 5 | Complete |
+| POC-02 | Phase 5 | Complete |
 | POC-03 | Phase 5 | Pending |
 
 **Coverage:**
