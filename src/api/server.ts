@@ -9,6 +9,7 @@ import { createHealthRoute } from './routes/health.js';
 import { createDebugRoute } from './routes/debug.js';
 import { createExecuteRoute } from './routes/execute.js';
 import { createStatusRoute } from './routes/status.js';
+import { createHistoryRoute } from './routes/history.js';
 import type { InfraBrainConfig } from '../config/types.js';
 
 export interface ServerDeps {
@@ -51,6 +52,11 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
       lockDir: deps.lockDir,
       config: deps.config,
     }));
+  }
+
+  // Mount history route if store available
+  if (deps.store) {
+    app.use('/history', createHistoryRoute({ store: deps.store }));
   }
 
   // Mount execute route if config available

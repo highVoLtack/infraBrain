@@ -4,6 +4,15 @@ import { join } from 'node:path';
 import type { SessionState } from './types.js';
 import type { AuditEntry } from '../audit/types.js';
 
+export interface AuditQueryFilters {
+  sessionId?: string;
+  eventType?: string;
+  riskLevel?: string;
+  since?: string;
+  until?: string;
+  limit?: number;
+}
+
 export class WriteThrough {
   private db: Database.Database;
 
@@ -57,6 +66,55 @@ export class WriteThrough {
       )
       .all(cutoff) as Array<{ state: string }>;
     return rows.map((row) => JSON.parse(row.state) as SessionState);
+  }
+
+  /**
+   * Query audit log with parameterized filters (AND logic).
+   * Returns entries ordered by timestamp DESC with configurable limit.
+   */
+  queryAuditLog(filters: AuditQueryFilters): AuditEntry[] {
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (filters.sessionId) {
+      conditions.push('session_id = ?');
+      params.push(filters.sessionId);
+    }
+    if (filters.eventType) {
+      conditions.push('event_type = ?');
+      params.push(filters.eventType);
+    }
+    if (filters.riskLevel) {
+      conditions.push('risk_level = ?');
+      params.push(filters.riskLevel);
+    }
+    if (filters.since) {
+      conditions.push('timestamp >= ?');
+      params.push(filters.since);
+    }
+    if (filters.until) {
+      conditions.push('timestamp <= ?');
+      params.push(filters.until);
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const limit = filters.limit ?? 20;
+    params.push(limit);
+
+    const sql = `SELECT * FROM audit_log ${where} ORDER BY timestamp DESC LIMIT ?`;
+    const rows = this.db.prepare(sql).all(...params) as Array<Record<string, unknown>>;
+
+    return rows.map((row) => ({
+      timestamp: row.timestamp as string,
+      sessionId: row.session_id as string,
+      eventType: row.event_type as string,
+      riskLevel: (row.risk_level as string) ?? undefined,
+      command: (row.command as string) ?? undefined,
+      decision: (row.decision as string) ?? undefined,
+      reasoning: (row.reasoning as string) ?? undefined,
+      diffBefore: (row.diff_before as string) ?? undefined,
+      diffAfter: (row.diff_after as string) ?? undefined,
+    })) as AuditEntry[];
   }
 
   appendAudit(sessionDir: string, entry: AuditEntry): void {
