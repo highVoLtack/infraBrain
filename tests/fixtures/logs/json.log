@@ -1,0 +1,11 @@
+{"timestamp":"2024-03-07T14:23:01.000Z","level":"error","message":"Connection pool exhausted","service":"api-gateway","request_id":"abc-123"}
+{"timestamp":"2024-03-07T14:23:05.000Z","level":"info","message":"Health check passed","service":"api-gateway","request_id":"def-456"}
+{"time":"2024-03-07T14:23:10.000Z","severity":"warning","msg":"High memory usage detected","service":"worker-01"}
+{"@timestamp":"2024-03-07T14:24:00.000Z","level":"debug","message":"Cache miss for key user:1234","service":"cache-layer"}
+{"timestamp":"2024-03-07T14:24:15.000Z","level":"error","message":"Database query timeout after 30s","service":"user-service","query":"SELECT * FROM users WHERE active=1"}
+{"time":"2024-03-07T14:24:30.000Z","severity":"info","msg":"Request completed successfully","service":"api-gateway","status":200}
+{"timestamp":"2024-03-07T14:25:00.000Z","level":"warn","message":"Rate limit approaching threshold","service":"rate-limiter","current":950,"limit":1000}
+{"timestamp":"2024-03-07T14:25:15.000Z","level":"info","message":"New deployment started","service":"deployer","version":"2.3.1"}
+{"@timestamp":"2024-03-07T14:25:30.000Z","level":"error","message":"TLS handshake failed","service":"proxy","remote_addr":"10.0.0.5"}
+{"timestamp":"2024-03-07T14:26:00.000Z","level":"info","message":"Graceful shutdown initiated","service":"worker-01"}
+{"time":"2024-03-07T14:26:30.000Z","severity":"error","msg":"Disk space below 10%","service":"monitor","disk":"/dev/sda1"}

@@ -1,0 +1,12 @@
+2024-03-07T14:23:01.123456789Z stdout Starting application on port 8080
+2024-03-07T14:23:02.234567890Z stdout Connected to database at postgres:5432
+2024-03-07T14:23:05.345678901Z stderr Error: ECONNREFUSED connecting to redis:6379
+2024-03-07T14:23:10.456789012Z stdout Health check endpoint registered at /health
+2024-03-07T14:23:15.567890123Z stderr Warning: deprecated API call to /v1/users
+2024-03-07T14:24:00.678901234Z stdout Request processed: GET /api/status 200 12ms
+2024-03-07T14:24:05.789012345Z stderr Error: timeout waiting for response from upstream
+2024-03-07T14:24:10.890123456Z stdout Cache cleared successfully, 1234 entries removed
+2024-03-07T14:24:15.901234567Z stdout Worker 3 spawned (PID: 45678)
+2024-03-07T14:24:30.012345678Z stderr Fatal: out of memory, cannot allocate 256MB
+2024-03-07T14:25:00.123456789Z stdout Graceful shutdown initiated, draining connections
+2024-03-07T14:25:05.234567890Z stdout All connections drained, exiting

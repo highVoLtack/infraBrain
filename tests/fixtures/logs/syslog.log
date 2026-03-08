@@ -1,0 +1,12 @@
+Mar  7 14:23:01 webserver nginx[1234]: upstream timed out (110: Connection timed out) while reading response header
+Mar  7 14:23:05 webserver sshd[5678]: Accepted publickey for admin from 192.168.1.100 port 52345 ssh2
+Mar  7 14:23:10 webserver kernel: [UFW BLOCK] IN=eth0 OUT= MAC=00:16:3e:5e:6c:00 SRC=10.0.0.5
+Mar  7 14:24:00 dbserver mysql[9012]: Warning: Aborted connection 1234 to db: 'production'
+Mar  7 14:24:15 webserver nginx[1234]: error: cannot allocate memory for new connection
+Mar  7 14:24:30 webserver cron[3456]: (root) CMD (/usr/bin/certbot renew --quiet)
+Mar  7 14:25:00 webserver systemd[1]: Started Daily apt download activities.
+Mar  7 14:25:15 dbserver mysql[9012]: Note: InnoDB buffer pool load completed
+Mar  7 14:25:30 webserver nginx[1234]: notice: signal process started
+Mar  7 14:26:00 webserver postfix/smtp[7890]: warning: connect to smtp.example.com[93.184.216.34]:25: Connection refused
+Mar  7 14:26:30 webserver sshd[5679]: Failed password for invalid user admin from 10.0.0.99 port 54321 ssh2
+Mar  7 14:27:00 dbserver mysql[9012]: error: Table './production/sessions' is marked as crashed
