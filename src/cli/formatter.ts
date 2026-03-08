@@ -54,3 +54,117 @@ export function formatApprovalResult(result: ApprovalResult): string {
 export function formatError(error: string): string {
   return chalk.red(error);
 }
+
+// ---------- Status Dashboard ----------
+
+interface StatusData {
+  ollama: {
+    connected: boolean;
+    modelName?: string;
+    responseTimeMs?: number;
+    error?: string;
+  };
+  activePlans: Array<{
+    sessionId: string;
+    status: string;
+    currentPlan?: {
+      id: string;
+      description: string;
+      currentStep: number;
+      steps: unknown[];
+      status: string;
+    };
+  }>;
+  recentSessions: Array<{
+    sessionId: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  locks: Array<{
+    target: string;
+    sessionId: string;
+    adminName: string;
+    createdAt: string;
+    pid: number;
+    planSummary: string;
+  }>;
+}
+
+/**
+ * Format a status dashboard for CLI display.
+ * Glanceable, one-screen output like `docker ps`.
+ */
+export function formatStatusDashboard(data: StatusData): string {
+  const lines: string[] = [];
+
+  // Header
+  lines.push(chalk.bold('InfraBrain Status'));
+  lines.push('');
+
+  // Ollama section
+  if (data.ollama.connected) {
+    const model = data.ollama.modelName ?? 'unknown';
+    const time = data.ollama.responseTimeMs != null ? `${data.ollama.responseTimeMs}ms` : '';
+    lines.push(chalk.green('  Ollama:  Connected') + `  ${model}  ${time}`);
+  } else {
+    lines.push(chalk.red('  Ollama:  Disconnected') + `  ${data.ollama.error ?? ''}`);
+  }
+  lines.push('');
+
+  // Active plans section
+  lines.push(chalk.bold('  Active Plans'));
+  if (data.activePlans.length === 0) {
+    lines.push(chalk.dim('  (none)'));
+  } else {
+    for (const session of data.activePlans) {
+      if (session.currentPlan) {
+        const plan = session.currentPlan;
+        const total = plan.steps.length;
+        const current = plan.currentStep;
+        const filled = total > 0 ? Math.round((current / total) * 10) : 0;
+        const bar = '='.repeat(filled) + '-'.repeat(10 - filled);
+        lines.push(`  ${plan.description.padEnd(30)} ${current}/${total} [${bar}]  ${session.sessionId}`);
+      } else {
+        lines.push(`  ${'(no plan)'.padEnd(30)} ${session.sessionId}`);
+      }
+    }
+  }
+  lines.push('');
+
+  // Recent sessions section
+  lines.push(chalk.bold('  Recent Sessions'));
+  if (data.recentSessions.length === 0) {
+    lines.push(chalk.dim('  (none)'));
+  } else {
+    for (const session of data.recentSessions) {
+      const date = session.updatedAt.slice(0, 16).replace('T', ' ');
+      const statusColor = session.status === 'completed' ? chalk.green : session.status === 'failed' ? chalk.red : chalk.yellow;
+      lines.push(`  ${session.sessionId.padEnd(40)} ${statusColor(session.status.padEnd(12))} ${date}`);
+    }
+  }
+
+  // Locks section -- only shown when locks exist
+  if (data.locks.length > 0) {
+    lines.push('');
+    lines.push(chalk.bold('  Locks'));
+    for (const lock of data.locks) {
+      const ageMs = Date.now() - new Date(lock.createdAt).getTime();
+      const age = formatAge(ageMs);
+      lines.push(`  ${lock.target.padEnd(20)} ${lock.adminName.padEnd(15)} ${age}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+function formatAge(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}

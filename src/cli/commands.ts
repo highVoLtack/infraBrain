@@ -1,10 +1,11 @@
 import { Command } from 'commander';
 import type * as readline from 'node:readline/promises';
-import { formatDiagnosis, formatCommand, formatError, formatApprovalResult } from './formatter.js';
+import { formatDiagnosis, formatCommand, formatError, formatApprovalResult, formatStatusDashboard } from './formatter.js';
 import { requestApproval } from './approval.js';
 import type { RiskLevel } from '../safety/types.js';
 import { formatPlanTable } from '../orchestrator/planner.js';
 import type { FixPlan } from '../orchestrator/types.js';
+import { envelope, errorEnvelope } from './json-envelope.js';
 
 export interface CommandConfig {
   apiBaseUrl: string;
@@ -42,6 +43,7 @@ export function registerCommands(config: CommandConfig): Command {
   const program = new Command();
   program.name('infrabrain');
   program.description('AI IT operations platform');
+  program.option('--json', 'Output in machine-parseable JSON format');
 
   program
     .command('debug')
@@ -49,7 +51,8 @@ export function registerCommands(config: CommandConfig): Command {
     .description('Diagnose an infrastructure issue')
     .argument('<prompt>', 'Description of the issue to diagnose')
     .option('--skill <name>', 'Override skill selection')
-    .action(async (prompt: string, options: { skill?: string }) => {
+    .action(async function (this: Command, prompt: string, options: { skill?: string }) {
+      const jsonMode = this.optsWithGlobals().json;
       try {
         const body: Record<string, string> = { prompt };
         if (options.skill) {
@@ -64,11 +67,20 @@ export function registerCommands(config: CommandConfig): Command {
 
         if (!res.ok) {
           const body = await res.json() as { error: string };
+          if (jsonMode) {
+            console.log(JSON.stringify(errorEnvelope('debug', body.error)));
+            return;
+          }
           console.log(formatError(`Error: ${body.error}`));
           return;
         }
 
         const data = await res.json() as DebugResponse;
+
+        if (jsonMode) {
+          console.log(JSON.stringify(envelope('debug', data)));
+          return;
+        }
 
         // Display skill selection message
         if (data.skillMessage) {
@@ -99,6 +111,10 @@ export function registerCommands(config: CommandConfig): Command {
         }
         console.log('');
       } catch (err) {
+        if (jsonMode) {
+          console.log(JSON.stringify(errorEnvelope('debug', (err as Error).message)));
+          return;
+        }
         console.log(formatError(`Failed to connect to API: ${(err as Error).message}`));
       }
     });
@@ -107,10 +123,16 @@ export function registerCommands(config: CommandConfig): Command {
     .command('health')
     .alias('/infra:health')
     .description('Check Ollama connectivity and model status')
-    .action(async () => {
+    .action(async function (this: Command) {
+      const jsonMode = this.optsWithGlobals().json;
       try {
         const res = await fetch(`${config.apiBaseUrl}/health`);
         const data = await res.json() as HealthResponse;
+
+        if (jsonMode) {
+          console.log(JSON.stringify(envelope('health', data)));
+          return;
+        }
 
         if (data.ollama === 'connected') {
           console.log(`Ollama: connected`);
@@ -124,6 +146,46 @@ export function registerCommands(config: CommandConfig): Command {
           console.log(formatError(data.error ?? 'Ollama not connected'));
         }
       } catch (err) {
+        if (jsonMode) {
+          console.log(JSON.stringify(errorEnvelope('health', (err as Error).message)));
+          return;
+        }
+        console.log(formatError(`Failed to connect to API: ${(err as Error).message}`));
+      }
+    });
+
+  program
+    .command('status')
+    .alias('/infra:status')
+    .description('Show system status dashboard (Ollama health, active plans, sessions, locks)')
+    .action(async function (this: Command) {
+      const jsonMode = this.optsWithGlobals().json;
+      try {
+        const res = await fetch(`${config.apiBaseUrl}/status`);
+
+        if (!res.ok) {
+          const body = await res.json() as { error: string };
+          if (jsonMode) {
+            console.log(JSON.stringify(errorEnvelope('status', body.error)));
+            return;
+          }
+          console.log(formatError(`Error: ${body.error}`));
+          return;
+        }
+
+        const data = await res.json();
+
+        if (jsonMode) {
+          console.log(JSON.stringify(envelope('status', data)));
+          return;
+        }
+
+        console.log('\n' + formatStatusDashboard(data) + '\n');
+      } catch (err) {
+        if (jsonMode) {
+          console.log(JSON.stringify(errorEnvelope('status', (err as Error).message)));
+          return;
+        }
         console.log(formatError(`Failed to connect to API: ${(err as Error).message}`));
       }
     });

@@ -4,9 +4,11 @@ import type { LLMProvider } from '../llm/types.js';
 import type { AuditLogger } from '../audit/logger.js';
 import type { ValidationResult } from '../safety/types.js';
 import type { SkillRegistry } from '../skills/registry.js';
+import type { WriteThrough } from '../state/store.js';
 import { createHealthRoute } from './routes/health.js';
 import { createDebugRoute } from './routes/debug.js';
 import { createExecuteRoute } from './routes/execute.js';
+import { createStatusRoute } from './routes/status.js';
 import type { InfraBrainConfig } from '../config/types.js';
 
 export interface ServerDeps {
@@ -18,6 +20,8 @@ export interface ServerDeps {
   config?: InfraBrainConfig;
   sessionId?: string;
   sessionDir?: string;
+  store?: WriteThrough;
+  lockDir?: string;
 }
 
 export interface ServerInstance {
@@ -38,6 +42,16 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
   // Routes
   app.use('/health', createHealthRoute(deps.ollamaBaseUrl));
   app.use('/debug', createDebugRoute(deps.provider, deps.auditLogger, deps.validator, deps.registry));
+
+  // Mount status route if store available
+  if (deps.store && deps.config && deps.lockDir) {
+    app.use('/status', createStatusRoute({
+      store: deps.store,
+      ollamaBaseUrl: deps.ollamaBaseUrl,
+      lockDir: deps.lockDir,
+      config: deps.config,
+    }));
+  }
 
   // Mount execute route if config available
   if (deps.config && deps.sessionId && deps.sessionDir) {
