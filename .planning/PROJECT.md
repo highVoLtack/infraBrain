@@ -18,19 +18,19 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 
 ### Active
 
-- [ ] Agnostic core engine (Diagnose -> Plan -> Execute -> Verify loop)
-- [ ] CLI interface with commands like `/infra:debug`
-- [ ] REST/gRPC API backend powering the CLI
-- [ ] Composable skills library (Markdown files defining prompts + available tool calls)
-- [ ] Abstracted LLM provider interface (Ollama default, pluggable for vLLM, llama.cpp, etc.)
-- [ ] Sub-agent execution with full process isolation (separate LLM context + sandboxed child process)
-- [ ] Configurable Human-in-the-Loop (risk-based: read-only auto-approves, write commands need approval)
-- [ ] Dual state storage (human-readable files in .infrabrain/ + SQLite for queryable data)
-- [ ] Lock-based concurrency (one active fix per target, others see status, force-override available)
-- [ ] Structured audit trail (decision log + before/after state diffs, queryable JSON)
-- [ ] Circuit breaker + damage budget safety system (max retries + max blast radius per fix plan)
-- [ ] Automatic rollback to last-known-good state when safety limits are hit
-- [ ] Core skills: planning, verification, infrastructure mapping, log analysis
+- [x] Agnostic core engine (Diagnose -> Plan -> Execute -> Verify loop)
+- [x] CLI interface with commands like `/infra:debug`
+- [x] REST/gRPC API backend powering the CLI
+- [x] Composable skills library (Markdown files defining prompts + available tool calls)
+- [x] Abstracted LLM provider interface (Ollama default, pluggable for vLLM, llama.cpp, etc.)
+- [x] Sub-agent execution with full process isolation (separate LLM context + sandboxed child process)
+- [x] Configurable Human-in-the-Loop (risk-based: read-only auto-approves, write commands need approval)
+- [x] Dual state storage (human-readable files in .infrabrain/ + SQLite for queryable data)
+- [x] Lock-based concurrency (one active fix per target, others see status, force-override available)
+- [x] Structured audit trail (decision log + before/after state diffs, queryable JSON)
+- [x] Circuit breaker + damage budget safety system (max retries + max blast radius per fix plan)
+- [x] Automatic rollback to last-known-good state when safety limits are hit
+- [x] Core skills: planning, verification, infrastructure mapping, log analysis
 - [ ] v1 POC: Docker/Nginx 502 debug scenario (detect, diagnose, fix, verify end-to-end)
 - [ ] Standalone binary distribution (via pkg/nexe, no Node.js required)
 
@@ -63,15 +63,19 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| TypeScript over Python | Better CLI tooling, strong async, closer to GSD/obra ecosystem | — Pending |
-| CLI + API architecture | API-first enables future clients (web, integrations) while CLI ships first | — Pending |
-| Abstracted LLM provider | Avoid vendor lock-in to Ollama; enterprises may run vLLM or llama.cpp | — Pending |
-| Lock-based concurrency | Explicit, easy to reason about for v1; can evolve to queue-based later | — Pending |
-| Decision log + diffs (no full transcripts) | Auditability without excessive storage; full replay deferred | — Pending |
-| Circuit breaker + damage budget | Belt-and-suspenders safety; recursive loops are existential risk for infra tools | — Pending |
-| Alert + rollback on safety halt | Safest default for enterprise; admin can inspect rolled-back state | — Pending |
-| Both file + SQLite state | Files for human readability/git tracking, SQLite for structured queries | — Pending |
-| Full sub-agent isolation (LLM + process) | Prevents context contamination AND limits blast radius of execution | — Pending |
+| TypeScript over Python | Better CLI tooling, strong async, closer to GSD/obra ecosystem | — Confirmed |
+| CLI + API architecture | API-first enables future clients (web, integrations) while CLI ships first | — Confirmed |
+| Abstracted LLM provider | Avoid vendor lock-in to Ollama; enterprises may run vLLM or llama.cpp | — Confirmed |
+| Lock-based concurrency | Explicit, easy to reason about for v1; can evolve to queue-based later | — Confirmed |
+| Decision log + diffs (no full transcripts) | Auditability without excessive storage; full replay deferred | — Confirmed |
+| Circuit breaker + damage budget | Belt-and-suspenders safety; recursive loops are existential risk for infra tools | — Confirmed |
+| Alert + rollback on safety halt | Safest default for enterprise; admin can inspect rolled-back state | — Confirmed |
+| Both file + SQLite state | Files for human readability/git tracking, SQLite for structured queries | — Confirmed |
+| Full sub-agent isolation (LLM + process) | Prevents context contamination AND limits blast radius of execution | — Confirmed |
+| TOON encoding for LLM context | Reduce token usage when sending structured data to models; CLI and SQLite stay standard JSON | — Confirmed |
+| Session resume with skip/retry | Admin can resume interrupted fix plans; failed steps can be retried or skipped | — Confirmed |
+| JSON envelope for all CLI output | Consistent { ok, command, data, error } shape enables scripting and CI integration | — Confirmed |
+| Parameterized SQL for audit queries | No string concatenation in SQL; prevents injection in queryable audit log | — Confirmed |
 
 ---
-*Last updated: 2026-03-07 after initialization*
+*Last updated: 2026-03-08 — Phase 4 complete, 4 of 5 phases done*

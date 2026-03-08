@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation and Safety Gates** - LLM provider, state storage, CLI shell, HITL approval, command validation, and audit logging (completed 2026-03-07)
 - [x] **Phase 2: Skill System and Orchestrator** - Markdown skill loader, skill validation, orchestrator reasoning, and core skill library (completed 2026-03-08)
 - [x] **Phase 3: Execution Engine and Safety Net** - Sub-agent isolation, circuit breaker, damage budget, rollback, and concurrency locks (completed 2026-03-08)
-- [ ] **Phase 4: Session Management and CLI Polish** - Status/history commands, JSON output, session resumability, and queryable audit
+- [x] **Phase 4: Session Management and CLI Polish** - Status/history commands, JSON output, session resumability, TOON encoder, and queryable audit (completed 2026-03-08)
 - [ ] **Phase 5: POC Scenario and Integration** - Docker/Nginx 502 end-to-end demo proving the full DPEV loop
 
 ## Phase Details
@@ -53,8 +53,8 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md — Skill types, loader, validator, registry, allowlist, and core skill files
-- [ ] 02-02-PLAN.md — Log analysis parsers, format detector, and pre-filter with token budget truncation
-- [ ] 02-03-PLAN.md — Orchestrator router, context builder, fix plan generator, and CLI/API wiring
+- [x] 02-02-PLAN.md — Log analysis parsers, format detector, and pre-filter with token budget truncation
+- [x] 02-03-PLAN.md — Orchestrator router, context builder, fix plan generator, and CLI/API wiring
 
 ### Phase 3: Execution Engine and Safety Net
 **Goal**: System can execute fix plan steps through isolated sub-agents with circuit breaker, damage budget, automatic rollback, and concurrency protection
@@ -69,9 +69,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Execution types, config extensions, command runner, circuit breaker, and damage budget
-- [ ] 03-02-PLAN.md — Target locking system with conflict detection, stale locks, and force-override
-- [ ] 03-03-PLAN.md — Snapshot capture, rollback, rolling context, executor loop, and API/CLI wiring
+- [x] 03-01-PLAN.md — Execution types, config extensions, command runner, circuit breaker, and damage budget
+- [x] 03-02-PLAN.md — Target locking system with conflict detection, stale locks, and force-override
+- [x] 03-03-PLAN.md — Snapshot capture, rollback, rolling context, executor loop, and API/CLI wiring
 
 ### Phase 4: Session Management and CLI Polish
 **Goal**: Admin has full operational visibility -- status checks, audit history, session resumability, and machine-parseable output for scripting
@@ -82,12 +82,13 @@ Plans:
   2. Admin can view audit history via `/infra:history` with queryable filters over the SQLite audit log
   3. All CLI commands support `--json` flag for machine-parseable output suitable for scripting
   4. Admin can resume an interrupted fix plan from where it left off without re-running completed steps
-**Plans**: 3 plans
+**Plans**: 4 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — JSON envelope, global --json option, status API route, and /infra:status command
-- [ ] 04-02-PLAN.md — Audit query methods, history API route, and /infra:history command with filters
-- [ ] 04-03-PLAN.md — Session resume types, executor startFromStep, /infra:resume command, and debug auto-detect
+- [x] 04-01-PLAN.md — JSON envelope, global --json option, status API route, and /infra:status command
+- [x] 04-02-PLAN.md — Audit query methods, history API route, and /infra:history command with filters
+- [x] 04-03-PLAN.md — Session resume types, executor startFromStep, /infra:resume command, and debug auto-detect
+- [x] 04-04-PLAN.md — TOON encoder for LLM context optimization
 
 ### Phase 5: POC Scenario and Integration
 **Goal**: The Docker/Nginx 502 demo proves the entire Diagnose-Plan-Execute-Verify loop end-to-end with full audit trail -- the investor/customer proof point
@@ -113,7 +114,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. Foundation and Safety Gates | 5/5 | Complete   | 2026-03-07 |
 | 2. Skill System and Orchestrator | 3/3 | Complete   | 2026-03-08 |
 | 3. Execution Engine and Safety Net | 3/3 | Complete   | 2026-03-08 |
-| 4. Session Management and CLI Polish | 0/3 | Not started | - |
+| 4. Session Management and CLI Polish | 4/4 | Complete | 2026-03-08 |
 | 5. POC Scenario and Integration | 0/2 | Not started | - |
 
 ---
