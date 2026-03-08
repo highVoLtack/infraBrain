@@ -10,6 +10,7 @@ import { createDebugRoute } from './routes/debug.js';
 import { createExecuteRoute } from './routes/execute.js';
 import { createStatusRoute } from './routes/status.js';
 import { createHistoryRoute } from './routes/history.js';
+import { createResumeRoute } from './routes/resume.js';
 import type { InfraBrainConfig } from '../config/types.js';
 
 export interface ServerDeps {
@@ -64,6 +65,17 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
     app.use('/execute', createExecuteRoute({
       auditLogger: deps.auditLogger,
       config: deps.config,
+      sessionId: deps.sessionId,
+      sessionDir: deps.sessionDir,
+    }));
+  }
+
+  // Mount resume route if store and config available
+  if (deps.store && deps.config && deps.sessionId && deps.sessionDir) {
+    app.use('/resume', createResumeRoute({
+      store: deps.store,
+      config: deps.config,
+      auditLogger: deps.auditLogger,
       sessionId: deps.sessionId,
       sessionDir: deps.sessionDir,
     }));
