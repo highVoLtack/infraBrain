@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Phase 4 context gathered
-last_updated: "2026-03-08T15:12:12.448Z"
-last_activity: 2026-03-08 -- Plan 03-03 executed (execution loop and safety pipeline)
+status: executing
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-08T15:45:53.194Z"
+last_activity: 2026-03-08 -- Plan 04-01 executed (JSON envelope, status dashboard, --json CLI flag)
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
-  percent: 91
+  total_plans: 15
+  completed_plans: 13
+  percent: 95
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-07)
 Phase: 4 of 5 (Session Management and CLI Polish)
 Plan: 4 of 4 in current phase
 Status: In Progress
-Last activity: 2026-03-08 -- Plan 04-04 executed (TOON encoder for LLM context optimization)
+Last activity: 2026-03-08 -- Plan 04-01 executed (JSON envelope, status dashboard, --json CLI flag)
 
 Progress: [████████████░] 95%
 
@@ -63,6 +63,7 @@ Progress: [████████████░] 95%
 | Phase 03 P01 | 3min | 2 tasks | 10 files |
 | Phase 03 P03 | 5min | 2 tasks | 15 files |
 | Phase 04 P04 | 3min | 2 tasks | 5 files |
+| Phase 04 P01 | 4min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,10 @@ Recent decisions affecting current work:
 - [Phase 03]: ExecutionDeps.auditLogger uses logExecution interface (not private log method)
 - [Phase 04]: TOON encoding is LLM-prompt-only — CLI --json and SQLite remain standard JSON
 - [Phase 04]: Graceful JSON fallback when TOON encoder throws on unsupported structures
+- [Phase 04]: JsonEnvelope shape: { ok, command, data, error } -- consistent across all CLI commands
+- [Phase 04]: Global --json via program.optsWithGlobals() with regular function() actions for Commander this binding
+- [Phase 04]: Status route reads lock files directly from lockDir (same pattern as locks/manager.ts)
+- [Phase 04]: Ollama health check uses 3s AbortController timeout in status route
 
 ### Pending Todos
 
@@ -119,6 +124,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-08T15:43:00Z
-Stopped at: Completed 04-04-PLAN.md
-Resume file: .planning/phases/04-session-management-and-cli-polish/04-04-SUMMARY.md
+Last session: 2026-03-08T15:44:25Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: .planning/phases/04-session-management-and-cli-polish/04-01-SUMMARY.md
