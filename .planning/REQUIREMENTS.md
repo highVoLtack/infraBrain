@@ -14,8 +14,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CORE-03**: System loads and parses Markdown skill files containing prompts and tool definitions
 - [x] **CORE-04**: System validates skill files against a defined format spec on load
 - [x] **CORE-05**: Orchestrator reads user input and selects appropriate skills from the library
-- [ ] **CORE-06**: Orchestrator executes the Diagnose → Plan → Execute → Verify loop end-to-end
-- [ ] **CORE-07**: Each sub-agent task runs in a separate LLM conversation with isolated context
+- [x] **CORE-06**: Orchestrator executes the Diagnose → Plan → Execute → Verify loop end-to-end
+- [x] **CORE-07**: Each sub-agent task runs in a separate LLM conversation with isolated context
 - [x] **CORE-08**: Each sub-agent task runs in a sandboxed child process (execFile/spawn, no shell)
 - [x] **CORE-09**: System tracks context token budget and prevents silent truncation by Ollama
 - [x] **CORE-10**: System validates all generated commands against a whitelist/blocklist before execution
@@ -28,12 +28,12 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SAFE-04**: Circuit breaker halts execution after max retries per task (configurable, default 3)
 - [x] **SAFE-05**: Damage budget limits total state changes per fix plan (configurable)
 - [x] **SAFE-06**: Failed retries consume double the damage budget
-- [ ] **SAFE-07**: System captures pre-execution state snapshot before every write operation
-- [ ] **SAFE-08**: System automatically rolls back to last-known-good state when safety limits are hit
+- [x] **SAFE-07**: System captures pre-execution state snapshot before every write operation
+- [x] **SAFE-08**: System automatically rolls back to last-known-good state when safety limits are hit
 - [x] **SAFE-09**: System logs every decision as structured JSON (what was diagnosed, options considered, why chosen)
 - [x] **SAFE-10**: System captures before/after state diffs for every change made
 - [ ] **SAFE-11**: Audit log is queryable via SQLite
-- [ ] **SAFE-12**: System alerts the admin when circuit breaker or damage budget triggers
+- [x] **SAFE-12**: System alerts the admin when circuit breaker or damage budget triggers
 
 ### Interface
 
@@ -114,8 +114,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CORE-03 | Phase 2 | Complete |
 | CORE-04 | Phase 2 | Complete |
 | CORE-05 | Phase 2 | Complete |
-| CORE-06 | Phase 3 | Pending |
-| CORE-07 | Phase 3 | Pending |
+| CORE-06 | Phase 3 | Complete |
+| CORE-07 | Phase 3 | Complete |
 | CORE-08 | Phase 3 | Complete |
 | CORE-09 | Phase 1 | Complete |
 | CORE-10 | Phase 1 | Complete |
@@ -125,12 +125,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SAFE-04 | Phase 3 | Complete |
 | SAFE-05 | Phase 3 | Complete |
 | SAFE-06 | Phase 3 | Complete |
-| SAFE-07 | Phase 3 | Pending |
-| SAFE-08 | Phase 3 | Pending |
+| SAFE-07 | Phase 3 | Complete |
+| SAFE-08 | Phase 3 | Complete |
 | SAFE-09 | Phase 1 | Complete |
 | SAFE-10 | Phase 1 | Complete |
 | SAFE-11 | Phase 4 | Pending |
-| SAFE-12 | Phase 3 | Pending |
+| SAFE-12 | Phase 3 | Complete |
 | INTF-01 | Phase 1 | Complete |
 | INTF-02 | Phase 4 | Pending |
 | INTF-03 | Phase 4 | Pending |
