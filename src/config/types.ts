@@ -5,6 +5,7 @@ export const InfraBrainConfigSchema = z.object({
   modelName: z.string().default('llama3.3:70b'),
   apiPort: z.number().default(3000),
   sessionDir: z.string().default('.infrabrain'),
+  skillsDir: z.string().default('skills'),
   tokenBudgets: z.object({
     diagnosis: z.number().default(4096),
     command: z.number().default(2048),
