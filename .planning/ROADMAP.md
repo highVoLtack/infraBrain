@@ -13,7 +13,7 @@ InfraBrain goes from zero to a working AI IT operations platform in five phases.
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation and Safety Gates** - LLM provider, state storage, CLI shell, HITL approval, command validation, and audit logging (completed 2026-03-07)
-- [ ] **Phase 2: Skill System and Orchestrator** - Markdown skill loader, skill validation, orchestrator reasoning, and core skill library
+- [x] **Phase 2: Skill System and Orchestrator** - Markdown skill loader, skill validation, orchestrator reasoning, and core skill library (completed 2026-03-08)
 - [ ] **Phase 3: Execution Engine and Safety Net** - Sub-agent isolation, circuit breaker, damage budget, rollback, and concurrency locks
 - [ ] **Phase 4: Session Management and CLI Polish** - Status/history commands, JSON output, session resumability, and queryable audit
 - [ ] **Phase 5: POC Scenario and Integration** - Docker/Nginx 502 end-to-end demo proving the full DPEV loop
@@ -110,7 +110,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation and Safety Gates | 5/5 | Complete   | 2026-03-07 |
-| 2. Skill System and Orchestrator | 2/3 | In Progress|  |
+| 2. Skill System and Orchestrator | 3/3 | Complete   | 2026-03-08 |
 | 3. Execution Engine and Safety Net | 0/3 | Not started | - |
 | 4. Session Management and CLI Polish | 0/2 | Not started | - |
 | 5. POC Scenario and Integration | 0/2 | Not started | - |

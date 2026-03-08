@@ -13,7 +13,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CORE-02**: System supports pluggable LLM providers (vLLM, llama.cpp) without code changes
 - [x] **CORE-03**: System loads and parses Markdown skill files containing prompts and tool definitions
 - [x] **CORE-04**: System validates skill files against a defined format spec on load
-- [ ] **CORE-05**: Orchestrator reads user input and selects appropriate skills from the library
+- [x] **CORE-05**: Orchestrator reads user input and selects appropriate skills from the library
 - [ ] **CORE-06**: Orchestrator executes the Diagnose → Plan → Execute → Verify loop end-to-end
 - [ ] **CORE-07**: Each sub-agent task runs in a separate LLM conversation with isolated context
 - [ ] **CORE-08**: Each sub-agent task runs in a sandboxed child process (execFile/spawn, no shell)
@@ -50,7 +50,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Skills (Standard Library)
 
-- [ ] **SKIL-01**: Core planning skill decomposes problems into 2-5 minute fix plan steps
+- [x] **SKIL-01**: Core planning skill decomposes problems into 2-5 minute fix plan steps
 - [x] **SKIL-02**: Core verification skill writes health checks that fail before fix and pass after
 - [x] **SKIL-03**: Log analysis skill pre-filters logs (grep, journalctl) before LLM analysis
 - [x] **SKIL-04**: Log analysis skill handles common formats (syslog, JSON structured, Docker, journald)
@@ -113,7 +113,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CORE-02 | Phase 1 | Complete |
 | CORE-03 | Phase 2 | Complete |
 | CORE-04 | Phase 2 | Complete |
-| CORE-05 | Phase 2 | Pending |
+| CORE-05 | Phase 2 | Complete |
 | CORE-06 | Phase 3 | Pending |
 | CORE-07 | Phase 3 | Pending |
 | CORE-08 | Phase 3 | Pending |
@@ -141,7 +141,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INTF-08 | Phase 3 | Pending |
 | INTF-09 | Phase 3 | Pending |
 | INTF-10 | Phase 3 | Pending |
-| SKIL-01 | Phase 2 | Pending |
+| SKIL-01 | Phase 2 | Complete |
 | SKIL-02 | Phase 2 | Complete |
 | SKIL-03 | Phase 2 | Complete |
 | SKIL-04 | Phase 2 | Complete |
