@@ -6,7 +6,24 @@ export type AuditEventType =
   | 'error'
   | 'session_start'
   | 'session_end'
-  | 'skill_selection';
+  | 'skill_selection'
+  // Phase 3: Execution engine events
+  | 'execution_start'
+  | 'execution_complete'
+  | 'step_start'
+  | 'step_complete'
+  | 'step_failed'
+  | 'snapshot_captured'
+  | 'rollback_start'
+  | 'rollback_complete'
+  | 'rollback_failed'
+  | 'circuit_breaker_triggered'
+  | 'damage_budget_exceeded'
+  | 'damage_budget_update'
+  | 'lock_acquired'
+  | 'lock_released'
+  | 'lock_conflict'
+  | 'lock_override';
 
 export interface AuditEntry {
   timestamp: string;
