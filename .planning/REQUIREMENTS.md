@@ -52,8 +52,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **SKIL-01**: Core planning skill decomposes problems into 2-5 minute fix plan steps
 - [x] **SKIL-02**: Core verification skill writes health checks that fail before fix and pass after
-- [ ] **SKIL-03**: Log analysis skill pre-filters logs (grep, journalctl) before LLM analysis
-- [ ] **SKIL-04**: Log analysis skill handles common formats (syslog, JSON structured, Docker, journald)
+- [x] **SKIL-03**: Log analysis skill pre-filters logs (grep, journalctl) before LLM analysis
+- [x] **SKIL-04**: Log analysis skill handles common formats (syslog, JSON structured, Docker, journald)
 
 ### POC Scenario
 
@@ -143,8 +143,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INTF-10 | Phase 3 | Pending |
 | SKIL-01 | Phase 2 | Pending |
 | SKIL-02 | Phase 2 | Complete |
-| SKIL-03 | Phase 2 | Pending |
-| SKIL-04 | Phase 2 | Pending |
+| SKIL-03 | Phase 2 | Complete |
+| SKIL-04 | Phase 2 | Complete |
 | POC-01 | Phase 5 | Pending |
 | POC-02 | Phase 5 | Pending |
 | POC-03 | Phase 5 | Pending |
