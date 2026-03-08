@@ -42,6 +42,17 @@ export class WriteThrough {
    * Append audit entry to both JSONL file and SQLite audit_log table.
    */
   /**
+   * Get a session by its ID. Returns null if not found.
+   */
+  getSessionById(sessionId: string): SessionState | null {
+    const row = this.db
+      .prepare('SELECT state FROM sessions WHERE id = ?')
+      .get(sessionId) as { state: string } | undefined;
+    if (!row) return null;
+    return JSON.parse(row.state) as SessionState;
+  }
+
+  /**
    * Get the most recent sessions ordered by updated_at descending.
    */
   getRecentSessions(limit: number = 3): SessionState[] {

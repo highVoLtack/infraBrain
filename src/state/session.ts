@@ -30,6 +30,30 @@ export function createSession(baseDir: string): SessionState {
   return state;
 }
 
+/**
+ * Update a session for resume: sets status to 'active', populates resumeMetadata,
+ * and writes updated state.json to disk.
+ */
+export function updateSessionForResume(
+  sessionDir: string,
+  state: SessionState,
+  stoppedAtStep: number,
+  reason: string,
+  target?: string,
+): SessionState {
+  const now = new Date().toISOString();
+  state.status = 'active';
+  state.updatedAt = now;
+  state.resumeMetadata = {
+    lastCompletedStep: stoppedAtStep,
+    stoppedAt: now,
+    error: reason,
+    target,
+  };
+  writeFileSync(join(sessionDir, 'state.json'), JSON.stringify(state, null, 2));
+  return state;
+}
+
 export function loadSession(sessionDir: string): SessionState {
   const content = readFileSync(join(sessionDir, 'state.json'), 'utf-8');
   return JSON.parse(content) as SessionState;

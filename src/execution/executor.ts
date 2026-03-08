@@ -14,10 +14,16 @@ import { acquireLock, releaseLock, promptLockOverride } from '../locks/manager.j
  * Execute a fix plan with full safety pipeline:
  * lock acquire -> for each step (budget check -> snapshot -> approval -> execute -> budget deduct -> context update) -> lock release
  */
+export interface ResumeOptions {
+  startFromStep?: number;
+  skipFailedStep?: boolean;
+}
+
 export async function executePlan(
   plan: FixPlan,
   target: string,
   deps: ExecutionDeps,
+  options?: ResumeOptions,
 ): Promise<ExecutionResult> {
   const stepResults: StepResult[] = [];
   const lockDir = join(deps.sessionDir, '..', '..', 'locks');
@@ -54,7 +60,18 @@ export async function executePlan(
 
     lockAcquired = true;
 
-    // 2. Log execution start
+    // 2. Log resume event if resuming
+    const startFrom = options?.startFromStep ?? 0;
+    const skipFailed = options?.skipFailedStep ?? false;
+
+    if (startFrom > 0) {
+      deps.auditLogger.logExecution('execution_resume', {
+        resumingFrom: startFrom,
+        totalSteps: plan.steps.length,
+      });
+    }
+
+    // Log execution start
     deps.auditLogger.logExecution('execution_start', {
       planSummary: plan.summary,
       target,
@@ -71,6 +88,13 @@ export async function executePlan(
 
     // 4. Execute each step
     for (let i = 0; i < plan.steps.length; i++) {
+      // Skip completed steps on resume
+      const skipThisStep = i < startFrom || (skipFailed && i === startFrom);
+      if (skipThisStep) {
+        stepResults.push({ stepIndex: i, status: 'skipped', retries: 0, damageCost: 0 });
+        continue;
+      }
+
       const step = plan.steps[i];
       const cost = budget.costFor(step.risk);
 

@@ -23,7 +23,8 @@ export type AuditEventType =
   | 'lock_acquired'
   | 'lock_released'
   | 'lock_conflict'
-  | 'lock_override';
+  | 'lock_override'
+  | 'execution_resume';
 
 export interface AuditEntry {
   timestamp: string;
