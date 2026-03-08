@@ -32,14 +32,14 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SAFE-08**: System automatically rolls back to last-known-good state when safety limits are hit
 - [x] **SAFE-09**: System logs every decision as structured JSON (what was diagnosed, options considered, why chosen)
 - [x] **SAFE-10**: System captures before/after state diffs for every change made
-- [ ] **SAFE-11**: Audit log is queryable via SQLite
+- [x] **SAFE-11**: Audit log is queryable via SQLite
 - [x] **SAFE-12**: System alerts the admin when circuit breaker or damage budget triggers
 
 ### Interface
 
 - [x] **INTF-01**: Admin can run diagnostic commands via CLI (e.g., `/infra:debug "Why is Nginx returning 502?"`)
 - [x] **INTF-02**: Admin can check system and session status via CLI (`/infra:status`)
-- [ ] **INTF-03**: Admin can view audit history via CLI (`/infra:history`)
+- [x] **INTF-03**: Admin can view audit history via CLI (`/infra:history`)
 - [x] **INTF-04**: CLI supports machine-parseable JSON output mode for scripting
 - [x] **INTF-05**: REST API backend serves all CLI functionality
 - [x] **INTF-06**: System persists fix plan state to disk (human-readable file + SQLite)
@@ -129,11 +129,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SAFE-08 | Phase 3 | Complete |
 | SAFE-09 | Phase 1 | Complete |
 | SAFE-10 | Phase 1 | Complete |
-| SAFE-11 | Phase 4 | Pending |
+| SAFE-11 | Phase 4 | Complete |
 | SAFE-12 | Phase 3 | Complete |
 | INTF-01 | Phase 1 | Complete |
 | INTF-02 | Phase 4 | Complete |
-| INTF-03 | Phase 4 | Pending |
+| INTF-03 | Phase 4 | Complete |
 | INTF-04 | Phase 4 | Complete |
 | INTF-05 | Phase 1 | Complete |
 | INTF-06 | Phase 1 | Complete |
