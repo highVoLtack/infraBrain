@@ -31,7 +31,7 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 - [x] Circuit breaker + damage budget safety system (max retries + max blast radius per fix plan)
 - [x] Automatic rollback to last-known-good state when safety limits are hit
 - [x] Core skills: planning, verification, infrastructure mapping, log analysis
-- [ ] v1 POC: Docker/Nginx 502 debug scenario (detect, diagnose, fix, verify end-to-end)
+- [x] v1 POC: Docker/Nginx 502 debug scenario (detect, diagnose, fix, verify end-to-end)
 - [ ] Standalone binary distribution (via pkg/nexe, no Node.js required)
 
 ### Out of Scope
@@ -78,4 +78,4 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 | Parameterized SQL for audit queries | No string concatenation in SQL; prevents injection in queryable audit log | — Confirmed |
 
 ---
-*Last updated: 2026-03-08 — Phase 4 complete, 4 of 5 phases done*
+*Last updated: 2026-03-08 — v1.0 milestone complete, all 5 phases delivered, 318 tests passing*

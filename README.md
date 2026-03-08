@@ -45,7 +45,7 @@ InfraBrain follows a **Diagnose → Plan → Execute → Verify** loop. The orch
 | API | Express 5 (REST) |
 | CLI | Commander |
 | Validation | Zod v4 |
-| Testing | Vitest (311 tests, 35 test files) |
+| Testing | Vitest (318 tests, 36 test files) |
 | Build | tsup + tsx |
 
 ## Project Structure
