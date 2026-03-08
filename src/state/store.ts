@@ -32,6 +32,33 @@ export class WriteThrough {
   /**
    * Append audit entry to both JSONL file and SQLite audit_log table.
    */
+  /**
+   * Get the most recent sessions ordered by updated_at descending.
+   */
+  getRecentSessions(limit: number = 3): SessionState[] {
+    const rows = this.db
+      .prepare('SELECT state FROM sessions ORDER BY updated_at DESC LIMIT ?')
+      .all(limit) as Array<{ state: string }>;
+    return rows.map((row) => JSON.parse(row.state) as SessionState);
+  }
+
+  /**
+   * Get active (incomplete) sessions within a time window.
+   * Filters by status='active' in the JSON state column and updated_at within windowMs.
+   */
+  getIncompleteSessions(windowMs: number = 86400000): SessionState[] {
+    const cutoff = new Date(Date.now() - windowMs).toISOString();
+    const rows = this.db
+      .prepare(
+        `SELECT state FROM sessions
+         WHERE json_extract(state, '$.status') = 'active'
+         AND updated_at >= ?
+         ORDER BY updated_at DESC`,
+      )
+      .all(cutoff) as Array<{ state: string }>;
+    return rows.map((row) => JSON.parse(row.state) as SessionState);
+  }
+
   appendAudit(sessionDir: string, entry: AuditEntry): void {
     // Append to JSONL file
     appendFileSync(

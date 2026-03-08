@@ -17,6 +17,7 @@ export const InfraBrainConfigSchema = z.object({
   damageBudget: z.object({
     maxPoints: z.number().default(10),
   }).default({ maxPoints: 10 }),
+  resumeWindowMs: z.number().default(86400000),
   locks: z.object({
     staleTimeoutMs: z.number().default(3600000),
   }).default({ staleTimeoutMs: 3600000 }),
