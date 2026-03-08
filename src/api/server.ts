@@ -3,6 +3,7 @@ import type { Server } from 'node:http';
 import type { LLMProvider } from '../llm/types.js';
 import type { AuditLogger } from '../audit/logger.js';
 import type { ValidationResult } from '../safety/types.js';
+import type { SkillRegistry } from '../skills/registry.js';
 import { createHealthRoute } from './routes/health.js';
 import { createDebugRoute } from './routes/debug.js';
 
@@ -11,6 +12,7 @@ export interface ServerDeps {
   auditLogger: AuditLogger;
   validator: (command: string) => ValidationResult;
   ollamaBaseUrl: string;
+  registry?: SkillRegistry;
 }
 
 export interface ServerInstance {
@@ -30,7 +32,7 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
 
   // Routes
   app.use('/health', createHealthRoute(deps.ollamaBaseUrl));
-  app.use('/debug', createDebugRoute(deps.provider, deps.auditLogger, deps.validator));
+  app.use('/debug', createDebugRoute(deps.provider, deps.auditLogger, deps.validator, deps.registry));
 
   // Error handler (Express 5 catches async throws natively)
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

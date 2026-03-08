@@ -15,6 +15,7 @@ import { validateCommand } from './safety/validator.js';
 import { createServer } from './api/server.js';
 import { registerCommands } from './cli/commands.js';
 import { startRepl } from './cli/repl.js';
+import { SkillRegistry } from './skills/registry.js';
 
 // Re-exports for library usage
 export { createProvider } from './llm/provider.js';
@@ -48,6 +49,17 @@ async function main(): Promise<void> {
   // Create audit logger
   const auditLogger = new AuditLogger(store, session.sessionId, sessionDir);
 
+  // Load skills
+  const registry = new SkillRegistry();
+  const skillsDir = join(baseDir, config.skillsDir);
+  try {
+    registry.populate(skillsDir);
+    const loadedSkills = registry.list();
+    console.log(chalk.gray(`[Skills] Loaded ${loadedSkills.length} skills from ${config.skillsDir}`));
+  } catch {
+    console.log(chalk.gray(`[Skills] No skills directory found at ${config.skillsDir}`));
+  }
+
   // Create Express server
   const apiBaseUrl = `http://localhost:${config.apiPort}`;
   const { app, start } = createServer({
@@ -55,6 +67,7 @@ async function main(): Promise<void> {
     auditLogger,
     validator: validateCommand,
     ollamaBaseUrl: config.ollamaBaseUrl,
+    registry,
   });
 
   // Start server

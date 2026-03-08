@@ -53,6 +53,14 @@ export class AuditLogger {
     });
   }
 
+  logSkillSelection(skillName: string, reasoning: string, override: boolean): void {
+    this.log({
+      eventType: 'skill_selection',
+      reasoning,
+      metadata: { skillName, reasoning, override },
+    });
+  }
+
   logError(error: string, context?: Record<string, unknown>): void {
     this.log({
       eventType: 'error',

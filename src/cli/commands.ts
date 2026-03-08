@@ -3,6 +3,8 @@ import type * as readline from 'node:readline/promises';
 import { formatDiagnosis, formatCommand, formatError, formatApprovalResult } from './formatter.js';
 import { requestApproval } from './approval.js';
 import type { RiskLevel } from '../safety/types.js';
+import { formatPlanTable } from '../orchestrator/planner.js';
+import type { FixPlan } from '../orchestrator/types.js';
 
 export interface CommandConfig {
   apiBaseUrl: string;
@@ -14,6 +16,7 @@ let moduleRl: readline.Interface | undefined;
 
 interface DebugResponse {
   sessionId: string;
+  skillMessage?: string;
   diagnosis: string;
   commands: Array<{
     command: string;
@@ -21,6 +24,7 @@ interface DebugResponse {
     allowed: boolean;
     reason?: string;
   }>;
+  fixPlan?: FixPlan;
 }
 
 interface HealthResponse {
@@ -44,12 +48,18 @@ export function registerCommands(config: CommandConfig): Command {
     .alias('/infra:debug')
     .description('Diagnose an infrastructure issue')
     .argument('<prompt>', 'Description of the issue to diagnose')
-    .action(async (prompt: string) => {
+    .option('--skill <name>', 'Override skill selection')
+    .action(async (prompt: string, options: { skill?: string }) => {
       try {
+        const body: Record<string, string> = { prompt };
+        if (options.skill) {
+          body.skill = options.skill;
+        }
+
         const res = await fetch(`${config.apiBaseUrl}/debug`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt }),
+          body: JSON.stringify(body),
         });
 
         if (!res.ok) {
@@ -60,8 +70,18 @@ export function registerCommands(config: CommandConfig): Command {
 
         const data = await res.json() as DebugResponse;
 
+        // Display skill selection message
+        if (data.skillMessage) {
+          console.log('\n' + data.skillMessage);
+        }
+
         // Display diagnosis
         console.log('\n' + formatDiagnosis(data.diagnosis));
+
+        // Display fix plan if present
+        if (data.fixPlan) {
+          console.log('\n' + formatPlanTable(data.fixPlan));
+        }
 
         // Display commands with risk levels and approval gate
         if (data.commands.length > 0) {

@@ -5,7 +5,8 @@ export type AuditEventType =
   | 'state_change'
   | 'error'
   | 'session_start'
-  | 'session_end';
+  | 'session_end'
+  | 'skill_selection';
 
 export interface AuditEntry {
   timestamp: string;
