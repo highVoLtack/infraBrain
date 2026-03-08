@@ -121,6 +121,6 @@ Evidence: Nginx logs show connection failure; network inspect confirms isolation
 
 **Step 5: Fix Plan**
 ```
-1. Command: `docker network connect demo_frontend demo-backend` | Risk: write | Rollback: `docker network disconnect demo_frontend demo-backend` | Expected: Backend container joins frontend network
+1. Command: `docker network connect --alias backend demo_frontend demo-backend` | Risk: write | Rollback: `docker network disconnect demo_frontend demo-backend` | Expected: Backend container joins frontend network with DNS alias
 2. Command: `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/get` | Risk: read | Rollback: N/A | Expected: HTTP 200 confirming fix
 ```
