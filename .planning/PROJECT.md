@@ -56,8 +56,8 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 - **Tech stack**: Node.js/TypeScript — aligns with CLI tooling ecosystem and async patterns
 - **LLM runtime**: Must work fully offline with local models via Ollama. Primary model: Qwen 2.5 Coder 32B (specialist for CLI/infrastructure tasks). Custom model name: `infrabrain`
 - **Reference hardware**: 1x NVIDIA RTX 5090 (32 GB VRAM). Qwen 32B fits natively — no CPU offloading, real-time inference speed
-- **Hardware-matching strategy**: "Specialist over Generalist" — a 32B model that fits entirely in VRAM outperforms a 70B model that requires CPU offloading. Qwen 2.5 Coder excels at structured output, shell commands, and infrastructure reasoning
-- **Intelligence Inventory**: 6 models pre-loaded on 200GB RunPod Persistent Network Volume (EU-RO-1, Romania) for zero-download startup: `infrabrain` (orchestrator, 32B), `deepseek-r1:32b` (reasoning), `llama3.3:70b` (generalist), `bge-m3` (RAG embeddings), `llama3.2-vision` (visual), `qwen2.5-coder:7b` (lightweight worker). Path: `/workspace/models` via `OLLAMA_MODELS=/workspace/models`
+- **Hardware-matching strategy**: "Domain Expertise over Parameter Count" — IT-Ops is a domain of structured syntax (CLI, logs, configs). A 32B code specialist at full GPU speed with maximum context density outperforms a 70B generalist that requires CPU offloading. Qwen 2.5 Coder is the Technical Lead because it excels at exactly the structured output, shell commands, and config parsing that IT-Ops demands
+- **Intelligence Inventory**: 6 models pre-loaded on 200GB RunPod Persistent Network Volume (EU-RO-1, Romania) for zero-download startup. Strategic hierarchy: `infrabrain` (Technical Lead, 32B — default for all structured syntax tasks), `deepseek-r1:32b` (Forensic Specialist — deep CoT debugging), `llama3.3:70b` (Strategic Fallback — broad cross-domain reasoning), `bge-m3` (RAG embeddings), `llama3.2-vision` (visual), `qwen2.5-coder:7b` (lightweight worker). Path: `/workspace/models` via `OLLAMA_MODELS=/workspace/models`
 - **High-Density Context**: 32,768 token context window + TOON encoding = effective ~50k+ standard tokens of infrastructure context
 - **Distribution**: Standalone binary — admins should not need Node.js installed
 - **Privacy**: Zero cloud dependencies, zero telemetry, all data stays local
@@ -77,9 +77,9 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 | Both file + SQLite state | Files for human readability/git tracking, SQLite for structured queries | — Confirmed |
 | Full sub-agent isolation (LLM + process) | Prevents context contamination AND limits blast radius of execution | — Confirmed |
 | TOON encoding for LLM context | Reduce token usage when sending structured data to models; CLI and SQLite stay standard JSON | — Confirmed |
-| Qwen 2.5 Coder 32B over Llama 3.3 70B | Fits natively in 1x RTX 5090 (32GB) without CPU offloading; superior at structured output and shell commands | — Confirmed |
-| Specialist over Generalist strategy | A 32B model at full GPU speed beats a 70B model with CPU offloading on real-time infrastructure tasks | — Confirmed |
-| Model-agnostic platform | InfraBrain benchmarks and swaps models per scenario. Qwen 32B is current IT-Ops champion, but the Intelligence Catalog routes to optimal models per domain. See MODEL_LEADERBOARD.md | — Confirmed |
+| Qwen 2.5 Coder 32B as Technical Lead | IT-Ops is structured syntax (CLI, logs, configs) — a code specialist dominates this domain. Fits natively in RTX 5090 with full inference speed and max context density | — Confirmed |
+| Domain Expertise over Parameter Count | Route by domain fit, not model size. 32B Technical Lead (structured syntax) → DeepSeek-R1 Forensic Specialist (hidden causality) → Llama 70B Strategic Fallback (broad reasoning) | — Confirmed |
+| Model-agnostic platform | Intelligence Catalog routes to optimal model per domain expertise. See MODEL_LEADERBOARD.md for strategic hierarchy and provisioned inventory | — Confirmed |
 | Session resume with skip/retry | Admin can resume interrupted fix plans; failed steps can be retried or skipped | — Confirmed |
 | JSON envelope for all CLI output | Consistent { ok, command, data, error } shape enables scripting and CI integration | — Confirmed |
 | Parameterized SQL for audit queries | No string concatenation in SQL; prevents injection in queryable audit log | — Confirmed |
@@ -104,10 +104,10 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 │  │ Confidence     │───▶│ Intelligence Catalog     │  │
 │  │ Monitor        │    │ (JSON config)            │  │
 │  │                │    │                          │  │
-│  │ Hooks into     │    │ domain → model mapping:  │  │
-│  │ generateObject │    │  cisco.bgp → qwen-72b   │  │
-│  │ response       │    │  sql.deadlock → r1       │  │
-│  │ quality score  │    │  general.deep → 405b     │  │
+│  │ Hooks into     │    │ domain expertise routing: │  │
+│  │ generateObject │    │  structured.* → qwen-32b │  │
+│  │ response       │    │  forensic.*  → r1-32b    │  │
+│  │ quality score  │    │  broad.*     → llama-70b │  │
 │  └───────────────┘    └──────────┬───────────────┘  │
 │                                  │                   │
 │                     ┌────────────▼────────────────┐  │
@@ -136,7 +136,7 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 
 **Key implementation details**:
 - `ConfidenceMonitor` — wraps `generateObject`/`generateText` calls. Evaluates response quality via structured self-assessment (ask the model "rate your confidence 1-10" as a follow-up call, or parse hedging language)
-- `IntelligenceCatalog` — JSON config file mapping `{domain, problemType}` → `{modelId, minGPU, estimatedCostPerHour}`. Admin-editable, ships with sensible defaults
+- `IntelligenceCatalog` — JSON config file mapping `{domainExpertise, problemType}` → `{modelId, minGPU, estimatedCostPerHour}`. Routes by domain expertise (structured syntax → Technical Lead, hidden causality → Forensic Specialist, broad reasoning → Strategic Fallback), not model size. Admin-editable, ships with sensible defaults
 - `JITProvisioner` — implements `LLMProvider` interface (already abstracted in v1). Just a new provider that spins up a remote vLLM instance before forwarding calls. Tears down after session ends
 
 **Escalation paths (validated via research, March 2026)**:

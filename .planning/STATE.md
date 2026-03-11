@@ -127,7 +127,8 @@ Recent decisions affecting current work:
 - [Phase 05]: Diagnostic Ladder: 5-step systematic investigation sequence enforced by skill system prompt
 - [Phase 05]: Runtime DNS resolution in nginx.conf: resolver 127.0.0.11 + variable upstream for deferred resolution
 - [Phase 05]: Docker network connect --alias required for DNS discovery when attaching at runtime
-- [Infra]: Intelligence Inventory provisioned on 200GB RunPod Network Volume (EU-RO-1) — 6 models pre-loaded for zero-download startup (infrabrain, deepseek-r1:32b, llama3.3:70b, bge-m3, llama3.2-vision, qwen2.5-coder:7b)
+- [Infra]: Intelligence Inventory provisioned on 200GB RunPod Network Volume (EU-RO-1) — 6 models pre-loaded for zero-download startup
+- [Infra]: Model classification refined — "Domain Expertise over Parameter Count": Qwen 32B is Technical Lead (structured syntax), DeepSeek-R1 is Forensic Specialist (hidden causality), Llama 70B is Strategic Fallback (broad reasoning). Route by domain fit, not model size
 
 ### Pending Todos
 
