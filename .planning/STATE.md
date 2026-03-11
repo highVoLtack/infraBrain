@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: milestone_complete
-stopped_at: v1.0.0 battle-proven — Nginx 502 POC 100% success
-last_updated: "2026-03-11T18:00:00.000Z"
-last_activity: 2026-03-11 -- Phase 5 POC verified on live hardware (Qwen 32B / RTX 5090), iterative discovery engine added, all v1.0 requirements satisfied
+stopped_at: Intelligence Inventory provisioned — 6 models on EU-RO-1 persistent volume, docs updated
+last_updated: "2026-03-11T21:00:00.000Z"
+last_activity: 2026-03-11 -- Intelligence Inventory provisioned (6 models on 200GB RunPod volume EU-RO-1), MODEL_LEADERBOARD.md updated
 progress:
   total_phases: 5
   completed_phases: 5
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control -- every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.0.0 battle-proven — Nginx 502 POC verified on live Qwen 2.5 Coder 32B / RTX 5090
+**Current focus:** v1.0.0 battle-proven — Intelligence Inventory provisioned (6 models, EU-RO-1 persistent volume, zero-download startup)
 
 ## Current Position
 
 Phase: 5 of 5 (POC Scenario and Integration) — COMPLETE
 Plan: All plans complete
 Status: Milestone Complete
-Last activity: 2026-03-08 -- All v1.0 phases delivered, 318 tests passing
+Last activity: 2026-03-11 -- Intelligence Inventory provisioned, MODEL_LEADERBOARD.md updated
 
 Progress: [██████████] 100%
 
@@ -127,6 +127,7 @@ Recent decisions affecting current work:
 - [Phase 05]: Diagnostic Ladder: 5-step systematic investigation sequence enforced by skill system prompt
 - [Phase 05]: Runtime DNS resolution in nginx.conf: resolver 127.0.0.11 + variable upstream for deferred resolution
 - [Phase 05]: Docker network connect --alias required for DNS discovery when attaching at runtime
+- [Infra]: Intelligence Inventory provisioned on 200GB RunPod Network Volume (EU-RO-1) — 6 models pre-loaded for zero-download startup (infrabrain, deepseek-r1:32b, llama3.3:70b, bge-m3, llama3.2-vision, qwen2.5-coder:7b)
 
 ### Pending Todos
 
@@ -140,6 +141,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T17:08:17Z
-Stopped at: Session paused — v1.0.0 battle-proven, all docs updated
+Last session: 2026-03-11T21:00:00Z
+Stopped at: Intelligence Inventory documented — 6 models on 200GB EU-RO-1 persistent volume, MODEL_LEADERBOARD.md updated, pausing work
 Resume file: .planning/phases/05-poc-scenario-and-integration/.continue-here.md

@@ -57,6 +57,7 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 - **LLM runtime**: Must work fully offline with local models via Ollama. Primary model: Qwen 2.5 Coder 32B (specialist for CLI/infrastructure tasks). Custom model name: `infrabrain`
 - **Reference hardware**: 1x NVIDIA RTX 5090 (32 GB VRAM). Qwen 32B fits natively — no CPU offloading, real-time inference speed
 - **Hardware-matching strategy**: "Specialist over Generalist" — a 32B model that fits entirely in VRAM outperforms a 70B model that requires CPU offloading. Qwen 2.5 Coder excels at structured output, shell commands, and infrastructure reasoning
+- **Intelligence Inventory**: 6 models pre-loaded on 200GB RunPod Persistent Network Volume (EU-RO-1, Romania) for zero-download startup: `infrabrain` (orchestrator, 32B), `deepseek-r1:32b` (reasoning), `llama3.3:70b` (generalist), `bge-m3` (RAG embeddings), `llama3.2-vision` (visual), `qwen2.5-coder:7b` (lightweight worker). Path: `/workspace/models` via `OLLAMA_MODELS=/workspace/models`
 - **High-Density Context**: 32,768 token context window + TOON encoding = effective ~50k+ standard tokens of infrastructure context
 - **Distribution**: Standalone binary — admins should not need Node.js installed
 - **Privacy**: Zero cloud dependencies, zero telemetry, all data stays local
