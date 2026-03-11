@@ -54,6 +54,30 @@ You are a forensic debugging specialist.
     expect(skill.frontmatter.preferred_model).toBe('forensic');
   });
 
+  it('accepts worker and vision as valid preferred_model roles', () => {
+    const { writeFileSync, mkdtempSync } = require('node:fs');
+    const { join: joinPath } = require('node:path');
+    const { tmpdir } = require('node:os');
+    for (const role of ['worker', 'vision']) {
+      const tmpDir = mkdtempSync(joinPath(tmpdir(), `skill-model-${role}-`));
+      const skillPath = joinPath(tmpDir, `${role}-skill.md`);
+      writeFileSync(skillPath, `---
+name: ${role}-test
+description: "A skill that uses the ${role} model"
+triggers:
+  - test-${role}
+preferred_model: ${role}
+---
+
+## System Prompt
+
+You are a ${role} specialist.
+`);
+      const skill = loadSkillFile(skillPath);
+      expect(skill.frontmatter.preferred_model).toBe(role);
+    }
+  });
+
   it('rejects invalid preferred_model values', () => {
     const { writeFileSync, mkdtempSync } = require('node:fs');
     const { join: joinPath } = require('node:path');

@@ -5,10 +5,13 @@
 #   because IT-Ops is structured syntax (CLI, logs, configs) where code specialists dominate
 # 32k High-Density Context + TOON encoding = ~50k+ effective standard tokens
 #
-# Model Registry:
+# Model Registry (5 chat roles + 1 embedding):
 #   default:   infrabrain (this model) — Technical Lead, all CLI/Docker/Nginx tasks
 #   strategic: llama3.3:70b            — Strategic Fallback, broad cross-domain reasoning
 #   forensic:  deepseek-r1:32b         — Forensic Specialist, deep chain-of-thought debugging
+#   worker:    qwen2.5-coder:7b        — Lightweight Worker, fast parallel sub-agent tasks
+#   vision:    llama3.2-vision          — Visual Specialist, screenshot/diagram analysis
+#   (embed):   bge-m3                   — RAG embeddings (Phase 6 KnowledgeProvider, not chat API)
 
 FROM qwen2.5-coder:32b
 

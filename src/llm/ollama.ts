@@ -28,7 +28,7 @@ export function createModelRegistry(modelMap: ModelMap, baseURL: string): ModelR
   const provider = createOllamaProvider(baseURL);
   const models = new Map<ModelRole, { model: LanguageModel; modelId: string }>();
 
-  for (const role of ['default', 'strategic', 'forensic'] as ModelRole[]) {
+  for (const role of ['default', 'strategic', 'forensic', 'worker', 'vision'] as ModelRole[]) {
     const modelId = modelMap[role];
     models.set(role, { model: provider(modelId), modelId });
   }

@@ -31,6 +31,8 @@ describe('Config Schema Extensions', () => {
     expect(config.modelMap.default).toBe('infrabrain');
     expect(config.modelMap.strategic).toBe('llama3.3:70b');
     expect(config.modelMap.forensic).toBe('deepseek-r1:32b');
+    expect(config.modelMap.worker).toBe('qwen2.5-coder:7b');
+    expect(config.modelMap.vision).toBe('llama3.2-vision');
   });
 
   it('allows overriding new config sections', async () => {

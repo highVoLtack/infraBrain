@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
-export const ModelRoleSchema = z.enum(['default', 'strategic', 'forensic']);
+export const ModelRoleSchema = z.enum(['default', 'strategic', 'forensic', 'worker', 'vision']);
 export type ModelRole = z.infer<typeof ModelRoleSchema>;
 
 export const ModelMapSchema = z.object({
   default: z.string().default('infrabrain'),
   strategic: z.string().default('llama3.3:70b'),
   forensic: z.string().default('deepseek-r1:32b'),
+  worker: z.string().default('qwen2.5-coder:7b'),
+  vision: z.string().default('llama3.2-vision'),
 });
 export type ModelMap = z.infer<typeof ModelMapSchema>;
 
@@ -17,6 +19,8 @@ export const InfraBrainConfigSchema = z.object({
     default: 'infrabrain',
     strategic: 'llama3.3:70b',
     forensic: 'deepseek-r1:32b',
+    worker: 'qwen2.5-coder:7b',
+    vision: 'llama3.2-vision',
   }),
   apiPort: z.number().default(3000),
   sessionDir: z.string().default('.infrabrain'),

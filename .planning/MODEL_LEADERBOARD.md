@@ -70,35 +70,36 @@ The Intelligence Catalog routes by **domain expertise**:
 - **VRAM**: Requires CPU offloading on single 32GB GPU (slower inference) or JIT cloud provisioning
 - **Best for**: Cross-domain correlation, architectural decisions, vendor documentation interpretation, problems where broad knowledge outweighs structured precision
 
-### BGE-M3
-- **Role**: Knowledge/RAG engine
-- **Strengths**: 1024-dim embeddings, 8192 token context, multilingual, hybrid dense+sparse
-- **VRAM**: ~1 GB (float16), ~0.6 GB quantized
-- **Best for**: Document ingestion, semantic search, knowledge base indexing
-
-### Llama 3.2 Vision
-- **Role**: Visual specialist
-- **Strengths**: Multimodal input, image understanding, diagram interpretation
-- **Best for**: Future screenshot analysis, network topology diagrams, monitoring dashboard interpretation
-
-### Qwen 2.5 Coder 7B
-- **Role**: Lightweight worker
+### Qwen 2.5 Coder 7B — Lightweight Worker
+- **Config role**: `worker`
 - **Strengths**: Fast inference, low resource usage, good code understanding for its size
 - **VRAM**: ~4-5 GB, can run in parallel with primary model
 - **Best for**: Parallel sub-agent tasks, simple command generation, quick verification checks
+
+### Llama 3.2 Vision — Visual Specialist
+- **Config role**: `vision`
+- **Strengths**: Multimodal input, image understanding, diagram interpretation
+- **Best for**: Future screenshot analysis, network topology diagrams, monitoring dashboard interpretation
+
+### BGE-M3 — Knowledge/RAG Engine
+- **Config role**: N/A (embedding API, not chat API — handled by Phase 6 `KnowledgeProvider`)
+- **Strengths**: 1024-dim embeddings, 8192 token context, multilingual, hybrid dense+sparse
+- **VRAM**: ~1 GB (float16), ~0.6 GB quantized
+- **Best for**: Document ingestion, semantic search, knowledge base indexing
+- **Note**: Pre-loaded on persistent volume but not part of the chat `ModelRegistry`. Will be consumed by a dedicated `KnowledgeProvider` in Phase 6 (RAG pipeline) using the Ollama embedding API
 
 ## Intelligence Inventory (Provisioned)
 
 All models pre-loaded on a **200GB Persistent Network Volume** in **EU-RO-1 (Romania)**. Zero-download startup guaranteed. Storage path: `/workspace/models` (`OLLAMA_MODELS=/workspace/models`).
 
-| # | Role | Model | Size Class | Purpose | Status |
-|---|------|-------|------------|---------|--------|
-| 1 | Technical Lead (Primary) | `infrabrain` (Qwen 2.5 Coder 32B custom) | 32B | Core DPEV loop — all CLI, Docker, Nginx, configs. 32k context, temp 0.1 | Ready |
-| 2 | Forensic Specialist | `deepseek-r1:32b` | 32B | Deep chain-of-thought debugging, hidden root causes | Ready |
-| 3 | Strategic Fallback | `llama3.3:70b` | 70B | Broad cross-domain knowledge, non-technical reasoning | Ready |
-| 4 | Knowledge/RAG Engine | `bge-m3` | 568M | Embedding model for local vector DB ingestion | Ready |
-| 5 | Visual Specialist | `llama3.2-vision` | 11B | Screenshot analysis, network diagram interpretation | Ready |
-| 6 | Lightweight Worker | `qwen2.5-coder:7b` | 7B | Fast sub-agent tasks, low-resource parallel execution | Ready |
+| # | Config Role | Model | Size | Purpose | Status |
+|---|-------------|-------|------|---------|--------|
+| 1 | `default` | `infrabrain` (Qwen 2.5 Coder 32B) | 32B | Technical Lead — core DPEV loop, all structured syntax tasks | Ready |
+| 2 | `forensic` | `deepseek-r1:32b` | 32B | Forensic Specialist — deep chain-of-thought debugging | Ready |
+| 3 | `strategic` | `llama3.3:70b` | 70B | Strategic Fallback — broad cross-domain reasoning | Ready |
+| 4 | `worker` | `qwen2.5-coder:7b` | 7B | Lightweight Worker — fast parallel sub-agent tasks | Ready |
+| 5 | `vision` | `llama3.2-vision` | 11B | Visual Specialist — screenshot/diagram analysis | Ready |
+| 6 | *(Phase 6)* | `bge-m3` | 568M | RAG Engine — embedding API, not chat (KnowledgeProvider) | Ready |
 
 ### Deployment Notes
 
@@ -115,4 +116,4 @@ All models pre-loaded on a **200GB Persistent Network Volume** in **EU-RO-1 (Rom
 
 ---
 *Created: 2026-03-11 — First entry from Phase 5 Nginx 502 POC*
-*Updated: 2026-03-11 — Intelligence Inventory provisioned on EU-RO-1 persistent volume*
+*Updated: 2026-03-11 — Full 5-role chat registry (default/strategic/forensic/worker/vision) + bge-m3 reserved for Phase 6 KnowledgeProvider*
