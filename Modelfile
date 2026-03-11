@@ -1,0 +1,25 @@
+# InfraBrain Production Modelfile
+# Target hardware: 1x NVIDIA RTX 5090 (32 GB VRAM)
+# Strategy: Specialist over Generalist — Qwen 32B fits natively, no CPU offloading
+# 32k High-Density Context + TOON encoding = ~50k+ effective standard tokens
+
+FROM qwen2.5-coder:32b
+
+# 32k context window — fits comfortably in 32 GB VRAM
+# ~18-20 GB model weights (Q4_K_M) + ~8-10 GB KV cache = ~28-31 GB total
+# Leaves headroom for BGE-M3 embeddings (~1 GB) when RAG is active
+PARAMETER num_ctx 32768
+
+# Conservative temperature for infrastructure diagnostics
+# Deterministic reasoning is more important than creativity
+PARAMETER temperature 0.3
+
+# Prevent repetitive diagnostic output
+PARAMETER repeat_penalty 1.1
+
+# Stop tokens — prevent runaway generation
+PARAMETER stop "<|eot_id|>"
+PARAMETER stop "<|end_of_text|>"
+
+# System prompt establishing InfraBrain's role
+SYSTEM """You are InfraBrain, an AI IT operations agent. You diagnose infrastructure problems systematically using a Diagnostic Ladder approach. You analyze logs, network topology, and system state to identify root causes. You generate precise, single-command fix steps with risk levels and rollback procedures. You never guess — you verify through evidence. Data provided in TOON format is a token-efficient encoding; parse it as structured data."""

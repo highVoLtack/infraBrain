@@ -101,8 +101,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Docker demo environment, Nginx troubleshoot skill, debug route fix plan generation, and snapshot extensions
-- [ ] 05-02-PLAN.md — E2E integration test proving full DPEV loop with audit trail verification
+- [x] 05-01-PLAN.md — Docker demo environment, Nginx troubleshoot skill, debug route fix plan generation, and snapshot extensions
+- [x] 05-02-PLAN.md — E2E integration test proving full DPEV loop with audit trail verification
 
 ## Progress
 
@@ -119,4 +119,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-08*
+*Last updated: 2026-03-11 — v1.0.0 battle-proven: Nginx 502 POC 100% success with live Qwen 32B on RTX 5090*

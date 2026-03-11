@@ -71,6 +71,8 @@ async function main(): Promise<void> {
     config,
     sessionId: session.sessionId,
     sessionDir,
+    store,
+    lockDir: join(baseDir, '.infrabrain', 'locks'),
   });
 
   // Start server

@@ -1,8 +1,8 @@
 # InfraBrain — Architecture Decision Records
 
 **Product:** InfraBrain — On-Premise AI IT Operations Platform
-**Version:** 1.0
-**Last Updated:** 2026-03-08
+**Version:** 1.0.0
+**Last Updated:** 2026-03-11
 **Classification:** Internal / Customer-Facing / Regulatory
 
 > InfraBrain diagnoses, plans, and fixes infrastructure problems using local LLMs.
@@ -22,6 +22,8 @@
 - [ADR-008: Technology Stack Selection](#adr-008-technology-stack-selection)
 - [ADR-009: Session Resumability](#adr-009-session-resumability)
 - [ADR-010: Controversy Resolution — AI Operating on Production Infrastructure](#adr-010-controversy-resolution--ai-operating-on-production-infrastructure)
+- [ADR-011: Iterative Discovery Engine](#adr-011-iterative-discovery-engine)
+- [ADR-012: Model-Agnostic Platform with Specialist Strategy](#adr-012-model-agnostic-platform-with-specialist-strategy)
 
 ---
 
@@ -1020,5 +1022,67 @@ How each ADR addresses key stakeholder concerns:
 
 ---
 
+---
+
+## ADR-011: Iterative Discovery Engine
+
+**Status:** Accepted
+**Date:** 2026-03-11
+
+**Context:**
+
+During the Phase 5 Nginx 502 POC, the LLM hallucinated a container name (`backend-app`) that did not exist on the system. The execution engine's safety gates caught this (circuit breaker triggered on `docker restart backend-app` → "No such container"), proving the defense-in-depth works. However, the root cause was that the LLM had no ground truth about the actual running containers.
+
+**Decision:**
+
+Move from "One-Shot Planning" to "Iterative Discovery". Before the LLM generates any diagnosis or fix plan, the orchestrator runs READ-only discovery commands to gather ground truth from the live system. Discovery results are TOON-encoded and injected into the LLM context.
+
+**Implementation:**
+
+- `DISCOVERY_COMMANDS` registry maps skill names to READ-only commands (e.g., `nginx-troubleshoot` → `docker ps --format "{{.Names}}"`, `docker network ls --format "{{.Name}}"`)
+- Discovery runs automatically after skill selection, before the LLM call
+- Results are TOON-encoded for token efficiency and injected into the prompt with: "IMPORTANT: Use ONLY the container and network names shown above"
+- Fix plan validation rejects steps containing `<placeholder>` patterns
+- Discovery data is logged in the audit trail (`discovery_complete` event)
+
+**Consequences:**
+
+- **Positive:** Eliminates container/network name hallucination. LLM operates on verified ground truth.
+- **Positive:** Discovery is READ-only and runs in <1 second — negligible overhead.
+- **Positive:** Extensible: new skills can register their own discovery commands.
+- **Negative:** Adds one round-trip of command execution before the LLM call. Acceptable for the quality gain.
+
+---
+
+## ADR-012: Model-Agnostic Platform with Specialist Strategy
+
+**Status:** Accepted
+**Date:** 2026-03-11
+
+**Context:**
+
+Initial design assumed Llama 3.3 70B as the primary model with Qwen 2.5 Coder 7B for execution. Hardware constraints (1x RTX 5090, 32GB VRAM) made 70B models impractical without CPU offloading, which destroys real-time inference speed. Testing revealed that Qwen 2.5 Coder 32B, a specialist model for code/CLI/infrastructure tasks, fits natively in 32GB VRAM and outperforms the 70B generalist on infrastructure diagnostics.
+
+**Decision:**
+
+Adopt a "Specialist over Generalist" strategy. InfraBrain is model-agnostic — it benchmarks and swaps models per scenario. The platform uses a custom Ollama model (`infrabrain`) with a `Modelfile` that configures context window, temperature, and system prompt. Results are tracked in `MODEL_LEADERBOARD.md`.
+
+**Implementation:**
+
+- `Modelfile` defines the custom model (currently `FROM qwen2.5-coder:32b`, 32k context, temp 0.3)
+- `.infrabrain/config.json` references `"modelName": "infrabrain"` — decoupled from specific model weights
+- `LLMProvider` abstraction (AI SDK v6) accepts any Ollama model — swapping models requires only `Modelfile` update + `ollama create`
+- `Intelligence Catalog` (Phase 6+) will map problem domains to optimal models automatically
+- `MODEL_LEADERBOARD.md` tracks benchmark results per scenario
+
+**Consequences:**
+
+- **Positive:** Model changes require zero code changes — only Modelfile update.
+- **Positive:** 32B specialist at full GPU speed outperforms 70B generalist with CPU offloading.
+- **Positive:** Future-proof: new models (DeepSeek-R1, Codestral, etc.) can be benchmarked and swapped without refactoring.
+- **Negative:** Requires benchmarking effort when new models are released. Mitigated by structured leaderboard tracking.
+
+---
+
 *This document is maintained as part of the InfraBrain codebase and is version-controlled alongside the source code.*
-*Last reviewed: 2026-03-08*
+*Last reviewed: 2026-03-11*

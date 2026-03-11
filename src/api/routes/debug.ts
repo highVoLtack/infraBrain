@@ -12,6 +12,67 @@ import { buildMessages } from '../../orchestrator/context.js';
 import type { FixPlan } from '../../orchestrator/types.js';
 import { extractTarget } from '../../cli/approval.js';
 import { v7 as uuidv7 } from 'uuid';
+import { runCommand, parseCommand } from '../../execution/runner.js';
+import { encodeForLLM, measureSavings } from '../../llm/toon-encoder.js';
+
+const DEV_MODE = process.env.NODE_ENV !== 'production';
+
+/**
+ * Discovery commands that the orchestrator runs automatically before LLM diagnosis.
+ * These provide ground truth so the LLM doesn't hallucinate container/network names.
+ */
+const DISCOVERY_COMMANDS: Record<string, { command: string; label: string }[]> = {
+  'nginx-troubleshoot': [
+    { command: 'docker ps --format "{{.Names}}"', label: 'Running containers' },
+    { command: 'docker network ls --format "{{.Name}}"', label: 'Docker networks' },
+  ],
+};
+
+/**
+ * Run discovery commands and return TOON-encoded context string.
+ * These are READ-only commands run before the LLM to prevent hallucination.
+ */
+async function runDiscovery(skillName: string): Promise<{ context: string; raw: Record<string, string> }> {
+  const commands = DISCOVERY_COMMANDS[skillName];
+  if (!commands || commands.length === 0) return { context: '', raw: {} };
+
+  const results: Record<string, string> = {};
+  const parts: string[] = [];
+
+  for (const { command, label } of commands) {
+    const { executable, args } = parseCommand(command);
+    const result = await runCommand(executable, args, { timeout: 10_000 });
+    const output = result.stdout.trim() || result.stderr.trim() || '(empty)';
+    results[label] = output;
+    parts.push(`${label}:\n${output}`);
+  }
+
+  const context = encodeForLLM(results, 'Discovery (ground truth from live system)');
+
+  if (DEV_MODE) {
+    const savings = measureSavings(results);
+    console.log(`[DEV] TOON Discovery: ${savings.jsonTokens} (JSON) -> ${savings.toonTokens} (TOON) | Saved: ${savings.savingsPercent.toFixed(1)}%`);
+  }
+
+  return { context, raw: results };
+}
+
+/**
+ * Validate that a fix plan doesn't contain placeholder names.
+ * Returns list of problems found.
+ */
+function validatePlanNames(plan: FixPlan, discoveredNames: Record<string, string>): string[] {
+  const problems: string[] = [];
+  const placeholderPattern = /<[^>]+>/;
+
+  for (const step of plan.steps) {
+    if (placeholderPattern.test(step.command)) {
+      problems.push(`Step "${step.command}" contains placeholder <...>. Must use actual names from discovery.`);
+    }
+  }
+
+  return problems;
+}
 
 /**
  * Extract shell commands from LLM text output.
@@ -57,6 +118,7 @@ function extractCommands(text: string): string[] {
 export interface DebugRouteDeps {
   store?: WriteThrough;
   config?: InfraBrainConfig;
+  sessionId?: string;
 }
 
 export function createDebugRoute(
@@ -102,7 +164,8 @@ export function createDebugRoute(
         }
       }
 
-      const sessionId = uuidv7();
+      // Use server's sessionId so audit log entries match the returned ID
+      const sessionId = extraDeps?.sessionId ?? uuidv7();
       let skillMessage: string | undefined;
       let fixPlan: FixPlan | undefined;
       let planMarkdown: string | undefined;
@@ -128,23 +191,50 @@ export function createDebugRoute(
             !!skillOverride,
           );
 
+          // Run discovery commands to get ground truth BEFORE LLM call
+          const { context: discoveryContext, raw: discoveryRaw } = await runDiscovery(selection.skill.frontmatter.name);
+
+          if (discoveryContext) {
+            auditLogger.logExecution('discovery_complete', {
+              skill: selection.skill.frontmatter.name,
+              discoveredData: discoveryRaw,
+            });
+          }
+
           // Use skill's system prompt
           const { system } = buildMessages(selection.skill, prompt);
           systemPrompt = system;
 
-          // Generate diagnosis with skill context
-          const diagnosis = await provider.generateCommand(prompt, systemPrompt);
+          // Build enriched prompt with discovery context injected
+          const enrichedPrompt = discoveryContext
+            ? `${prompt}\n\n${discoveryContext}\n\nIMPORTANT: Use ONLY the container and network names shown above. Do NOT invent names.`
+            : prompt;
+
+          // Generate diagnosis with skill context + discovery data
+          const diagnosis = await provider.generateCommand(enrichedPrompt, systemPrompt);
 
           // Always attempt fix plan generation from any skill's diagnosis
           const planningSkill = registry.get('planning');
           if (planningSkill) {
             try {
+              // Include discovery context in the diagnosis passed to planner
+              const enrichedDiagnosis = discoveryContext
+                ? `${diagnosis}\n\n${discoveryContext}`
+                : diagnosis;
+
               fixPlan = await generateFixPlan({
                 model: provider.model,
                 skill: planningSkill,
                 userInput: prompt,
-                diagnosis,
+                diagnosis: enrichedDiagnosis,
               });
+
+              // Validate plan doesn't contain placeholder names
+              const planProblems = validatePlanNames(fixPlan, discoveryRaw);
+              if (planProblems.length > 0) {
+                auditLogger.logError(`Fix plan contains placeholders: ${planProblems.join('; ')}`);
+              }
+
               planMarkdown = generatePlanMarkdown(fixPlan);
               planTable = formatPlanTable(fixPlan);
             } catch (planErr) {
@@ -198,6 +288,7 @@ export function createDebugRoute(
             skillMessage,
             diagnosis,
             commands,
+            ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
             ...(fixPlan && { fixPlan }),
             ...(planMarkdown && { planMarkdown }),
             ...(planTable && { planTable }),

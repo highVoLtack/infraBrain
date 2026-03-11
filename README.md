@@ -32,20 +32,23 @@ InfraBrain follows a **Diagnose → Plan → Execute → Verify** loop. The orch
 - **Structured JSON audit trail** for compliance
 - **Session resume** with retry/skip on interrupted plans
 - **JSON output mode** (`--json`) for scripting and automation
-- **TOON encoding** for LLM context optimization
+- **TOON encoding** for LLM context optimization (32k context = ~50k+ effective tokens)
+- **Iterative Discovery** — runs READ-only commands before LLM diagnosis to prevent hallucination
+- **Model-agnostic** — benchmarks and swaps models per scenario (see MODEL_LEADERBOARD.md)
 - **Log analysis** with format auto-detection (syslog, JSON, Docker, journald)
+- **Dev-mode TOON analytics** — shows token savings in development
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
 | Runtime | Node.js / TypeScript 5.9 (ESM) |
-| LLM | AI SDK v6 + Ollama (Llama-3.3-70B orchestration, Qwen2.5-Coder-7B execution) |
+| LLM | AI SDK v6 + Ollama (model-agnostic; current: Qwen 2.5 Coder 32B as `infrabrain`) |
 | Database | better-sqlite3 (state + audit) |
 | API | Express 5 (REST) |
 | CLI | Commander |
 | Validation | Zod v4 |
-| Testing | Vitest (318 tests, 36 test files) |
+| Testing | Vitest (314+ tests, 35 test files) |
 | Build | tsup + tsx |
 
 ## Project Structure
@@ -71,7 +74,7 @@ src/
 ### Prerequisites
 
 - Node.js 22+
-- Ollama running locally with `llama3.3:70b` and `qwen2.5-coder:7b`
+- Ollama running locally with a model configured in `.infrabrain/config.json` (default: `infrabrain` custom model based on Qwen 2.5 Coder 32B, see `Modelfile`)
 
 ### Install
 
@@ -102,9 +105,11 @@ npm run build
 | Command | Description |
 |---------|-------------|
 | `/infra:debug "problem"` | Diagnose and fix an infrastructure problem |
+| `/infra:execute` | Execute the fix plan from the last diagnosis |
 | `/infra:status` | Show system status, active sessions, locks |
 | `/infra:history` | Query audit log with filters |
 | `/infra:resume` | Resume an interrupted fix plan |
+| `/infra:health` | Check Ollama connectivity and models |
 
 ## API Endpoints
 

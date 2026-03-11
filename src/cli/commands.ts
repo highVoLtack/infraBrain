@@ -1,6 +1,26 @@
 import { Command } from 'commander';
 import type * as readline from 'node:readline/promises';
+import chalk from 'chalk';
 import { formatDiagnosis, formatCommand, formatError, formatApprovalResult, formatStatusDashboard, formatHistoryTable, formatResumeSummary } from './formatter.js';
+
+/** Simple CLI spinner for long-running operations */
+function createSpinner(message: string) {
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  let i = 0;
+  const start = Date.now();
+  const interval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - start) / 1000);
+    process.stdout.write(`\r${chalk.cyan(frames[i++ % frames.length])} ${message} ${chalk.gray(`(${elapsed}s)`)}`);
+  }, 80);
+  return {
+    update(msg: string) { message = msg; },
+    stop(finalMsg?: string) {
+      clearInterval(interval);
+      const elapsed = Math.floor((Date.now() - start) / 1000);
+      process.stdout.write(`\r${finalMsg ?? `${chalk.green('✓')} ${message} ${chalk.gray(`(${elapsed}s)`)}`}\n`);
+    },
+  };
+}
 import { requestApproval } from './approval.js';
 import type { RiskLevel } from '../safety/types.js';
 import { formatPlanTable } from '../orchestrator/planner.js';
@@ -16,6 +36,9 @@ export interface CommandConfig {
 // Module-level rl reference for late binding (REPL creates rl after commands are registered)
 let moduleRl: readline.Interface | undefined;
 
+// Last debug result — used by /infra:execute to auto-pick the most recent plan
+let lastDebugResult: { sessionId: string; fixPlan: FixPlan; target: string } | undefined;
+
 interface IncompleteSessionInfo {
   sessionId: string;
   target?: string;
@@ -27,6 +50,7 @@ interface IncompleteSessionInfo {
 interface DebugResponse {
   sessionId: string;
   skillMessage?: string;
+  discovery?: Record<string, string>;
   diagnosis: string;
   commands: Array<{
     command: string;
@@ -78,6 +102,8 @@ export function registerCommands(config: CommandConfig): Command {
           body.skill = options.skill;
         }
 
+        const spinner = jsonMode ? null : createSpinner('Diagnosing issue via LLM...');
+
         const res = await fetch(`${config.apiBaseUrl}/debug`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -85,6 +111,7 @@ export function registerCommands(config: CommandConfig): Command {
         });
 
         if (!res.ok) {
+          spinner?.stop(chalk.red('✗ Diagnosis failed'));
           const body = await res.json() as { error: string };
           if (jsonMode) {
             console.log(JSON.stringify(errorEnvelope('debug', body.error)));
@@ -95,6 +122,7 @@ export function registerCommands(config: CommandConfig): Command {
         }
 
         const data = await res.json() as DebugResponse;
+        spinner?.stop();
 
         if (jsonMode) {
           console.log(JSON.stringify(envelope('debug', data)));
@@ -128,9 +156,26 @@ export function registerCommands(config: CommandConfig): Command {
           }
         }
 
+        // Store last debug result for /infra:execute
+        if (data.fixPlan && data.sessionId) {
+          lastDebugResult = {
+            sessionId: data.sessionId,
+            fixPlan: data.fixPlan,
+            target: (data as unknown as Record<string, unknown>).target as string ?? 'unknown',
+          };
+        }
+
         // Display skill selection message
         if (data.skillMessage) {
           console.log('\n' + data.skillMessage);
+        }
+
+        // Display discovery results (ground truth from live system)
+        if (data.discovery && Object.keys(data.discovery).length > 0) {
+          console.log(chalk.gray('\n  Discovery (live system):'));
+          for (const [label, value] of Object.entries(data.discovery)) {
+            console.log(chalk.gray(`    ${label}: ${value.replace(/\n/g, ', ')}`));
+          }
         }
 
         // Display diagnosis
@@ -139,6 +184,7 @@ export function registerCommands(config: CommandConfig): Command {
         // Display fix plan if present
         if (data.fixPlan) {
           console.log('\n' + formatPlanTable(data.fixPlan));
+          console.log(chalk.gray('  Run /infra:execute to apply this fix plan.\n'));
         }
 
         // Display commands with risk levels and approval gate
@@ -358,6 +404,129 @@ export function registerCommands(config: CommandConfig): Command {
           return;
         }
         console.log(formatError(`Failed to connect to API: ${(err as Error).message}`));
+      }
+    });
+
+  program
+    .command('execute')
+    .alias('/infra:execute')
+    .description('Execute the fix plan from the last /infra:debug diagnosis')
+    .option('--admin <name>', 'Admin name for audit trail', 'admin')
+    .action(async function (this: Command, options: { admin: string }) {
+      const jsonMode = this.optsWithGlobals().json;
+      try {
+        if (!lastDebugResult) {
+          const msg = 'No fix plan available. Run /infra:debug first to generate a diagnosis and fix plan.';
+          if (jsonMode) {
+            console.log(JSON.stringify(errorEnvelope('execute', msg)));
+            return;
+          }
+          console.log(formatError(msg));
+          return;
+        }
+
+        const { sessionId, fixPlan, target } = lastDebugResult;
+
+        // Show what we're about to execute and ask for confirmation
+        const rl = config.rl ?? moduleRl;
+        if (!jsonMode && rl) {
+          console.log(`\nExecuting fix plan: ${fixPlan.summary}`);
+          console.log(`  Target: ${target}`);
+          console.log(`  Steps: ${fixPlan.steps.length}`);
+          console.log(`  Session: ${sessionId}\n`);
+          const answer = await rl.question('Proceed with execution? (yes/no) ');
+          if (answer.trim().toLowerCase() !== 'yes' && answer.trim().toLowerCase() !== 'y') {
+            console.log(chalk.gray('Execution cancelled.\n'));
+            return;
+          }
+        }
+
+        const execSpinner = jsonMode ? null : createSpinner('Executing fix plan...');
+
+        const res = await fetch(`${config.apiBaseUrl}/execute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            fixPlan,
+            target,
+            adminName: options.admin,
+          }),
+        });
+
+        execSpinner?.stop();
+
+        if (!res.ok) {
+          const body = await res.json() as { error: string };
+          if (jsonMode) {
+            console.log(JSON.stringify(errorEnvelope('execute', body.error)));
+            return;
+          }
+          console.log(formatError(`Execution failed: ${body.error}`));
+          return;
+        }
+
+        const data = await res.json() as {
+          status: string;
+          reason?: string;
+          stoppedAt?: number;
+          stepResults: Array<{
+            stepIndex: number;
+            status: string;
+            runResult?: { stdout: string; stderr: string; exitCode: number };
+            retries: number;
+            damageCost: number;
+          }>;
+        };
+
+        if (jsonMode) {
+          console.log(JSON.stringify(envelope('execute', data)));
+          return;
+        }
+
+        // Display results
+        const statusColor = data.status === 'completed' ? chalk.green : chalk.red;
+        console.log(`\n${chalk.bold('Execution Result:')} ${statusColor(data.status)}`);
+        if (data.reason) {
+          console.log(`  Reason: ${chalk.yellow(data.reason)}`);
+        }
+
+        for (const step of data.stepResults) {
+          const icon = step.status === 'success' ? chalk.green('✓') : step.status === 'skipped' ? chalk.gray('○') : chalk.red('✗');
+          console.log(`  ${icon} Step ${step.stepIndex + 1}: ${step.status}`);
+
+          if (step.runResult) {
+            if (step.runResult.stdout.trim()) {
+              console.log(chalk.gray(`    stdout: ${step.runResult.stdout.trim()}`));
+            }
+            if (step.runResult.stderr.trim()) {
+              console.log(chalk.yellow(`    stderr: ${step.runResult.stderr.trim()}`));
+            }
+            if (step.runResult.exitCode !== 0) {
+              console.log(chalk.red(`    exit code: ${step.runResult.exitCode}`));
+            }
+          }
+
+          if (step.retries > 0) {
+            console.log(chalk.yellow(`    retries: ${step.retries}`));
+          }
+        }
+
+        if (data.stoppedAt !== undefined) {
+          console.log(chalk.red(`\n  Execution halted at step ${data.stoppedAt + 1}.`));
+        }
+
+        // Show audit hint
+        console.log(`\n${chalk.gray(`Audit: /infra:history --session ${sessionId}`)}\n`);
+
+        // Clear the stored plan after execution
+        lastDebugResult = undefined;
+      } catch (err) {
+        if (jsonMode) {
+          console.log(JSON.stringify(errorEnvelope('execute', (err as Error).message)));
+          return;
+        }
+        console.log(formatError(`Execution failed: ${(err as Error).message}`));
       }
     });
 

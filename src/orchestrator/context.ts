@@ -1,5 +1,7 @@
 import type { SkillFile } from '../skills/types.js';
-import { encodeForLLM } from '../llm/toon-encoder.js';
+import { encodeForLLM, measureSavings } from '../llm/toon-encoder.js';
+
+const DEV_MODE = process.env.NODE_ENV !== 'production';
 
 export interface SkillMessages {
   system: string;
@@ -18,9 +20,17 @@ export function buildMessages(skill: SkillFile, userInput: string): SkillMessage
   const contextParts: string[] = [];
 
   if (skill.sections.tools) {
+    if (DEV_MODE) {
+      const savings = measureSavings(skill.sections.tools);
+      console.log(`[DEV] TOON Tools: ${savings.jsonTokens} (JSON) -> ${savings.toonTokens} (TOON) | Saved: ${savings.savingsPercent.toFixed(1)}%`);
+    }
     contextParts.push(encodeForLLM(skill.sections.tools, 'Tools'));
   }
   if (skill.sections.examples) {
+    if (DEV_MODE) {
+      const savings = measureSavings(skill.sections.examples);
+      console.log(`[DEV] TOON Examples: ${savings.jsonTokens} (JSON) -> ${savings.toonTokens} (TOON) | Saved: ${savings.savingsPercent.toFixed(1)}%`);
+    }
     contextParts.push(encodeForLLM(skill.sections.examples, 'Examples'));
   }
 

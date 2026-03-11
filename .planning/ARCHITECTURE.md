@@ -107,7 +107,8 @@ flowchart LR
         LOGS["Detect + Parse<br/>Log Format"]
         FILT["Pre-filter Logs"]
         SKILL["Select Skill<br/>(Router)"]
-        CTX["Build LLM Context<br/>(TOON Encoded)"]
+        DISC["Run Discovery<br/>(docker ps, network ls)"]
+        CTX["Build LLM Context<br/>(TOON Encoded +<br/>Discovery Data)"]
         DIAG["LLM Diagnosis<br/>(generateObject)"]
     end
 
@@ -130,7 +131,7 @@ flowchart LR
         DONE["Mark Session<br/>Complete"]
     end
 
-    REQ --> SESS --> LOGS --> FILT --> SKILL --> CTX --> DIAG
+    REQ --> SESS --> LOGS --> FILT --> SKILL --> DISC --> CTX --> DIAG
     DIAG --> PLAN --> RISK --> GATE
     GATE --> SNAPS --> RUN --> BUDGET --> BREAK
     BREAK -->|"pass"| CHECK
@@ -142,7 +143,7 @@ flowchart LR
 
 ### Phase Details
 
-1. **Diagnose** -- A session is created (or resumed from prior state). Logs are auto-detected (`detector.ts`), parsed by format-specific parsers, and pre-filtered. The orchestrator's router selects the most relevant skill, and the context builder assembles the LLM prompt using TOON encoding to minimize token usage. The LLM returns a structured diagnostic result via `generateObject`.
+1. **Diagnose** -- A session is created (or resumed from prior state). Logs are auto-detected (`detector.ts`), parsed by format-specific parsers, and pre-filtered. The orchestrator's router selects the most relevant skill. **Before the LLM call**, the Discovery Engine runs READ-only commands (`docker ps`, `docker network ls`) to gather ground truth about the live system. This discovery data is TOON-encoded and injected into the LLM prompt alongside the skill context, preventing hallucination of container names, network names, etc. The LLM returns a structured diagnostic result via `generateObject`.
 
 2. **Plan** -- The planner generates a fix plan as a sequence of steps, each validated against a Zod schema. Every step's command is classified by risk level (safe / moderate / dangerous). High-risk steps require explicit human approval via the approval gate.
 
@@ -391,6 +392,7 @@ All API responses use the JSON envelope format (`cli/json-envelope.ts`): `{ ok: 
 | `debug` | `cli/commands.ts` | Start an interactive debug session |
 | `status` | `cli/commands.ts` | Show current session status |
 | `history` | `cli/commands.ts` | Browse past sessions |
+| `execute` | `cli/commands.ts` | Execute the fix plan from last diagnosis |
 | `resume` | `cli/commands.ts` | Resume an interrupted session |
 | (REPL) | `cli/repl.ts` | Interactive mode with live formatting |
 
@@ -409,3 +411,7 @@ All API responses use the JSON envelope format (`cli/json-envelope.ts`): `{ ok: 
 5. **Sandboxed execution** -- Commands run via `execFile` (not `exec`), avoiding shell injection. No shell interpretation occurs.
 
 6. **Resume-first sessions** -- Sessions capture enough metadata to resume from the exact point of interruption, making the system resilient to crashes, timeouts, and manual pauses.
+
+7. **Iterative Discovery** -- Before the LLM generates a diagnosis or fix plan, the system runs READ-only discovery commands (e.g., `docker ps`, `docker network ls`) to gather ground truth. Discovery results are TOON-encoded and injected into the LLM context, eliminating hallucination of container names, network names, and other infrastructure artifacts.
+
+8. **Model-agnostic platform** -- InfraBrain benchmarks and swaps models per scenario. The `IntelligenceCatalog` maps problem domains to optimal models. Current IT-Ops champion: Qwen 2.5 Coder 32B. Results tracked in `MODEL_LEADERBOARD.md`.

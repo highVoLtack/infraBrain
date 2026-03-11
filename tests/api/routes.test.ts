@@ -167,7 +167,7 @@ describe('POST /debug', () => {
     app.use(express.json());
     app.use('/debug', createDebugRoute(
       mockProvider,
-      { ...mockAuditLogger, logSkillSelection: vi.fn(), logError: vi.fn() } as unknown as AuditLogger,
+      { ...mockAuditLogger, logSkillSelection: vi.fn(), logError: vi.fn(), logExecution: vi.fn() } as unknown as AuditLogger,
       mockValidator,
       registry,
     ));

@@ -46,6 +46,7 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
   app.use('/debug', createDebugRoute(deps.provider, deps.auditLogger, deps.validator, deps.registry, {
     store: deps.store,
     config: deps.config,
+    sessionId: deps.sessionId,
   }));
 
   // Mount status route if store available
@@ -95,6 +96,10 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
     start: (port: number) => {
       return new Promise<ServerInstance>((resolve) => {
         const server = app.listen(port, () => {
+          // 5 minute timeout for long LLM calls over RunPod proxy
+          server.timeout = 300_000;
+          server.keepAliveTimeout = 300_000;
+          server.headersTimeout = 310_000;
           resolve({ app, server });
         });
       });

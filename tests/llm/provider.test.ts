@@ -233,6 +233,6 @@ describe('Ollama Model Factory', () => {
     const model = createOllamaModel();
 
     expect(model).toBeDefined();
-    expect((model as any).modelId).toBe('llama3.3:70b');
+    expect((model as any).modelId).toBe('infrabrain');
   });
 });
