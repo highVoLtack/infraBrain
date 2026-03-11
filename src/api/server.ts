@@ -1,6 +1,6 @@
 import express from 'express';
 import type { Server } from 'node:http';
-import type { LLMProvider } from '../llm/types.js';
+import type { LLMProvider, ModelRegistry } from '../llm/types.js';
 import type { AuditLogger } from '../audit/logger.js';
 import type { ValidationResult } from '../safety/types.js';
 import type { SkillRegistry } from '../skills/registry.js';
@@ -19,6 +19,7 @@ export interface ServerDeps {
   validator: (command: string) => ValidationResult;
   ollamaBaseUrl: string;
   registry?: SkillRegistry;
+  modelRegistry?: ModelRegistry;
   config?: InfraBrainConfig;
   sessionId?: string;
   sessionDir?: string;
@@ -42,7 +43,7 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
   app.use(express.json());
 
   // Routes
-  app.use('/health', createHealthRoute(deps.ollamaBaseUrl));
+  app.use('/health', createHealthRoute(deps.ollamaBaseUrl, deps.modelRegistry));
   app.use('/debug', createDebugRoute(deps.provider, deps.auditLogger, deps.validator, deps.registry, {
     store: deps.store,
     config: deps.config,

@@ -1,7 +1,14 @@
-# InfraBrain Production Modelfile
+# InfraBrain Production Modelfile — Technical Lead & Execution Specialist
+# Role: default (infrabrain) — primary orchestrator for all DPEV loop tasks
 # Target hardware: 1x NVIDIA RTX 5090 (32 GB VRAM)
-# Strategy: Specialist over Generalist — Qwen 32B fits natively, no CPU offloading
+# Strategy: Domain Expertise over Parameter Count — Qwen 32B is the Technical Lead
+#   because IT-Ops is structured syntax (CLI, logs, configs) where code specialists dominate
 # 32k High-Density Context + TOON encoding = ~50k+ effective standard tokens
+#
+# Model Registry:
+#   default:   infrabrain (this model) — Technical Lead, all CLI/Docker/Nginx tasks
+#   strategic: llama3.3:70b            — Strategic Fallback, broad cross-domain reasoning
+#   forensic:  deepseek-r1:32b         — Forensic Specialist, deep chain-of-thought debugging
 
 FROM qwen2.5-coder:32b
 
@@ -10,9 +17,9 @@ FROM qwen2.5-coder:32b
 # Leaves headroom for BGE-M3 embeddings (~1 GB) when RAG is active
 PARAMETER num_ctx 32768
 
-# Conservative temperature for infrastructure diagnostics
-# Deterministic reasoning is more important than creativity
-PARAMETER temperature 0.3
+# Low temperature for precise infrastructure diagnostics
+# Technical Lead needs deterministic, surgical precision — not creativity
+PARAMETER temperature 0.1
 
 # Prevent repetitive diagnostic output
 PARAMETER repeat_penalty 1.1

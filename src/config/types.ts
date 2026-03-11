@@ -1,8 +1,23 @@
 import { z } from 'zod';
 
+export const ModelRoleSchema = z.enum(['default', 'strategic', 'forensic']);
+export type ModelRole = z.infer<typeof ModelRoleSchema>;
+
+export const ModelMapSchema = z.object({
+  default: z.string().default('infrabrain'),
+  strategic: z.string().default('llama3.3:70b'),
+  forensic: z.string().default('deepseek-r1:32b'),
+});
+export type ModelMap = z.infer<typeof ModelMapSchema>;
+
 export const InfraBrainConfigSchema = z.object({
   ollamaBaseUrl: z.string().default('http://localhost:11434'),
-  modelName: z.string().default('llama3.3:70b'),
+  modelName: z.string().default('infrabrain'),
+  modelMap: ModelMapSchema.default({
+    default: 'infrabrain',
+    strategic: 'llama3.3:70b',
+    forensic: 'deepseek-r1:32b',
+  }),
   apiPort: z.number().default(3000),
   sessionDir: z.string().default('.infrabrain'),
   skillsDir: z.string().default('skills'),

@@ -15,7 +15,7 @@ describe('Config Schema Extensions', () => {
 
     // Existing defaults preserved
     expect(config.ollamaBaseUrl).toBe('http://localhost:11434');
-    expect(config.modelName).toBe('llama3.3:70b');
+    expect(config.modelName).toBe('infrabrain');
     expect(config.apiPort).toBe(3000);
     expect(config.tokenBudgets.diagnosis).toBe(4096);
 
@@ -26,6 +26,11 @@ describe('Config Schema Extensions', () => {
     expect(config.locks.staleTimeoutMs).toBe(3600000);
     expect(config.execution.commandTimeoutMs).toBe(30000);
     expect(config.execution.maxBufferBytes).toBe(1048576);
+
+    // Model registry defaults
+    expect(config.modelMap.default).toBe('infrabrain');
+    expect(config.modelMap.strategic).toBe('llama3.3:70b');
+    expect(config.modelMap.forensic).toBe('deepseek-r1:32b');
   });
 
   it('allows overriding new config sections', async () => {

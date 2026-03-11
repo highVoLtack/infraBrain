@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import chalk from 'chalk';
 
 import { loadConfig } from './config/loader.js';
-import { createOllamaModel } from './llm/ollama.js';
+import { createOllamaModel, createModelRegistry } from './llm/ollama.js';
 import { createProvider } from './llm/provider.js';
 import { initDatabase } from './state/db.js';
 import { createSession } from './state/session.js';
@@ -19,8 +19,9 @@ import { SkillRegistry } from './skills/registry.js';
 
 // Re-exports for library usage
 export { createProvider } from './llm/provider.js';
-export { createOllamaModel } from './llm/ollama.js';
-export type { LLMProvider, TokenUsage, TaskBudget } from './llm/types.js';
+export { createOllamaModel, createModelRegistry } from './llm/ollama.js';
+export type { LLMProvider, ModelRegistry, TokenUsage, TaskBudget } from './llm/types.js';
+export type { ModelRole, ModelMap } from './config/types.js';
 export { estimateTokens, checkBudget, trackUsage } from './llm/token-budget.js';
 export type { BudgetCheck } from './llm/token-budget.js';
 
@@ -30,9 +31,10 @@ async function main(): Promise<void> {
   // Load configuration
   const config = loadConfig(baseDir);
 
-  // Initialize LLM
-  const model = createOllamaModel(config.modelName, config.ollamaBaseUrl);
-  const provider = createProvider(model);
+  // Initialize LLM with multi-model registry
+  const modelRegistry = createModelRegistry(config.modelMap, config.ollamaBaseUrl);
+  const model = modelRegistry.getDefault();
+  const provider = createProvider(model, modelRegistry);
 
   // Initialize state storage
   const dbPath = join(baseDir, '.infrabrain', 'infrabrain.db');
@@ -68,6 +70,7 @@ async function main(): Promise<void> {
     validator: validateCommand,
     ollamaBaseUrl: config.ollamaBaseUrl,
     registry,
+    modelRegistry,
     config,
     sessionId: session.sessionId,
     sessionDir,

@@ -27,6 +27,54 @@ describe('loadSkillFile', () => {
     expect(skill.rawContent).toBeTruthy();
   });
 
+  it('defaults preferred_model to undefined when not specified', () => {
+    const skill = loadSkillFile(VALID_SKILL);
+    expect(skill.frontmatter.preferred_model).toBeUndefined();
+  });
+
+  it('accepts preferred_model in frontmatter when specified', () => {
+    const { writeFileSync, mkdtempSync } = require('node:fs');
+    const { join: joinPath } = require('node:path');
+    const { tmpdir } = require('node:os');
+    const tmpDir = mkdtempSync(joinPath(tmpdir(), 'skill-model-'));
+    const skillPath = joinPath(tmpDir, 'forensic-skill.md');
+    writeFileSync(skillPath, `---
+name: forensic-test
+description: "A skill that uses the forensic model for deep analysis"
+triggers:
+  - deep-debug
+preferred_model: forensic
+---
+
+## System Prompt
+
+You are a forensic debugging specialist.
+`);
+    const skill = loadSkillFile(skillPath);
+    expect(skill.frontmatter.preferred_model).toBe('forensic');
+  });
+
+  it('rejects invalid preferred_model values', () => {
+    const { writeFileSync, mkdtempSync } = require('node:fs');
+    const { join: joinPath } = require('node:path');
+    const { tmpdir } = require('node:os');
+    const tmpDir = mkdtempSync(joinPath(tmpdir(), 'skill-model-bad-'));
+    const skillPath = joinPath(tmpDir, 'bad-model-skill.md');
+    writeFileSync(skillPath, `---
+name: bad-model
+description: "A skill with an invalid model role"
+triggers:
+  - test
+preferred_model: nonexistent
+---
+
+## System Prompt
+
+You are a test.
+`);
+    expect(() => loadSkillFile(skillPath)).toThrow();
+  });
+
   it('rejects a skill file missing required frontmatter field "name" with a clear error', () => {
     expect(() => loadSkillFile(MALFORMED_NO_NAME)).toThrow(/name/i);
   });

@@ -80,6 +80,7 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 | Qwen 2.5 Coder 32B as Technical Lead | IT-Ops is structured syntax (CLI, logs, configs) — a code specialist dominates this domain. Fits natively in RTX 5090 with full inference speed and max context density | — Confirmed |
 | Domain Expertise over Parameter Count | Route by domain fit, not model size. 32B Technical Lead (structured syntax) → DeepSeek-R1 Forensic Specialist (hidden causality) → Llama 70B Strategic Fallback (broad reasoning) | — Confirmed |
 | Model-agnostic platform | Intelligence Catalog routes to optimal model per domain expertise. See MODEL_LEADERBOARD.md for strategic hierarchy and provisioned inventory | — Confirmed |
+| Multi-model registry (ADR-013) | ModelMap config (default/strategic/forensic), ModelRegistry interface, skill preferred_model routing. Replaces single modelName with domain-expertise-based routing | — Confirmed |
 | Session resume with skip/retry | Admin can resume interrupted fix plans; failed steps can be retried or skipped | — Confirmed |
 | JSON envelope for all CLI output | Consistent { ok, command, data, error } shape enables scripting and CI integration | — Confirmed |
 | Parameterized SQL for audit queries | No string concatenation in SQL; prevents injection in queryable audit log | — Confirmed |

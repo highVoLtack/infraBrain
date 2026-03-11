@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: milestone_complete
-stopped_at: Intelligence Inventory provisioned — 6 models on EU-RO-1 persistent volume, docs updated
-last_updated: "2026-03-11T21:00:00.000Z"
-last_activity: 2026-03-11 -- Intelligence Inventory provisioned (6 models on 200GB RunPod volume EU-RO-1), MODEL_LEADERBOARD.md updated
+stopped_at: Multi-model registry implemented — domain-expertise routing with preferred_model in skills
+last_updated: "2026-03-11T22:00:00.000Z"
+last_activity: 2026-03-11 -- Multi-model registry (default/strategic/forensic), skill preferred_model routing, 322 tests passing
 progress:
   total_phases: 5
   completed_phases: 5
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control -- every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.0.0 battle-proven — Intelligence Inventory provisioned (6 models, EU-RO-1 persistent volume, zero-download startup)
+**Current focus:** Multi-model registry with domain-expertise routing — Technical Lead / Forensic Specialist / Strategic Fallback
 
 ## Current Position
 
 Phase: 5 of 5 (POC Scenario and Integration) — COMPLETE
 Plan: All plans complete
 Status: Milestone Complete
-Last activity: 2026-03-11 -- Intelligence Inventory provisioned, MODEL_LEADERBOARD.md updated
+Last activity: 2026-03-11 -- Multi-model registry implemented, 322 tests passing
 
 Progress: [██████████] 100%
 
@@ -129,6 +129,7 @@ Recent decisions affecting current work:
 - [Phase 05]: Docker network connect --alias required for DNS discovery when attaching at runtime
 - [Infra]: Intelligence Inventory provisioned on 200GB RunPod Network Volume (EU-RO-1) — 6 models pre-loaded for zero-download startup
 - [Infra]: Model classification refined — "Domain Expertise over Parameter Count": Qwen 32B is Technical Lead (structured syntax), DeepSeek-R1 is Forensic Specialist (hidden causality), Llama 70B is Strategic Fallback (broad reasoning). Route by domain fit, not model size
+- [Code]: Multi-model registry: ModelMap config (default/strategic/forensic), ModelRegistry interface, createModelRegistry() factory, preferred_model in skill frontmatter, /health shows all registry models. ADR-013 created. 322 tests passing
 
 ### Pending Todos
 
@@ -142,6 +143,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T21:00:00Z
-Stopped at: Intelligence Inventory documented — 6 models on 200GB EU-RO-1 persistent volume, MODEL_LEADERBOARD.md updated, pausing work
+Last session: 2026-03-11T22:00:00Z
+Stopped at: Multi-model registry implemented — config/types/provider/skills/health all updated, 322 tests passing, pausing work
 Resume file: .planning/phases/05-poc-scenario-and-integration/.continue-here.md

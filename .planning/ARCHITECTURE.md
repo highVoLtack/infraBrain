@@ -23,7 +23,7 @@ graph TB
     end
 
     subgraph Intelligence["LLM Layer"]
-        LLM["LLM Provider<br/><small>llm/provider.ts<br/>llm/ollama.ts</small>"]
+        LLM["LLM Provider + Model Registry<br/><small>llm/provider.ts<br/>llm/ollama.ts</small>"]
         TOON["TOON Encoder<br/><small>llm/toon-encoder.ts<br/>llm/token-budget.ts</small>"]
     end
 
@@ -88,7 +88,7 @@ graph TB
 | **State & Audit** | Dual-write store (JSON files + SQLite) for sessions and fix plans; structured audit log for every action. |
 | **Skill System** | Loads markdown skill files (gray-matter), registers them, and injects relevant skills into LLM context. |
 | **Log Analysis** | Auto-detects log formats, parses them, and pre-filters before sending to the LLM for diagnosis. |
-| **LLM Layer** | Abstracted provider interface (AI SDK v6), with Ollama implementation, TOON encoding for context compression, and token budget tracking. |
+| **LLM Layer** | Multi-model registry with domain-expertise routing (default/strategic/forensic roles). Abstracted provider interface (AI SDK v6) with Ollama implementation, TOON encoding for context compression, and token budget tracking. Skills declare `preferred_model` for role-based routing. |
 
 ---
 

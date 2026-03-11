@@ -1,14 +1,24 @@
 import { streamText, generateText } from 'ai';
 import type { LanguageModel } from 'ai';
-import type { LLMProvider, TaskBudget } from './types.js';
+import type { ModelRole } from '../config/types.js';
+import type { LLMProvider, ModelRegistry, TaskBudget } from './types.js';
 import { checkBudget } from './token-budget.js';
 
 const DIAGNOSIS_BUDGET = 4096;
 const COMMAND_BUDGET = 2048;
 
-export function createProvider(model: LanguageModel): LLMProvider {
+export function createProvider(model: LanguageModel, registry?: ModelRegistry): LLMProvider {
+  const fallbackRegistry: ModelRegistry = {
+    get: () => model,
+    getDefault: () => model,
+    entries: () => [{ role: 'default' as ModelRole, modelId: (model as any).modelId ?? 'unknown' }],
+  };
+
+  const activeRegistry = registry ?? fallbackRegistry;
+
   return {
     model,
+    registry: activeRegistry,
 
     async *streamDiagnosis(prompt: string, systemPrompt: string): AsyncIterable<string> {
       // Pre-flight token budget enforcement
@@ -35,7 +45,9 @@ export function createProvider(model: LanguageModel): LLMProvider {
       console.debug('[LLM] streamDiagnosis usage:', usage);
     },
 
-    async generateCommand(prompt: string, systemPrompt: string): Promise<string> {
+    async generateCommand(prompt: string, systemPrompt: string, role?: ModelRole): Promise<string> {
+      const targetModel = role ? activeRegistry.get(role) : model;
+
       // Pre-flight token budget enforcement
       const budget: TaskBudget = { maxTokens: COMMAND_BUDGET, taskType: 'command' };
       const budgetCheck = checkBudget(prompt, systemPrompt, budget);
@@ -46,13 +58,14 @@ export function createProvider(model: LanguageModel): LLMProvider {
       }
 
       const { text, usage } = await generateText({
-        model,
+        model: targetModel,
         system: systemPrompt,
         prompt,
         maxOutputTokens: COMMAND_BUDGET,
       });
 
-      console.debug('[LLM] generateCommand usage:', usage);
+      const modelId = (targetModel as any).modelId ?? 'unknown';
+      console.debug(`[LLM] generateCommand (model: ${modelId}, role: ${role ?? 'default'}) usage:`, usage);
       return text;
     },
   };

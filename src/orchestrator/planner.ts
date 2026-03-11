@@ -2,6 +2,7 @@ import { generateObject } from 'ai';
 import type { LanguageModel } from 'ai';
 import chalk from 'chalk';
 import type { SkillFile } from '../skills/types.js';
+import type { ModelRegistry } from '../llm/types.js';
 import { FixPlanSchema, type FixPlan } from './types.js';
 import { buildMessages } from './context.js';
 
@@ -10,13 +11,17 @@ export interface GenerateFixPlanOptions {
   skill: SkillFile;
   userInput: string;
   diagnosis: string;
+  registry?: ModelRegistry;
 }
 
 /**
  * Generate a structured fix plan via LLM using the planning skill's context.
  */
 export async function generateFixPlan(options: GenerateFixPlanOptions): Promise<FixPlan> {
-  const { model, skill, userInput, diagnosis } = options;
+  const { skill, userInput, diagnosis, registry } = options;
+  // Use preferred_model from the skill if registry is available, otherwise fall back to provided model
+  const preferredRole = skill.frontmatter.preferred_model;
+  const model = (preferredRole && registry) ? registry.get(preferredRole) : options.model;
 
   const { system, messages } = buildMessages(skill, userInput);
 

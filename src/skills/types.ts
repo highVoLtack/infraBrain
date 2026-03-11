@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import { ModelRoleSchema } from '../config/types.js';
 
 export const SkillFrontmatterSchema = z.object({
   name: z.string().min(1, 'Skill name is required'),
   description: z.string().min(10, 'Skill description must be at least 10 characters'),
   triggers: z.array(z.string()).min(1, 'At least one trigger is required'),
   tools: z.array(z.string()).default([]),
+  preferred_model: ModelRoleSchema.optional(),
   version: z.string().optional(),
   author: z.string().optional(),
   priority: z.number().default(0),

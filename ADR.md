@@ -24,6 +24,7 @@
 - [ADR-010: Controversy Resolution — AI Operating on Production Infrastructure](#adr-010-controversy-resolution--ai-operating-on-production-infrastructure)
 - [ADR-011: Iterative Discovery Engine](#adr-011-iterative-discovery-engine)
 - [ADR-012: Model-Agnostic Platform with Specialist Strategy](#adr-012-model-agnostic-platform-with-specialist-strategy)
+- [ADR-013: Multi-Model Registry with Domain-Expertise Routing](#adr-013-multi-model-registry-with-domain-expertise-routing)
 
 ---
 
@@ -1081,6 +1082,45 @@ Adopt a "Specialist over Generalist" strategy. InfraBrain is model-agnostic — 
 - **Positive:** 32B specialist at full GPU speed outperforms 70B generalist with CPU offloading.
 - **Positive:** Future-proof: new models (DeepSeek-R1, Codestral, etc.) can be benchmarked and swapped without refactoring.
 - **Negative:** Requires benchmarking effort when new models are released. Mitigated by structured leaderboard tracking.
+
+---
+
+## ADR-013: Multi-Model Registry with Domain-Expertise Routing
+
+**Status:** Accepted
+**Date:** 2026-03-11
+
+**Context:**
+
+ADR-012 established InfraBrain as model-agnostic with a single configured model. However, the Intelligence Inventory (6 models on persistent RunPod volume) and the "Domain Expertise over Parameter Count" strategy require the system to route tasks to different models based on domain fit. A single `modelName` config field cannot express a multi-model hierarchy.
+
+**Decision:**
+
+Introduce a `ModelRegistry` with three strategic roles, routable at the skill level:
+
+- **`default` (Technical Lead):** `infrabrain` (Qwen 2.5 Coder 32B) — primary orchestrator for all structured syntax tasks (CLI, Docker, Nginx, configs, logs). Chosen because IT-Ops is a domain of structured syntax where code specialists dominate, and the 32B size maximizes VRAM efficiency on RTX 5090.
+- **`forensic` (Forensic Specialist):** `deepseek-r1:32b` — activated when root cause is hidden in complex logic requiring deep chain-of-thought reasoning.
+- **`strategic` (Strategic Fallback):** `llama3.3:70b` — activated when broad cross-domain knowledge or non-technical reasoning is required.
+
+Skills declare `preferred_model` in YAML frontmatter to route to the appropriate model. If omitted, defaults to `default` (Technical Lead).
+
+**Implementation:**
+
+- `ModelMap` in config: `{ default: "infrabrain", strategic: "llama3.3:70b", forensic: "deepseek-r1:32b" }`
+- `ModelRegistry` interface: `get(role)`, `getDefault()`, `entries()`
+- `createModelRegistry()` factory in `ollama.ts` creates all three model instances from a single Ollama provider
+- `LLMProvider.generateCommand()` accepts optional `role` parameter for dynamic model selection
+- `SkillFrontmatter.preferred_model` (optional) routes skill execution to specific model role
+- `/health` endpoint lists all registry models and their availability status
+- Backward compatible: existing single-model configs still work via `modelName` fallback
+
+**Consequences:**
+
+- **Positive:** Skills can declare the optimal model for their domain without code changes.
+- **Positive:** Health endpoint verifies all registry models are available before operations.
+- **Positive:** Fully backward compatible — `modelName` still works, `modelMap` is optional with sensible defaults.
+- **Positive:** VRAM efficiency: 32B Technical Lead as primary driver maximizes speed and context density on RTX 5090.
+- **Negative:** Three models must be available on the Ollama instance. Mitigated by persistent volume pre-loading.
 
 ---
 

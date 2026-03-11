@@ -34,7 +34,7 @@ InfraBrain follows a **Diagnose → Plan → Execute → Verify** loop. The orch
 - **JSON output mode** (`--json`) for scripting and automation
 - **TOON encoding** for LLM context optimization (32k context = ~50k+ effective tokens)
 - **Iterative Discovery** — runs READ-only commands before LLM diagnosis to prevent hallucination
-- **Model-agnostic** — benchmarks and swaps models per scenario (see MODEL_LEADERBOARD.md)
+- **Multi-model registry** — routes tasks by domain expertise: Technical Lead (structured syntax), Forensic Specialist (deep reasoning), Strategic Fallback (broad knowledge). Skills can declare `preferred_model` in frontmatter
 - **Log analysis** with format auto-detection (syslog, JSON, Docker, journald)
 - **Dev-mode TOON analytics** — shows token savings in development
 
@@ -43,12 +43,12 @@ InfraBrain follows a **Diagnose → Plan → Execute → Verify** loop. The orch
 | Layer | Technology |
 |-------|------------|
 | Runtime | Node.js / TypeScript 5.9 (ESM) |
-| LLM | AI SDK v6 + Ollama (model-agnostic; current: Qwen 2.5 Coder 32B as `infrabrain`) |
+| LLM | AI SDK v6 + Ollama (multi-model registry: `infrabrain` Technical Lead, `deepseek-r1:32b` Forensic, `llama3.3:70b` Strategic) |
 | Database | better-sqlite3 (state + audit) |
 | API | Express 5 (REST) |
 | CLI | Commander |
 | Validation | Zod v4 |
-| Testing | Vitest (314+ tests, 35 test files) |
+| Testing | Vitest (322+ tests, 36 test files) |
 | Build | tsup + tsx |
 
 ## Project Structure
@@ -74,7 +74,10 @@ src/
 ### Prerequisites
 
 - Node.js 22+
-- Ollama running locally with a model configured in `.infrabrain/config.json` (default: `infrabrain` custom model based on Qwen 2.5 Coder 32B, see `Modelfile`)
+- Ollama running locally with models configured in `.infrabrain/config.json`. The `modelMap` defines three roles:
+  - `default`: `infrabrain` — Technical Lead (Qwen 2.5 Coder 32B, see `Modelfile`)
+  - `strategic`: `llama3.3:70b` — Strategic Fallback
+  - `forensic`: `deepseek-r1:32b` — Forensic Specialist
 
 ### Install
 

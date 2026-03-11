@@ -194,6 +194,70 @@ describe('LLM Provider', () => {
     });
   });
 
+  it('generateCommand uses role-specific model from registry when role is provided', async () => {
+    const { generateText } = await import('ai');
+    const mockedGenerateText = vi.mocked(generateText);
+
+    mockedGenerateText.mockResolvedValue({
+      text: 'deep analysis result',
+      usage: { promptTokens: 50, completionTokens: 20, totalTokens: 70 },
+    } as any);
+
+    const forensicModel = createMockModel();
+    const mockRegistry = {
+      get: vi.fn((role: string) => role === 'forensic' ? forensicModel : mockModel),
+      getDefault: () => mockModel,
+      entries: () => [
+        { role: 'default' as const, modelId: 'infrabrain' },
+        { role: 'forensic' as const, modelId: 'deepseek-r1:32b' },
+      ],
+    };
+
+    const provider = createProvider(mockModel, mockRegistry);
+    const result = await provider.generateCommand('complex debug', 'system', 'forensic' as any);
+
+    expect(result).toBe('deep analysis result');
+    expect(mockRegistry.get).toHaveBeenCalledWith('forensic');
+    expect(mockedGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({ model: forensicModel }),
+    );
+  });
+
+  it('generateCommand uses default model when no role is provided', async () => {
+    const { generateText } = await import('ai');
+    const mockedGenerateText = vi.mocked(generateText);
+
+    mockedGenerateText.mockResolvedValue({
+      text: 'default result',
+      usage: { promptTokens: 50, completionTokens: 20, totalTokens: 70 },
+    } as any);
+
+    const provider = createProvider(mockModel);
+    await provider.generateCommand('simple task', 'system');
+
+    expect(mockedGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({ model: mockModel }),
+    );
+  });
+
+  it('provider exposes registry with entries()', () => {
+    const mockRegistry = {
+      get: vi.fn(() => mockModel),
+      getDefault: () => mockModel,
+      entries: () => [
+        { role: 'default' as const, modelId: 'infrabrain' },
+        { role: 'strategic' as const, modelId: 'llama3.3:70b' },
+        { role: 'forensic' as const, modelId: 'deepseek-r1:32b' },
+      ],
+    };
+
+    const provider = createProvider(mockModel, mockRegistry);
+    const entries = provider.registry.entries();
+
+    expect(entries).toHaveLength(3);
+    expect(entries.map(e => e.role)).toEqual(['default', 'strategic', 'forensic']);
+  });
+
   it('provider abstraction does not import ollama directly', async () => {
     // Read the provider source file and verify it doesn't import from ai-sdk-ollama
     const fs = await import('node:fs');
@@ -234,5 +298,35 @@ describe('Ollama Model Factory', () => {
 
     expect(model).toBeDefined();
     expect((model as any).modelId).toBe('infrabrain');
+  });
+
+  it('createModelRegistry creates models for all three roles', async () => {
+    const { createModelRegistry } = await import('../../src/llm/ollama.js');
+    const registry = createModelRegistry(
+      { default: 'infrabrain', strategic: 'llama3.3:70b', forensic: 'deepseek-r1:32b' },
+      'http://localhost:11434',
+    );
+
+    expect(registry).toBeDefined();
+    expect(registry.getDefault()).toBeDefined();
+    expect((registry.getDefault() as any).modelId).toBe('infrabrain');
+
+    const entries = registry.entries();
+    expect(entries).toHaveLength(3);
+    expect(entries.find(e => e.role === 'default')?.modelId).toBe('infrabrain');
+    expect(entries.find(e => e.role === 'strategic')?.modelId).toBe('llama3.3:70b');
+    expect(entries.find(e => e.role === 'forensic')?.modelId).toBe('deepseek-r1:32b');
+  });
+
+  it('createModelRegistry.get returns correct model per role', async () => {
+    const { createModelRegistry } = await import('../../src/llm/ollama.js');
+    const registry = createModelRegistry(
+      { default: 'infrabrain', strategic: 'llama3.3:70b', forensic: 'deepseek-r1:32b' },
+      'http://localhost:11434',
+    );
+
+    expect((registry.get('default') as any).modelId).toBe('infrabrain');
+    expect((registry.get('strategic') as any).modelId).toBe('llama3.3:70b');
+    expect((registry.get('forensic') as any).modelId).toBe('deepseek-r1:32b');
   });
 });

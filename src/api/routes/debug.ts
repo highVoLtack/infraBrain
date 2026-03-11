@@ -211,7 +211,9 @@ export function createDebugRoute(
             : prompt;
 
           // Generate diagnosis with skill context + discovery data
-          const diagnosis = await provider.generateCommand(enrichedPrompt, systemPrompt);
+          // Use preferred_model from skill frontmatter if specified, otherwise default
+          const preferredRole = selection.skill.frontmatter.preferred_model;
+          const diagnosis = await provider.generateCommand(enrichedPrompt, systemPrompt, preferredRole);
 
           // Always attempt fix plan generation from any skill's diagnosis
           const planningSkill = registry.get('planning');
@@ -227,6 +229,7 @@ export function createDebugRoute(
                 skill: planningSkill,
                 userInput: prompt,
                 diagnosis: enrichedDiagnosis,
+                registry: provider.registry,
               });
 
               // Validate plan doesn't contain placeholder names
