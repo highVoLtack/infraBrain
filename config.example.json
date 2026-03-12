@@ -1,0 +1,12 @@
+{
+  "ollamaBaseUrl": "http://localhost:11434",
+  "modelName": "infrabrain",
+  "modelMap": {
+    "default": "infrabrain",
+    "strategic": "llama3.3:70b",
+    "forensic": "deepseek-r1:32b",
+    "worker": "qwen2.5-coder:7b",
+    "vision": "llama3.2-vision"
+  },
+  "apiPort": 3000
+}

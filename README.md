@@ -79,6 +79,13 @@ src/
   - `strategic`: `llama3.3:70b` — Strategic Fallback
   - `forensic`: `deepseek-r1:32b` — Forensic Specialist
 
+### Configure
+
+```bash
+cp config.example.json .infrabrain/config.json
+# Edit .infrabrain/config.json with your Ollama URL and model names
+```
+
 ### Install
 
 ```bash
