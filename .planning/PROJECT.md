@@ -12,27 +12,33 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 
 ### Validated
 
-<!-- Shipped and confirmed valuable. -->
-
-(None yet — ship to validate)
+- ✓ Agnostic core engine (Diagnose → Plan → Execute → Verify loop) — v1.0
+- ✓ CLI interface with commands `/infra:debug`, `/infra:status`, `/infra:history`, `/infra:resume` — v1.0
+- ✓ REST API backend powering all CLI functionality — v1.0
+- ✓ Composable skills library (Markdown files defining prompts + tool allowlists) — v1.0
+- ✓ Abstracted LLM provider interface (Ollama default, pluggable for vLLM, llama.cpp) — v1.0
+- ✓ Sub-agent execution with full process isolation (separate LLM context + sandboxed child process) — v1.0
+- ✓ Configurable Human-in-the-Loop (read auto-approves, write needs Y/N, destructive needs typed confirmation) — v1.0
+- ✓ Dual state storage (human-readable files + SQLite for queryable audit) — v1.0
+- ✓ Lock-based concurrency (one fix per target, conflict display, force-override) — v1.0
+- ✓ Structured audit trail (decision log + state diffs, queryable via SQLite with metadata) — v1.0
+- ✓ Circuit breaker + damage budget safety system — v1.0
+- ✓ Automatic rollback to last-known-good state on safety limits — v1.0
+- ✓ Core skills: planning, verification, log analysis (4 formats), nginx-troubleshoot — v1.0
+- ✓ Docker/Nginx 502 POC: full DPEV loop end-to-end with audit trail — v1.0
+- ✓ TOON encoding for token-optimized LLM context — v1.0
+- ✓ JSON output mode for scripting (`--json` on all commands) — v1.0
+- ✓ Session resume with retry/skip for interrupted fix plans — v1.0
+- ✓ Multi-model registry with domain-expertise routing — v1.0
+- ✓ Log-analysis pre-filtering wired into debug route — v1.0
 
 ### Active
 
-- [x] Agnostic core engine (Diagnose -> Plan -> Execute -> Verify loop)
-- [x] CLI interface with commands like `/infra:debug`
-- [x] REST/gRPC API backend powering the CLI
-- [x] Composable skills library (Markdown files defining prompts + available tool calls)
-- [x] Abstracted LLM provider interface (Ollama default, pluggable for vLLM, llama.cpp, etc.)
-- [x] Sub-agent execution with full process isolation (separate LLM context + sandboxed child process)
-- [x] Configurable Human-in-the-Loop (risk-based: read-only auto-approves, write commands need approval)
-- [x] Dual state storage (human-readable files in .infrabrain/ + SQLite for queryable data)
-- [x] Lock-based concurrency (one active fix per target, others see status, force-override available)
-- [x] Structured audit trail (decision log + before/after state diffs, queryable JSON)
-- [x] Circuit breaker + damage budget safety system (max retries + max blast radius per fix plan)
-- [x] Automatic rollback to last-known-good state when safety limits are hit
-- [x] Core skills: planning, verification, infrastructure mapping, log analysis
-- [x] v1 POC: Docker/Nginx 502 debug scenario (detect, diagnose, fix, verify end-to-end)
 - [ ] Standalone binary distribution (via pkg/nexe, no Node.js required)
+- [ ] Rolling context injection into sub-agent LLM calls (CORE-07 enhancement)
+- [ ] Elastic Intelligence Brokerage (confidence-based cloud escalation)
+- [ ] RAG knowledge layer (Qdrant vector DB + document ingestion)
+- [ ] Intelligence Forge (LoRA distillation pipeline)
 
 ### Out of Scope
 
@@ -414,4 +420,4 @@ Deep research conducted across 4 domains with 50+ sources. Key corrections appli
 | Lambda Labs for JIT provisioning | 2-5 min cold-start (VM, not serverless) | Demoted, RunPod/API preferred |
 
 ---
-*Last updated: 2026-03-11 — v1.0.0 battle-proven (Nginx 502 POC verified), Phase 6+ roadmap validated via deep research*
+*Last updated: 2026-03-12 after v1.0 milestone — 39/39 requirements shipped, 354 tests, 10,770 LOC TypeScript*
