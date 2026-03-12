@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Session Management and CLI Polish** - Status/history commands, JSON output, session resumability, TOON encoder, and queryable audit (completed 2026-03-08)
 - [x] **Phase 5: POC Scenario and Integration** - Docker/Nginx 502 end-to-end demo proving the full DPEV loop (completed 2026-03-08)
 - [x] **Phase 6: Resume Wiring and Audit Completeness** - Gap closure: wire resume persistence, lock audit events, real resume runner (audit-identified) (completed 2026-03-12)
-- [ ] **Phase 7: Audit Metadata and Integration Polish** - Gap closure: SQLite audit metadata, log-analysis runtime wiring, rolling context injection (audit-identified)
+- [x] **Phase 7: Audit Metadata and Integration Polish** - Gap closure: SQLite audit metadata, log-analysis runtime wiring, rolling context injection (audit-identified) (completed 2026-03-12)
 
 ## Phase Details
 
@@ -152,7 +152,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 4. Session Management and CLI Polish | 4/4 | Complete | 2026-03-08 |
 | 5. POC Scenario and Integration | 2/2 | Complete   | 2026-03-08 |
 | 6. Resume Wiring and Audit Completeness | 2/2 | Complete | 2026-03-12 |
-| 7. Audit Metadata and Integration Polish | 2/3 | In Progress|  |
+| 7. Audit Metadata and Integration Polish | 3/3 | Complete   | 2026-03-12 |
 
 ---
 *Roadmap created: 2026-03-07*
