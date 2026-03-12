@@ -353,14 +353,14 @@ function summarizeAuditEntry(entry: AuditEntry): string {
     case 'circuit_breaker_triggered':
       return `Circuit breaker: max retries reached`;
     case 'damage_budget_exceeded':
-      return `Damage budget exceeded: ${meta?.spent ?? '?'}/${meta?.total ?? '?'} points`;
+      return `Damage budget exceeded: ${meta?.budgetRemaining ?? meta?.spent ?? '?'}/${meta?.budgetTotal ?? meta?.total ?? '?'} points`;
     case 'damage_budget_update': {
-      const spent = meta?.spent ?? '?';
-      const total = meta?.total ?? '?';
+      const spent = meta?.spent ?? meta?.budgetRemaining ?? '?';
+      const total = meta?.total ?? meta?.budgetTotal ?? '?';
       return `Budget: ${spent}/${total} points used`;
     }
     case 'execution_resume':
-      return `Resumed from step ${meta?.fromStep ?? '?'}`;
+      return `Resumed from step ${meta?.resumingFrom ?? meta?.fromStep ?? '?'}`;
     default:
       return entry.command ?? entry.decision ?? '';
   }
