@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import { createResumeRoute } from '../../src/api/routes/resume.js';
+import { createExecuteRoute } from '../../src/api/routes/execute.js';
 import type { SessionState } from '../../src/state/types.js';
 import type { WriteThrough } from '../../src/state/store.js';
 import type { InfraBrainConfig } from '../../src/config/types.js';
@@ -9,6 +10,12 @@ import type { InfraBrainConfig } from '../../src/config/types.js';
 // Mock executePlan
 vi.mock('../../src/execution/executor.js', () => ({
   executePlan: vi.fn().mockResolvedValue({ status: 'completed', stepResults: [] }),
+}));
+
+// Mock runner — track calls to runCommand
+vi.mock('../../src/execution/runner.js', () => ({
+  runCommand: vi.fn().mockResolvedValue({ stdout: 'real-output', stderr: '', exitCode: 0 }),
+  parseCommand: vi.fn().mockReturnValue({ executable: 'echo', args: ['test'] }),
 }));
 
 // Mock lock manager
@@ -32,6 +39,7 @@ vi.mock('../../src/execution/rollback.js', () => ({
 }));
 
 import { executePlan } from '../../src/execution/executor.js';
+import { runCommand } from '../../src/execution/runner.js';
 
 function makeConfig(): InfraBrainConfig {
   return {
@@ -199,5 +207,142 @@ describe('POST /resume', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.warning).toBeUndefined();
+  });
+
+  it('passes real runCommand runner to executePlan (not a stub)', async () => {
+    const session = makeResumableSession();
+    const store = makeStore(session);
+    const app = makeApp(store);
+
+    await request(app)
+      .post('/resume')
+      .send({ sessionId: session.sessionId, action: 'retry' });
+
+    // Verify executePlan was called with a runner that uses runCommand
+    const callArgs = vi.mocked(executePlan).mock.calls[0];
+    const deps = callArgs[2];
+
+    // Call the runner to verify it delegates to the real runCommand
+    await deps.runner.run('echo', ['hello'], { timeout: 5000 });
+    expect(runCommand).toHaveBeenCalledWith('echo', ['hello'], { timeout: 5000 });
+  });
+
+  it('includes session data in response for CLI formatResumeSummary', async () => {
+    const session = makeResumableSession();
+    const store = makeStore(session);
+    const app = makeApp(store);
+
+    const res = await request(app)
+      .post('/resume')
+      .send({ sessionId: session.sessionId, action: 'retry' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.session).toBeDefined();
+    expect(res.body.session.sessionId).toBe(session.sessionId);
+    expect(res.body.session.currentPlan).toBeDefined();
+    expect(res.body.session.resumeMetadata).toBeDefined();
+  });
+});
+
+describe('POST /execute — halt persistence', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(executePlan).mockResolvedValue({ status: 'completed', stepResults: [] });
+  });
+
+  function makeExecuteApp(store: WriteThrough) {
+    const app = express();
+    app.use(express.json());
+    app.use('/execute', createExecuteRoute({
+      auditLogger: { logExecution: vi.fn() } as any,
+      config: makeConfig(),
+      sessionId: 'exec-session-1',
+      sessionDir: '/tmp/test-session',
+      store,
+    }));
+    return app;
+  }
+
+  const validBody = {
+    sessionId: 'exec-session-1',
+    target: 'nginx',
+    adminName: 'admin',
+    fixPlan: {
+      summary: 'Fix nginx',
+      steps: [
+        { command: 'echo step0', description: 'Step 0', rollback: '', risk: 'read' },
+        { command: 'echo step1', description: 'Step 1', rollback: '', risk: 'write' },
+        { command: 'echo step2', description: 'Step 2', rollback: '', risk: 'read' },
+      ],
+      complexity: 'moderate',
+    },
+  };
+
+  it('persists resumeMetadata and currentPlan when executePlan returns halted (damage_budget_exceeded)', async () => {
+    vi.mocked(executePlan).mockResolvedValue({
+      status: 'halted',
+      reason: 'damage_budget_exceeded',
+      stoppedAt: 1,
+      stepResults: [{ stepIndex: 0, status: 'success', retries: 0, damageCost: 5 }],
+    });
+
+    const store = makeStore(null);
+    const app = makeExecuteApp(store);
+
+    await request(app)
+      .post('/execute')
+      .send(validBody);
+
+    expect(store.persistState).toHaveBeenCalledTimes(1);
+    const persistedState = vi.mocked(store.persistState).mock.calls[0][1] as SessionState;
+    expect(persistedState.resumeMetadata).toBeDefined();
+    expect(persistedState.resumeMetadata!.error).toBe('damage_budget_exceeded');
+    expect(persistedState.resumeMetadata!.lastCompletedStep).toBe(0);
+    expect(persistedState.currentPlan).toBeDefined();
+    expect(persistedState.currentPlan!.stoppedAtStep).toBe(1);
+  });
+
+  it('persists resumeMetadata and currentPlan when executePlan returns halted (circuit_breaker)', async () => {
+    vi.mocked(executePlan).mockResolvedValue({
+      status: 'halted',
+      reason: 'circuit_breaker',
+      stoppedAt: 2,
+      stepResults: [
+        { stepIndex: 0, status: 'success', retries: 0, damageCost: 0 },
+        { stepIndex: 1, status: 'success', retries: 0, damageCost: 3 },
+      ],
+    });
+
+    const store = makeStore(null);
+    const app = makeExecuteApp(store);
+
+    await request(app)
+      .post('/execute')
+      .send(validBody);
+
+    expect(store.persistState).toHaveBeenCalledTimes(1);
+    const persistedState = vi.mocked(store.persistState).mock.calls[0][1] as SessionState;
+    expect(persistedState.resumeMetadata!.error).toBe('circuit_breaker');
+    expect(persistedState.resumeMetadata!.lastCompletedStep).toBe(1);
+    expect(persistedState.resumeMetadata!.target).toBe('nginx');
+    expect(persistedState.currentPlan!.failureReason).toBe('circuit_breaker');
+  });
+
+  it('does NOT set resumeMetadata when executePlan returns completed', async () => {
+    vi.mocked(executePlan).mockResolvedValue({
+      status: 'completed',
+      stepResults: [
+        { stepIndex: 0, status: 'success', retries: 0, damageCost: 0 },
+      ],
+    });
+
+    const store = makeStore(null);
+    const app = makeExecuteApp(store);
+
+    await request(app)
+      .post('/execute')
+      .send(validBody);
+
+    expect(store.persistState).not.toHaveBeenCalled();
   });
 });

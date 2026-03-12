@@ -72,6 +72,7 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
       config: deps.config,
       sessionId: deps.sessionId,
       sessionDir: deps.sessionDir,
+      store: deps.store,
     }));
   }
 

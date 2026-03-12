@@ -2,7 +2,9 @@ import { Router } from 'express';
 import type { WriteThrough } from '../../state/store.js';
 import type { InfraBrainConfig } from '../../config/types.js';
 import type { AuditLogger } from '../../audit/logger.js';
+import type { RunResult } from '../../execution/types.js';
 import { executePlan, type ResumeOptions } from '../../execution/executor.js';
+import { runCommand } from '../../execution/runner.js';
 import type { FixPlan } from '../../orchestrator/types.js';
 
 export interface ResumeRouteDeps {
@@ -76,9 +78,16 @@ export function createResumeRoute(deps: ResumeRouteDeps): Router {
 
       const resumeOptions: ResumeOptions = { startFromStep, skipFailedStep };
 
+      // Build runner from real command execution (same pattern as execute route)
+      const runner = {
+        run: (executable: string, args: string[], options: { timeout: number; maxBuffer?: number }): Promise<RunResult> => {
+          return runCommand(executable, args, options);
+        },
+      };
+
       // Execute with resume
       const result = await executePlan(fixPlan, target, {
-        runner: { run: async () => ({ stdout: '', stderr: '', exitCode: 0 }) },
+        runner,
         requestApproval: async () => ({ approved: true }),
         auditLogger: deps.auditLogger as any,
         config: deps.config,
@@ -92,6 +101,14 @@ export function createResumeRoute(deps: ResumeRouteDeps): Router {
         resumedFrom: startFromStep,
         action,
         stepResults: result.stepResults,
+        session: {
+          sessionId: session.sessionId,
+          currentPlan: session.currentPlan,
+          resumeMetadata: session.resumeMetadata,
+          status: session.status,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+        },
       };
 
       if (warning) {

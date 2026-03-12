@@ -2,6 +2,8 @@ import { Router } from 'express';
 import type { AuditLogger } from '../../audit/logger.js';
 import type { InfraBrainConfig } from '../../config/types.js';
 import type { RunResult } from '../../execution/types.js';
+import type { WriteThrough } from '../../state/store.js';
+import type { SessionState } from '../../state/types.js';
 import { FixPlanSchema } from '../../orchestrator/types.js';
 import { executePlan } from '../../execution/executor.js';
 import { runCommand, parseCommand } from '../../execution/runner.js';
@@ -11,6 +13,7 @@ export interface ExecuteRouteDeps {
   config: InfraBrainConfig;
   sessionId: string;
   sessionDir: string;
+  store?: WriteThrough;
 }
 
 /**
@@ -69,6 +72,40 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
         sessionId: deps.sessionId,
         sessionDir: deps.sessionDir,
       });
+
+      // Persist resume metadata on halt so /infra:resume can find this session
+      if (result.status === 'halted' && result.stoppedAt !== undefined && deps.store) {
+        const now = new Date().toISOString();
+        const sessionState: SessionState = {
+          sessionId: deps.sessionId,
+          createdAt: now,
+          updatedAt: now,
+          status: 'active',
+          target,
+          currentPlan: {
+            id: deps.sessionId,
+            description: planResult.data.summary,
+            steps: planResult.data.steps.map((s, idx) => ({
+              id: idx,
+              command: s.command,
+              description: s.description,
+              status: idx < result.stoppedAt! ? 'executed' : 'pending',
+              riskLevel: s.risk,
+            })),
+            currentStep: result.stoppedAt,
+            status: 'failed',
+            stoppedAtStep: result.stoppedAt,
+            failureReason: result.reason,
+          },
+          resumeMetadata: {
+            lastCompletedStep: result.stoppedAt - 1,
+            stoppedAt: now,
+            error: result.reason,
+            target,
+          },
+        };
+        deps.store.persistState(deps.sessionDir, sessionState);
+      }
 
       // Log execution complete
       deps.auditLogger.logExecution('execution_complete', {
