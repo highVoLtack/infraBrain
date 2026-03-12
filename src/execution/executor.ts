@@ -43,6 +43,7 @@ export async function executePlan(
       if (deps.readline && lockResult.existing) {
         const override = await promptLockOverride(lockResult.existing, deps.readline);
         if (!override) {
+          deps.auditLogger.logExecution('lock_conflict', { target, existingSession: lockResult.existing?.sessionId });
           return { status: 'rejected', reason: 'lock_conflict', stepResults };
         }
         // Force override: delete existing lock and re-acquire
@@ -53,12 +54,15 @@ export async function executePlan(
           pid: process.pid,
           planSummary: plan.summary,
         }, deps.config.locks.staleTimeoutMs);
+        deps.auditLogger.logExecution('lock_override', { target, overriddenSession: lockResult.existing?.sessionId });
       } else {
+        deps.auditLogger.logExecution('lock_conflict', { target, existingSession: lockResult.existing?.sessionId });
         return { status: 'rejected', reason: 'lock_conflict', stepResults };
       }
     }
 
     lockAcquired = true;
+    deps.auditLogger.logExecution('lock_acquired', { target });
 
     // 2. Log resume event if resuming
     const startFrom = options?.startFromStep ?? 0;
@@ -227,6 +231,7 @@ export async function executePlan(
     // 6. Always release lock
     if (lockAcquired) {
       releaseLock(target, lockDir);
+      deps.auditLogger.logExecution('lock_released', { target });
     }
   }
 }
