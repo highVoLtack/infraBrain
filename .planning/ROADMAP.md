@@ -17,6 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Execution Engine and Safety Net** - Sub-agent isolation, circuit breaker, damage budget, rollback, and concurrency locks (completed 2026-03-08)
 - [x] **Phase 4: Session Management and CLI Polish** - Status/history commands, JSON output, session resumability, TOON encoder, and queryable audit (completed 2026-03-08)
 - [x] **Phase 5: POC Scenario and Integration** - Docker/Nginx 502 end-to-end demo proving the full DPEV loop (completed 2026-03-08)
+- [ ] **Phase 6: Resume Wiring and Audit Completeness** - Gap closure: wire resume persistence, lock audit events, real resume runner (audit-identified)
 
 ## Phase Details
 
@@ -104,10 +105,23 @@ Plans:
 - [x] 05-01-PLAN.md — Docker demo environment, Nginx troubleshoot skill, debug route fix plan generation, and snapshot extensions
 - [x] 05-02-PLAN.md — E2E integration test proving full DPEV loop with audit trail verification
 
+### Phase 6: Resume Wiring and Audit Completeness
+**Goal**: Close all integration gaps found by v1.0 milestone audit — resume flow works end-to-end from real execution halts, lock operations are audited, and dead code is cleaned up
+**Depends on**: Phase 5
+**Requirements**: INTF-07 (resume wiring), SAFE-09 (lock audit events)
+**Gap Closure**: Closes 2 integration gaps + 1 broken flow from v1.0-MILESTONE-AUDIT.md
+**Success Criteria** (what must be TRUE):
+  1. When executor halts (circuit breaker or damage budget), `updateSessionForResume` is called and `resumeMetadata` is persisted to disk and SQLite
+  2. `/infra:resume <session-id>` finds and loads interrupted sessions from real execution halts (not just mocked data)
+  3. Resume route executes commands via real `runCommand` (not a no-op stub)
+  4. Lock acquire/release operations emit `lock_acquired` and `lock_released` audit events
+  5. `formatResumeSummary` is called in the CLI resume command (no dead imports)
+**Plans**: TBD (to be created via /gsd:plan-phase 6)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -116,7 +130,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 3. Execution Engine and Safety Net | 3/3 | Complete   | 2026-03-08 |
 | 4. Session Management and CLI Polish | 4/4 | Complete | 2026-03-08 |
 | 5. POC Scenario and Integration | 2/2 | Complete   | 2026-03-08 |
+| 6. Resume Wiring and Audit Completeness | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-11 — v1.0.0 battle-proven: Nginx 502 POC 100% success with live Qwen 32B on RTX 5090*
+*Last updated: 2026-03-12 — Phase 6 added for audit gap closure (resume wiring + lock audit events)*
