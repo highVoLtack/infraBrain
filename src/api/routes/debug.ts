@@ -14,8 +14,68 @@ import { extractTarget } from '../../cli/approval.js';
 import { v7 as uuidv7 } from 'uuid';
 import { runCommand, parseCommand } from '../../execution/runner.js';
 import { encodeForLLM, measureSavings } from '../../llm/toon-encoder.js';
+import { parseLog } from '../../log-analysis/parsers/index.js';
+import { preFilterLogs, formatForLLM } from '../../log-analysis/filter.js';
 
 const DEV_MODE = process.env.NODE_ENV !== 'production';
+
+/** Regex matching common log indicators: level keywords and ISO-ish timestamps */
+const LOG_INDICATOR = /\b(ERROR|WARN|INFO|DEBUG|FATAL|CRITICAL)\b|\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/i;
+
+/**
+ * Detect log-heavy prompts and pre-filter them using the log-analysis pipeline.
+ * - Fewer than 5 lines: not log-heavy
+ * - Fewer than 3 lines matching log indicators: not log-heavy
+ * - If parseLog returns more unparseable than entries: fallback to raw prompt
+ * - Otherwise: context lines + pre-filtered formatted logs
+ */
+export function preFilterIfLogHeavy(prompt: string): { filtered: string; wasFiltered: boolean } {
+  const lines = prompt.split('\n');
+
+  // Too few lines to be a log dump
+  if (lines.length < 5) {
+    return { filtered: prompt, wasFiltered: false };
+  }
+
+  // Count lines with log indicators
+  const indicatorCount = lines.filter(line => LOG_INDICATOR.test(line)).length;
+  if (indicatorCount < 3) {
+    return { filtered: prompt, wasFiltered: false };
+  }
+
+  // Separate context lines from log-like lines
+  const contextLines: string[] = [];
+  const logLines: string[] = [];
+  for (const line of lines) {
+    if (LOG_INDICATOR.test(line)) {
+      logLines.push(line);
+    } else {
+      contextLines.push(line);
+    }
+  }
+
+  // Parse the log-like lines
+  const parsed = parseLog(logLines.join('\n'));
+
+  // If more unparseable than successfully parsed entries, heuristic failed — fallback
+  if (parsed.unparseable.length > parsed.entries.length) {
+    return { filtered: prompt, wasFiltered: false };
+  }
+
+  // Pre-filter and format for LLM
+  const result = preFilterLogs({ entries: parsed.entries });
+  const formatted = formatForLLM(result.filtered);
+
+  // Reassemble: context lines + pre-filtered logs
+  const parts: string[] = [];
+  if (contextLines.length > 0) {
+    parts.push(contextLines.join('\n'));
+  }
+  parts.push('Pre-filtered logs:');
+  parts.push(formatted);
+
+  return { filtered: parts.join('\n'), wasFiltered: true };
+}
 
 /**
  * Discovery commands that the orchestrator runs automatically before LLM diagnosis.
@@ -210,10 +270,13 @@ export function createDebugRoute(
             ? `${prompt}\n\n${discoveryContext}\n\nIMPORTANT: Use ONLY the container and network names shown above. Do NOT invent names.`
             : prompt;
 
+          // Pre-filter log-heavy prompts before LLM call to save tokens
+          const { filtered: preFilteredPrompt, wasFiltered: logWasFiltered } = preFilterIfLogHeavy(enrichedPrompt);
+
           // Generate diagnosis with skill context + discovery data
           // Use preferred_model from skill frontmatter if specified, otherwise default
           const preferredRole = selection.skill.frontmatter.preferred_model;
-          const diagnosis = await provider.generateCommand(enrichedPrompt, systemPrompt, preferredRole);
+          const diagnosis = await provider.generateCommand(preFilteredPrompt, systemPrompt, preferredRole);
 
           // Always attempt fix plan generation from any skill's diagnosis
           const planningSkill = registry.get('planning');
@@ -307,7 +370,9 @@ export function createDebugRoute(
       }
 
       // Fallback: direct LLM call (no skills loaded or skill selection failed)
-      const diagnosis = await provider.generateCommand(prompt, systemPrompt);
+      // Pre-filter log-heavy prompts before LLM call to save tokens
+      const { filtered: fallbackPrompt } = preFilterIfLogHeavy(prompt);
+      const diagnosis = await provider.generateCommand(fallbackPrompt, systemPrompt);
 
       // Extract and validate commands
       const extractedCommands = extractCommands(diagnosis);
