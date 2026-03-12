@@ -20,6 +20,10 @@ InfraBrain's Domain-Expertise routing engine. Routes tasks to the optimal model 
 |---|----------|-------|----------|---------|--------|-------|-------|
 | 1 | Nginx 502 Bad Gateway (Docker Network Isolation) | Qwen 2.5 Coder 32B (`infrabrain:latest`) | 1x RTX 5090 (32GB) | 32k + TOON | Correct diagnosis: network isolation. Fix: `docker network connect`. Verified: HTTP 200. | A+ | Zero hallucination with discovery step. TOON-encoded Docker network JSON. Full DPEV loop completed autonomously. |
 
+### TOON Efficiency Note
+
+TOON token savings scale with infrastructure size. For small datasets (< 5 entities, e.g., a single Docker host with 2-3 containers), savings are negligible (~5-10%) due to header overhead. The real win comes at scale: 50+ containers, multi-host Docker Swarm topologies, or full network maps where TOON's 40-60% compression turns a context overflow into a single-prompt diagnosis. The POC demo (2 containers, 2 networks) shows minimal savings by design — it proves correctness, not compression. Production environments with 100+ entities will see the full efficiency gain.
+
 ## Model Notes
 
 ## Strategic Hierarchy

@@ -222,8 +222,8 @@ export function formatHistoryTable(entries: AuditEntry[], verbose: boolean): str
         riskFormatted = risk.padEnd(COL_RISK);
     }
 
-    // Summary: command or decision, truncated
-    const summary = (entry.command ?? entry.decision ?? '').slice(0, COL_SUMMARY);
+    // Summary: derive human-readable text based on event type
+    const summary = summarizeAuditEntry(entry).slice(0, COL_SUMMARY);
 
     lines.push(
       shortTs.padEnd(COL_TIMESTAMP) +
@@ -289,6 +289,79 @@ export function formatResumeSummary(session: SessionState): string {
   }
 
   return lines.join('\n');
+}
+
+/**
+ * Derive a human-readable summary from an audit entry.
+ * Falls back to command/decision fields for legacy event types.
+ */
+function summarizeAuditEntry(entry: AuditEntry): string {
+  const meta = entry.metadata as Record<string, unknown> | undefined;
+
+  switch (entry.eventType) {
+    case 'step_complete': {
+      const cmd = meta?.command ?? entry.command ?? '';
+      const exit = meta?.exitCode;
+      const status = exit === 0 ? 'success' : `exit ${exit}`;
+      return `Executed: ${cmd} -> ${status}`;
+    }
+    case 'step_failed': {
+      const cmd = meta?.command ?? entry.command ?? '';
+      const err = meta?.error ?? 'unknown error';
+      return `Failed: ${cmd} -> ${err}`;
+    }
+    case 'execution_complete': {
+      const plan = meta?.planSummary ?? '';
+      const steps = meta?.stepsCompleted ?? '?';
+      return `Plan completed: ${plan} (${steps} steps)`;
+    }
+    case 'execution_start': {
+      const plan = meta?.planSummary ?? '';
+      const target = meta?.target ?? '';
+      return `Started: ${plan} on ${target}`;
+    }
+    case 'discovery_complete': {
+      const data = meta?.discoveredData as Record<string, unknown> | undefined;
+      const count = data ? Object.values(data).reduce((sum, v) =>
+        sum + (typeof v === 'string' ? v.split('\n').filter(Boolean).length : 0), 0) : 0;
+      return `Discovery: ${count} entities found`;
+    }
+    case 'skill_selection': {
+      const name = meta?.skillName ?? '';
+      return `Selected skill: ${name}`;
+    }
+    case 'lock_acquired': {
+      const target = meta?.target ?? '';
+      return `Lock acquired: ${target}`;
+    }
+    case 'lock_released': {
+      const target = meta?.target ?? '';
+      return `Lock released: ${target}`;
+    }
+    case 'snapshot_captured': {
+      const cmd = meta?.command ?? '';
+      return `Snapshot: ${cmd}`;
+    }
+    case 'rollback_start':
+      return `Rollback started: ${meta?.target ?? ''}`;
+    case 'rollback_complete':
+      return `Rollback complete: ${meta?.target ?? ''}`;
+    case 'rollback_failed':
+      return `Rollback FAILED: ${meta?.error ?? ''}`;
+    case 'circuit_breaker_triggered':
+      return `Circuit breaker: max retries reached`;
+    case 'damage_budget_exceeded':
+      return `Damage budget exceeded: ${meta?.spent ?? '?'}/${meta?.total ?? '?'} points`;
+    case 'damage_budget_update': {
+      const spent = meta?.spent ?? '?';
+      const total = meta?.total ?? '?';
+      return `Budget: ${spent}/${total} points used`;
+    }
+    case 'execution_resume':
+      return `Resumed from step ${meta?.fromStep ?? '?'}`;
+    default:
+      return entry.command ?? entry.decision ?? '';
+  }
 }
 
 function truncateLines(text: string, maxLines: number): string {

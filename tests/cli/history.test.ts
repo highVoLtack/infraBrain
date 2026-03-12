@@ -102,6 +102,57 @@ describe('formatHistoryTable', () => {
     });
   });
 
+  describe('execution event summaries', () => {
+    it('shows command and result for step_complete', () => {
+      const entries: AuditEntry[] = [{
+        timestamp: '2026-03-08T10:00:00.000Z',
+        sessionId: 'sess-1',
+        eventType: 'step_complete',
+        metadata: { command: 'docker network connect frontend demo-backend', exitCode: 0 },
+      }];
+      const output = formatHistoryTable(entries, false);
+      expect(output).toContain('Executed: docker network connect frontend demo-backend');
+    });
+
+    it('shows plan summary for execution_complete', () => {
+      const entries: AuditEntry[] = [{
+        timestamp: '2026-03-08T10:00:00.000Z',
+        sessionId: 'sess-1',
+        eventType: 'execution_complete',
+        metadata: { planSummary: 'Fix Nginx 502', stepsCompleted: 3 },
+      }];
+      const output = formatHistoryTable(entries, false);
+      expect(output).toContain('Plan completed: Fix Nginx 502 (3 steps)');
+    });
+
+    it('shows entity count for discovery_complete', () => {
+      const entries: AuditEntry[] = [{
+        timestamp: '2026-03-08T10:00:00.000Z',
+        sessionId: 'sess-1',
+        eventType: 'discovery_complete',
+        metadata: {
+          discoveredData: {
+            'Running containers': 'nginx\nbackend\nredis',
+            'Docker networks': 'bridge\nfrontend',
+          },
+        },
+      }];
+      const output = formatHistoryTable(entries, false);
+      expect(output).toContain('Discovery: 5 entities found');
+    });
+
+    it('shows skill name for skill_selection', () => {
+      const entries: AuditEntry[] = [{
+        timestamp: '2026-03-08T10:00:00.000Z',
+        sessionId: 'sess-1',
+        eventType: 'skill_selection',
+        metadata: { skillName: 'nginx-troubleshoot' },
+      }];
+      const output = formatHistoryTable(entries, false);
+      expect(output).toContain('Selected skill: nginx-troubleshoot');
+    });
+  });
+
   describe('empty results', () => {
     it('shows "No audit entries found" message for empty array', () => {
       const output = formatHistoryTable([], false);
