@@ -22,6 +22,7 @@ export interface ExecutionResult {
   reason?: string;
   stoppedAt?: number;
   stepResults: StepResult[];
+  rollingContext?: string;  // Accumulated context from completed steps
 }
 
 export interface SnapshotRecord {

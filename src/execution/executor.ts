@@ -125,6 +125,7 @@ export async function executePlan(
           reason: 'damage_budget_exceeded',
           stoppedAt: i,
           stepResults,
+          rollingContext: context.getContext() || undefined,
         };
       }
 
@@ -142,6 +143,7 @@ export async function executePlan(
           reason: 'approval_rejected',
           stoppedAt: i,
           stepResults,
+          rollingContext: context.getContext() || undefined,
         };
       }
 
@@ -191,6 +193,7 @@ export async function executePlan(
           reason: 'circuit_breaker',
           stoppedAt: i,
           stepResults,
+          rollingContext: context.getContext() || undefined,
         };
       }
 
@@ -226,7 +229,7 @@ export async function executePlan(
       stepsCompleted: stepResults.length,
     });
 
-    return { status: 'completed', stepResults };
+    return { status: 'completed', stepResults, rollingContext: context.getContext() || undefined };
   } finally {
     // 6. Always release lock
     if (lockAcquired) {

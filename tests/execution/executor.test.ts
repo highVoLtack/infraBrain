@@ -163,8 +163,35 @@ describe('executePlan', () => {
     expect(result.status).toBe('halted');
     expect(result.reason).toContain('circuit_breaker');
     expect(rollbackStep).toHaveBeenCalled();
-    // Rolling context should be defined even on halted (partial results)
+    // No steps completed successfully, so rollingContext is undefined (empty string -> undefined)
+    expect(result.rollingContext).toBeUndefined();
+  });
+
+  it('returns partial rollingContext when circuit breaker halts after some successful steps', async () => {
+    const runner = {
+      run: vi.fn<() => Promise<RunResult>>()
+        .mockResolvedValueOnce({ stdout: 'hosts content', stderr: '', exitCode: 0 })
+        .mockResolvedValue({ stdout: '', stderr: 'fail', exitCode: 1 }),
+    };
+    const deps = makeDeps({ runner });
+
+    const plan: FixPlan = {
+      summary: 'Partial fail plan',
+      steps: [
+        { command: 'cat /etc/hosts', description: 'Read hosts', rollback: '', risk: 'read' },
+        { command: 'docker restart nginx', description: 'Restart nginx', rollback: 'docker start nginx', risk: 'write' },
+      ],
+      complexity: 'simple',
+    };
+
+    const result = await executePlan(plan, 'nginx', deps);
+
+    expect(result.status).toBe('halted');
+    expect(result.reason).toContain('circuit_breaker');
+    // Rolling context should contain partial results from the successful first step
     expect(result.rollingContext).toBeDefined();
+    expect(result.rollingContext).toContain('Step 0');
+    expect(result.rollingContext).toContain('Read hosts');
   });
 
   it('triggers rollback and returns halted on damage budget exceeded', async () => {
@@ -188,8 +215,8 @@ describe('executePlan', () => {
     expect(result.status).toBe('halted');
     expect(result.reason).toContain('damage_budget');
     expect(rollbackStep).toHaveBeenCalled();
-    // Rolling context should be defined even on halted (partial results from prior steps)
-    expect(result.rollingContext).toBeDefined();
+    // No steps completed before budget exceeded, so rollingContext is undefined
+    expect(result.rollingContext).toBeUndefined();
   });
 
   it('returns rejected on lock conflict without override', async () => {
