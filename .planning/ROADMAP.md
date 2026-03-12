@@ -116,7 +116,11 @@ Plans:
   3. Resume route executes commands via real `runCommand` (not a no-op stub)
   4. Lock acquire/release operations emit `lock_acquired` and `lock_released` audit events
   5. `formatResumeSummary` is called in the CLI resume command (no dead imports)
-**Plans**: TBD (to be created via /gsd:plan-phase 6)
+**Plans**: 2 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Lock audit events: emit lock_acquired, lock_released, lock_conflict, lock_override in executor
+- [ ] 06-02-PLAN.md — Resume wiring: halt persistence in execute route, real runner in resume route, formatResumeSummary in CLI
 
 ## Progress
 
@@ -130,8 +134,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Execution Engine and Safety Net | 3/3 | Complete   | 2026-03-08 |
 | 4. Session Management and CLI Polish | 4/4 | Complete | 2026-03-08 |
 | 5. POC Scenario and Integration | 2/2 | Complete   | 2026-03-08 |
-| 6. Resume Wiring and Audit Completeness | 0/? | Not started | - |
+| 6. Resume Wiring and Audit Completeness | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-12 — Phase 6 added for audit gap closure (resume wiring + lock audit events)*
+*Last updated: 2026-03-12 — Phase 6 plans created (2 plans, 1 wave)*
