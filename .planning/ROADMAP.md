@@ -132,10 +132,12 @@ Plans:
   1. `audit_log` SQLite table has a `metadata` column and `appendAudit` persists `JSON.stringify(entry.metadata)` — execution events show meaningful summaries in `/infra:history`
   2. Debug route detects log-heavy prompts and passes them through `preFilterLogs` before sending to the LLM, reducing token usage
   3. `executePlan` injects `rollingContext.getContext()` into sub-agent LLM calls so multi-step plans have awareness of prior step results
-**Plans**: 0 plans (pending)
+**Plans**: 3 plans
 
 Plans:
-(none yet — run `/gsd:plan-phase 7`)
+- [ ] 07-01-PLAN.md — SQLite audit metadata column, appendAudit/queryAuditLog metadata persistence
+- [ ] 07-02-PLAN.md — Log-analysis pre-filter wiring in debug route for log-heavy prompts
+- [ ] 07-03-PLAN.md — Rolling context injection: expose getContext() on ExecutionResult
 
 ## Progress
 
@@ -150,8 +152,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 4. Session Management and CLI Polish | 4/4 | Complete | 2026-03-08 |
 | 5. POC Scenario and Integration | 2/2 | Complete   | 2026-03-08 |
 | 6. Resume Wiring and Audit Completeness | 2/2 | Complete | 2026-03-12 |
-| 7. Audit Metadata and Integration Polish | 0/? | Pending | - |
+| 7. Audit Metadata and Integration Polish | 0/3 | Planned | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-12 — Phase 7 added for audit re-audit gap closure*
+*Last updated: 2026-03-12 — Phase 7 planned with 3 gap closure plans*
