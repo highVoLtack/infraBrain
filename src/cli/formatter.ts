@@ -322,7 +322,7 @@ function summarizeAuditEntry(entry: AuditEntry): string {
     }
     case 'discovery_complete': {
       const data = meta?.discoveredData as Record<string, unknown> | undefined;
-      const count = data ? Object.values(data).reduce((sum, v) =>
+      const count = data ? Object.values(data).reduce((sum: number, v) =>
         sum + (typeof v === 'string' ? v.split('\n').filter(Boolean).length : 0), 0) : 0;
       return `Discovery: ${count} entities found`;
     }
