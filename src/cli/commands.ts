@@ -69,6 +69,7 @@ interface ResumeResponse {
   action: string;
   warning?: string;
   stepResults: Array<{ stepIndex: number; status: string }>;
+  session?: Record<string, unknown>;
 }
 
 interface HealthResponse {
@@ -386,6 +387,11 @@ export function registerCommands(config: CommandConfig): Command {
         if (jsonMode) {
           console.log(JSON.stringify(envelope('resume', data)));
           return;
+        }
+
+        // Display session summary before execution results
+        if (data.session) {
+          console.log('\n' + formatResumeSummary(data.session as any));
         }
 
         console.log(`\nResumed session ${sessionId}: ${data.status}`);
