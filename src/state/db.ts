@@ -27,6 +27,7 @@ export function initDatabase(dbPath: string): Database.Database {
       reasoning TEXT,
       diff_before TEXT,
       diff_after TEXT,
+      metadata TEXT,
       FOREIGN KEY (session_id) REFERENCES sessions(id)
     );
 
@@ -34,6 +35,13 @@ export function initDatabase(dbPath: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
     CREATE INDEX IF NOT EXISTS idx_audit_event_type ON audit_log(event_type);
   `);
+
+  // Idempotent migration: add metadata column to existing databases
+  try {
+    db.exec('ALTER TABLE audit_log ADD COLUMN metadata TEXT');
+  } catch {
+    // Column already exists — idempotent for existing databases
+  }
 
   return db;
 }

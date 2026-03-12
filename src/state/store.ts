@@ -125,6 +125,7 @@ export class WriteThrough {
       reasoning: (row.reasoning as string) ?? undefined,
       diffBefore: (row.diff_before as string) ?? undefined,
       diffAfter: (row.diff_after as string) ?? undefined,
+      metadata: row.metadata ? JSON.parse(row.metadata as string) : undefined,
     })) as AuditEntry[];
   }
 
@@ -137,8 +138,8 @@ export class WriteThrough {
 
     // Insert into SQLite audit_log
     const stmt = this.db.prepare(`
-      INSERT INTO audit_log (session_id, timestamp, event_type, risk_level, command, decision, reasoning, diff_before, diff_after)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO audit_log (session_id, timestamp, event_type, risk_level, command, decision, reasoning, diff_before, diff_after, metadata)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       entry.sessionId,
@@ -149,7 +150,8 @@ export class WriteThrough {
       entry.decision ?? null,
       entry.reasoning ?? null,
       entry.diffBefore ?? null,
-      entry.diffAfter ?? null
+      entry.diffAfter ?? null,
+      entry.metadata ? JSON.stringify(entry.metadata) : null
     );
   }
 }
