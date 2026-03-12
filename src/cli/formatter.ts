@@ -312,19 +312,21 @@ function summarizeAuditEntry(entry: AuditEntry): string {
     }
     case 'execution_complete': {
       const plan = meta?.planSummary ?? '';
-      const steps = meta?.stepsCompleted ?? '?';
-      return `Plan completed: ${plan} (${steps} steps)`;
+      const steps = meta?.stepsCompleted;
+      const stepStr = typeof steps === 'number' ? `${steps} steps` : '? steps';
+      return plan ? `Plan completed: ${plan} (${stepStr})` : `Plan completed (${stepStr})`;
     }
     case 'execution_start': {
       const plan = meta?.planSummary ?? '';
       const target = meta?.target ?? '';
-      return `Started: ${plan} on ${target}`;
+      return target ? `Started: ${plan} on ${target}` : `Started: ${plan}`;
     }
     case 'discovery_complete': {
-      const data = meta?.discoveredData as Record<string, unknown> | undefined;
+      const skill = (meta?.skill as string) ?? '';
+      const data = meta?.discoveredData as Record<string, string> | undefined;
       const count = data ? Object.values(data).reduce((sum: number, v) =>
         sum + (typeof v === 'string' ? v.split('\n').filter(Boolean).length : 0), 0) : 0;
-      return `Discovery: ${count} entities found`;
+      return skill ? `Discovery: ${count} entities found (${skill})` : `Discovery: ${count} entities found`;
     }
     case 'skill_selection': {
       const name = meta?.skillName ?? '';
