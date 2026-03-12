@@ -17,7 +17,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Execution Engine and Safety Net** - Sub-agent isolation, circuit breaker, damage budget, rollback, and concurrency locks (completed 2026-03-08)
 - [x] **Phase 4: Session Management and CLI Polish** - Status/history commands, JSON output, session resumability, TOON encoder, and queryable audit (completed 2026-03-08)
 - [x] **Phase 5: POC Scenario and Integration** - Docker/Nginx 502 end-to-end demo proving the full DPEV loop (completed 2026-03-08)
-- [ ] **Phase 6: Resume Wiring and Audit Completeness** - Gap closure: wire resume persistence, lock audit events, real resume runner (audit-identified)
+- [x] **Phase 6: Resume Wiring and Audit Completeness** - Gap closure: wire resume persistence, lock audit events, real resume runner (audit-identified) (completed 2026-03-12)
+- [ ] **Phase 7: Audit Metadata and Integration Polish** - Gap closure: SQLite audit metadata, log-analysis runtime wiring, rolling context injection (audit-identified)
 
 ## Phase Details
 
@@ -120,12 +121,26 @@ Plans:
 
 Plans:
 - [x] 06-01-PLAN.md — Lock audit events: emit lock_acquired, lock_released, lock_conflict, lock_override in executor
-- [ ] 06-02-PLAN.md — Resume wiring: halt persistence in execute route, real runner in resume route, formatResumeSummary in CLI
+- [x] 06-02-PLAN.md — Resume wiring: halt persistence in execute route, real runner in resume route, formatResumeSummary in CLI
+
+### Phase 7: Audit Metadata and Integration Polish
+**Goal**: Close remaining integration quality gaps from v1.0 re-audit — audit history shows full execution event details, log-analysis parsers activate at runtime, and rolling context feeds into multi-step executor LLM calls
+**Depends on**: Phase 6
+**Requirements**: SAFE-11 (audit metadata), INTF-03 (history display), SKIL-03 (log pre-filter runtime), SKIL-04 (log format runtime), CORE-07 (rolling context injection)
+**Gap Closure**: Closes 3 integration gaps from v1.0-MILESTONE-AUDIT.md (re-audit)
+**Success Criteria** (what must be TRUE):
+  1. `audit_log` SQLite table has a `metadata` column and `appendAudit` persists `JSON.stringify(entry.metadata)` — execution events show meaningful summaries in `/infra:history`
+  2. Debug route detects log-heavy prompts and passes them through `preFilterLogs` before sending to the LLM, reducing token usage
+  3. `executePlan` injects `rollingContext.getContext()` into sub-agent LLM calls so multi-step plans have awareness of prior step results
+**Plans**: 0 plans (pending)
+
+Plans:
+(none yet — run `/gsd:plan-phase 7`)
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -134,8 +149,9 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Execution Engine and Safety Net | 3/3 | Complete   | 2026-03-08 |
 | 4. Session Management and CLI Polish | 4/4 | Complete | 2026-03-08 |
 | 5. POC Scenario and Integration | 2/2 | Complete   | 2026-03-08 |
-| 6. Resume Wiring and Audit Completeness | 1/2 | In progress | - |
+| 6. Resume Wiring and Audit Completeness | 2/2 | Complete | 2026-03-12 |
+| 7. Audit Metadata and Integration Polish | 0/? | Pending | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-12 — Phase 6 Plan 1 complete (lock audit events)*
+*Last updated: 2026-03-12 — Phase 7 added for audit re-audit gap closure*
