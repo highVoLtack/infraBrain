@@ -282,4 +282,91 @@ describe('executePlan', () => {
 
     consoleSpy.mockRestore();
   });
+
+  describe('lock audit events', () => {
+    it('emits lock_acquired after successful lock acquisition', async () => {
+      const deps = makeDeps();
+      await executePlan(readPlan, 'nginx', deps);
+
+      expect(deps.auditLogger.logExecution).toHaveBeenCalledWith('lock_acquired', { target: 'nginx' });
+    });
+
+    it('emits lock_released after lock release in finally block', async () => {
+      const deps = makeDeps();
+      await executePlan(readPlan, 'nginx', deps);
+
+      expect(deps.auditLogger.logExecution).toHaveBeenCalledWith('lock_released', { target: 'nginx' });
+    });
+
+    it('emits lock_conflict when lock is held and no readline for override', async () => {
+      vi.mocked(acquireLock).mockReturnValue({
+        status: 'locked',
+        existing: {
+          target: 'nginx',
+          sessionId: 'other-session',
+          adminName: 'other-admin',
+          createdAt: new Date().toISOString(),
+          pid: 1234,
+          planSummary: 'other plan',
+        },
+      });
+
+      const deps = makeDeps();
+      // No readline on deps means override prompt is skipped
+      delete (deps as Record<string, unknown>).readline;
+      await executePlan(readPlan, 'nginx', deps);
+
+      expect(deps.auditLogger.logExecution).toHaveBeenCalledWith('lock_conflict', {
+        target: 'nginx',
+        existingSession: 'other-session',
+      });
+    });
+
+    it('emits lock_override when force-override succeeds', async () => {
+      vi.mocked(acquireLock)
+        .mockReturnValueOnce({
+          status: 'locked',
+          existing: {
+            target: 'nginx',
+            sessionId: 'other-session',
+            adminName: 'other-admin',
+            createdAt: new Date().toISOString(),
+            pid: 1234,
+            planSummary: 'other plan',
+          },
+        })
+        .mockReturnValueOnce({ status: 'acquired' });
+      vi.mocked(promptLockOverride).mockResolvedValue(true);
+
+      const deps = makeDeps({
+        readline: {} as ExecutionDeps['readline'],
+      });
+      await executePlan(readPlan, 'nginx', deps);
+
+      expect(deps.auditLogger.logExecution).toHaveBeenCalledWith('lock_override', {
+        target: 'nginx',
+        overriddenSession: 'other-session',
+      });
+    });
+
+    it('does NOT emit lock_acquired when lock acquisition is rejected', async () => {
+      vi.mocked(acquireLock).mockReturnValue({
+        status: 'locked',
+        existing: {
+          target: 'nginx',
+          sessionId: 'other-session',
+          adminName: 'other-admin',
+          createdAt: new Date().toISOString(),
+          pid: 1234,
+          planSummary: 'other plan',
+        },
+      });
+
+      const deps = makeDeps();
+      delete (deps as Record<string, unknown>).readline;
+      await executePlan(readPlan, 'nginx', deps);
+
+      expect(deps.auditLogger.logExecution).not.toHaveBeenCalledWith('lock_acquired', expect.anything());
+    });
+  });
 });
