@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: The Scenario Factory
-status: defining_requirements
-stopped_at: Milestone v1.1 started — defining requirements
-last_updated: "2026-03-12T17:00:00Z"
-last_activity: 2026-03-12 -- Milestone v1.1 started (The Scenario Factory)
+status: ready_to_plan
+stopped_at: Roadmap created for v1.1 — 4 phases, 13 requirements mapped
+last_updated: "2026-03-12T18:00:00Z"
+last_activity: 2026-03-12 -- v1.1 roadmap created (Phases 8-11)
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,25 +21,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control — every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.1 The Scenario Factory — expanding Chaos Library with complex failure scenarios
+**Current focus:** v1.1 The Scenario Factory — Phase 8: Rolling Context Injection
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-12 — Milestone v1.1 started
+Phase: 8 of 11 (Rolling Context Injection)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-03-12 — v1.1 roadmap created
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
-- Average duration: 5min
-- Total execution time: 0.93 hours
+- Total plans completed: 22 (v1.0)
+- Average duration: 4min
+- Total execution time: ~1.5 hours
 
-**By Phase:**
+**By Phase (v1.0):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
@@ -47,33 +47,13 @@ Progress: [██████████] 100%
 | 2 - Skill System | 3 | 9min | 3min |
 | 3 - Execution Engine | 3 | 10min | 3min |
 | 4 - Session Management | 4 | 15min | 4min |
+| 5 - POC Scenario | 2 | 8min | 4min |
+| 6 - Resume Wiring | 2 | 5min | 2.5min |
+| 7 - Audit Polish | 3 | 10min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: 04-02 (3min), 04-03 (5min), 04-04 (3min), 05-01 (2min), 05-02 (6min)
+- Last 5 plans: 06-01 (2min), 06-02 (3min), 07-01 (2min), 07-02 (6min), 07-03 (2min)
 - Trend: stable
-
-*Updated after each plan completion*
-| Phase 01 P01 | 5min | 2 tasks | 12 files |
-| Phase 01 P03 | 3min | 2 tasks | 9 files |
-| Phase 01 P04 | 20min | 3 tasks | 11 files |
-| Phase 01 P05 | 3min | 2 tasks | 5 files |
-| Phase 02 P01 | 3min | 2 tasks | 15 files |
-| Phase 02 P02 | 3min | 2 tasks | 14 files |
-| Phase 02 P03 | 3min | 2 tasks | 12 files |
-| Phase 03 P02 | 2min | 1 tasks | 3 files |
-| Phase 03 P01 | 3min | 2 tasks | 10 files |
-| Phase 03 P03 | 5min | 2 tasks | 15 files |
-| Phase 04 P04 | 3min | 2 tasks | 5 files |
-| Phase 04 P01 | 4min | 2 tasks | 10 files |
-| Phase 04 P02 | 3min | 2 tasks | 8 files |
-| Phase 04 P03 | 5min | 3 tasks | 13 files |
-| Phase 05 P01 | 2min | 2 tasks | 8 files |
-| Phase 05 P02 | 6min | 1 tasks | 4 files |
-| Phase 06 P01 | 2min | 2 tasks | 2 files |
-| Phase 06 P02 | 3min | 2 tasks | 5 files |
-| Phase 07 P01 | 2min | 1 tasks | 4 files |
-| Phase 07 P02 | 6min | 1 tasks | 2 files |
-| Phase 07 P03 | 2min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -82,64 +62,10 @@ Progress: [██████████] 100%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- File written first in dual-write pattern (source of truth per user decision)
-- UUID v7 for time-ordered session IDs
-- better-sqlite3 confirmed as SQLite choice (resolved research flag)
-- Foreign key constraint on audit_log.session_id for referential integrity
-- [Phase 01]: Used LanguageModel type from AI SDK v6 (renamed from LanguageModelV1)
-- [Phase 01]: Used maxOutputTokens instead of maxTokens (AI SDK v6 breaking change)
-- [Phase 01]: Resolved: Ollama AI SDK v6 compatibility validated -- ai-sdk-ollama@3.x works with AI SDK v6
-- [Phase 01]: BLOCKED_PATTERNS hardcoded as non-overridable RegExp[] (belt-and-suspenders safety)
-- [Phase 01]: Unknown commands default to WRITE risk level (safe default)
-- [Phase 01]: Approval gate accepts readline.Interface for testability
-- [Phase 01]: Config loader uses JSON format (.infrabrain/config.json) -- no YAML dependency
-- [Phase 01]: Factory pattern for route creation with injectable dependencies for testability
-- [Phase 01]: CLI calls REST API internally -- API is the single execution path
-- [Phase 01]: Ollama not required at build/test time -- fully mocked; runtime connectivity via /health
-- [Phase 01]: setReadline() late-binding pattern for injecting readline from REPL into commands module
-- [Phase 01]: Budget check throws Error on overflow (fail-fast, caller must handle)
-- [Phase 01]: Approval gate skipped in one-shot CLI mode (no readline = no interactive approval)
-- [Phase 02]: gray-matter for YAML frontmatter parsing (CJS module, works via default import in ESM)
-- [Phase 02]: camelCase section keys from Markdown headings (System Prompt -> systemPrompt)
-- [Phase 02]: Empty tools array means no restriction (unrestricted skill)
-- [Phase 02]: Heuristic order: JSON, Docker, journald, syslog (default) for log format auto-detection
-- [Phase 02]: generateObject with Zod schemas for structured LLM output (skill selection and fix plans)
-- [Phase 02]: Per-skill allowlist checked before global safety validator (defense-in-depth)
-- [Phase 02]: Graceful degradation: debug route falls back to direct LLM call when no skills loaded
-- [Phase 03]: writeFileSync with wx flag for race-safe atomic lock creation
-- [Phase 03]: Idempotent releaseLock ignores ENOENT for safe cleanup
-- [Phase 03]: Typed confirmation reuse for lock force-override (same pattern as destructive approval)
-- [Phase 03]: CircuitBreaker uses iterative loop with budget-awareness check before each retry
-- [Phase 03]: RunResult always-resolves pattern: command runner never throws, extracts stdout/stderr from error objects
-- [Phase 03]: SNAPSHOT_COMMANDS maps prefixes to snapshot generators (docker inspect, systemctl show, cat)
-- [Phase 03]: Rollback auto-approved with CRITICAL audit log on failure, no retry
-- [Phase 03]: Rolling context compresses all but last 2 steps at 80% token budget threshold
-- [Phase 03]: ExecutionDeps.auditLogger uses logExecution interface (not private log method)
-- [Phase 04]: TOON encoding is LLM-prompt-only — CLI --json and SQLite remain standard JSON
-- [Phase 04]: Graceful JSON fallback when TOON encoder throws on unsupported structures
-- [Phase 04]: JsonEnvelope shape: { ok, command, data, error } -- consistent across all CLI commands
-- [Phase 04]: Global --json via program.optsWithGlobals() with regular function() actions for Commander this binding
-- [Phase 04]: Status route reads lock files directly from lockDir (same pattern as locks/manager.ts)
-- [Phase 04]: Ollama health check uses 3s AbortController timeout in status route
-- [Phase 04]: Parameterized SQL with dynamic WHERE clause building (no string concatenation)
-- [Phase 04]: Time parser accepts relative (1h ago, 30m, 2d) and ISO 8601, throws on garbage
-- [Phase 04]: ResumeMetadata stored directly on SessionState (not separate table)
-- [Phase 04]: Executor resume skips steps via 'skipped' status in stepResults array
-- [Phase 04]: Debug route auto-detect uses optional extraDeps to avoid breaking existing callers
-- [Phase 04]: Resume route converts FixPlanState steps to FixPlan format for executor
-- [Phase 05]: Universal fix plan generation: debug route always uses planning skill for plan generation after any skill diagnosis
-- [Phase 05]: Docker network snapshot: connect/disconnect map to docker network inspect for state capture
-- [Phase 05]: Diagnostic Ladder: 5-step systematic investigation sequence enforced by skill system prompt
-- [Phase 05]: Runtime DNS resolution in nginx.conf: resolver 127.0.0.11 + variable upstream for deferred resolution
-- [Phase 05]: Docker network connect --alias required for DNS discovery when attaching at runtime
-- [Infra]: Intelligence Inventory provisioned on 200GB RunPod Network Volume (EU-RO-1) — 6 models pre-loaded for zero-download startup
-- [Infra]: Model classification refined — "Domain Expertise over Parameter Count": Qwen 32B is Technical Lead (structured syntax), DeepSeek-R1 is Forensic Specialist (hidden causality), Llama 70B is Strategic Fallback (broad reasoning). Route by domain fit, not model size
-- [Code]: Multi-model registry: ModelMap config (default/strategic/forensic), ModelRegistry interface, createModelRegistry() factory, preferred_model in skill frontmatter, /health shows all registry models. ADR-013 created. 322 tests passing
-- [Phase 06]: Lock audit events emitted at executor level (cross-cutting concern, not in lock manager)
-- [Phase 06]: store optional in ExecuteRouteDeps (backwards-compatible, persists only when store provided)
-- [Phase 07]: Idempotent migration via try/catch on ALTER TABLE (no migration table needed)
-- [Phase 07]: Empty rollingContext normalised to undefined via || undefined for backwards compatibility
-- [Phase 07]: preFilterIfLogHeavy exported for direct unit testing (avoids route-level test complexity)
+- [v1.0]: Rolling context compresses all but last 2 steps at 80% token budget threshold
+- [v1.0]: RollingContext exposed on ExecutionResult but NOT injected into sub-agent LLM calls (tech debt CORE-07)
+- [v1.0]: store optional in ExecuteRouteDeps (backwards-compatible)
+- [v1.1]: ENGN-01/02 must come before scenarios — multi-step fix plans need rolling context
 
 ### Pending Todos
 
@@ -147,12 +73,10 @@ None yet.
 
 ### Blockers/Concerns
 
-- Research flag: Ollama AI SDK v6 compatibility needs hands-on validation in Phase 1
-- RESOLVED: node:sqlite vs. better-sqlite3 -- chose better-sqlite3 (synchronous API, production-proven)
-- RESOLVED: Skill file format specification -- implemented obra/superpowers-style Markdown with YAML frontmatter + ## sections
+- CORE-07 tech debt: rollingContext.getContext() exists but is not wired into sub-agent LLM calls — Phase 8 resolves this
 
 ## Session Continuity
 
-Last session: 2026-03-12T15:03:29Z
-Stopped at: Completed 07-02-PLAN.md (debug route log pre-filter)
+Last session: 2026-03-12
+Stopped at: v1.1 roadmap created — ready to plan Phase 8
 Resume file: None

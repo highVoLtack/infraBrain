@@ -76,25 +76,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCEN-01 | — | Pending |
-| SCEN-02 | — | Pending |
-| SCEN-03 | — | Pending |
-| SCEN-04 | — | Pending |
-| SCEN-05 | — | Pending |
-| SCEN-06 | — | Pending |
-| E2E-01 | — | Pending |
-| E2E-02 | — | Pending |
-| E2E-03 | — | Pending |
-| ENGN-01 | — | Pending |
-| ENGN-02 | — | Pending |
-| UX-01 | — | Pending |
-| UX-02 | — | Pending |
+| ENGN-01 | Phase 8 | Pending |
+| ENGN-02 | Phase 8 | Pending |
+| SCEN-01 | Phase 9 | Pending |
+| SCEN-02 | Phase 9 | Pending |
+| SCEN-03 | Phase 9 | Pending |
+| E2E-01 | Phase 9 | Pending |
+| SCEN-04 | Phase 10 | Pending |
+| SCEN-05 | Phase 10 | Pending |
+| SCEN-06 | Phase 10 | Pending |
+| E2E-02 | Phase 10 | Pending |
+| E2E-03 | Phase 11 | Pending |
+| UX-01 | Phase 11 | Pending |
+| UX-02 | Phase 11 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13 ⚠️
+- Mapped to phases: 13
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-12*
-*Last updated: 2026-03-12 after initial definition*
+*Last updated: 2026-03-12 — traceability updated for v1.1 roadmap*
