@@ -34,11 +34,11 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 
 ### Active
 
+- [ ] Postgres connection limit/deadlock scenario with diagnostic skill and E2E test
+- [ ] Docker volume full scenario with storage skill and E2E test
+- [ ] Rolling context injection into sub-agent LLM calls (CORE-07 — required for multi-step scenarios)
+- [ ] `/infra:history` defaults to most recent session + `--session last` alias
 - [ ] Standalone binary distribution (via pkg/nexe, no Node.js required)
-- [ ] Rolling context injection into sub-agent LLM calls (CORE-07 enhancement)
-- [ ] Elastic Intelligence Brokerage (confidence-based cloud escalation)
-- [ ] RAG knowledge layer (Qdrant vector DB + document ingestion)
-- [ ] Intelligence Forge (LoRA distillation pipeline)
 
 ### Out of Scope
 
@@ -46,8 +46,22 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 - Public skill marketplace — requires community; build after v1 proves the model
 - Private skill repositories (enterprise git integration) — future enterprise feature
 - OAuth/multi-tenant auth — v1 is single-instance, single-team
+- Elastic Intelligence Brokerage — deferred to v2.0+ (focus on procedural knowledge first)
+- RAG knowledge layer — deferred to v2.0+ (prove engine with skills alone first)
+- Intelligence Forge / LoRA pipeline — deferred to v2.0+ (need proven scenarios first)
+- Day 0 Discovery / Auto-Provisioning — deferred to v2.0+
 - Mobile or web UI — CLI-first, web interface is a future layer
 - Cloud-hosted option — privacy-first, 100% on-premise only
+
+## Current Milestone: v1.1 The Scenario Factory
+
+**Goal:** Prove the scalability of the v1.0 DPEV engine by expanding the skill library with complex, real-world failure scenarios and automated E2E validation — a "Chaos Library" that demonstrates autonomous diagnosis and repair.
+
+**Target features:**
+- Postgres connection limit/deadlock scenario (Docker Compose + diagnostic skill + E2E test)
+- Docker volume full scenario (Docker Compose + storage skill + E2E test)
+- Rolling context injection into sub-agent LLM calls (CORE-07 tech debt closure)
+- UX polish: `/infra:history` defaults to most recent session, `--session last` alias
 
 ## Context
 

@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: InfraBrain MVP
-status: shipped
-stopped_at: v1.0 milestone complete
-last_updated: "2026-03-12T16:30:00Z"
-last_activity: 2026-03-12 -- v1.0 milestone shipped (39/39 requirements, 354 tests)
+milestone: v1.1
+milestone_name: The Scenario Factory
+status: defining_requirements
+stopped_at: Milestone v1.1 started — defining requirements
+last_updated: "2026-03-12T17:00:00Z"
+last_activity: 2026-03-12 -- Milestone v1.1 started (The Scenario Factory)
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 22
-  completed_plans: 22
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,13 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control — every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.0 shipped — planning next milestone
+**Current focus:** v1.1 The Scenario Factory — expanding Chaos Library with complex failure scenarios
 
 ## Current Position
 
-Milestone: v1.0 InfraBrain MVP — SHIPPED 2026-03-12
-Status: Complete
-Last activity: 2026-03-12 — v1.0 milestone archived and tagged
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-12 — Milestone v1.1 started
 
 Progress: [██████████] 100%
 
