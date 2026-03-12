@@ -75,4 +75,30 @@ describe('initDatabase', () => {
     expect(columns.length).toBeGreaterThan(0);
     db2.close();
   });
+
+  it('creates audit_log table with metadata column', () => {
+    const db = initDatabase(dbPath);
+    const columns = db.pragma('table_info(audit_log)') as Array<{ name: string; type: string }>;
+    const columnNames = columns.map((c) => c.name);
+
+    expect(columnNames).toContain('metadata');
+
+    const metaCol = columns.find((c) => c.name === 'metadata');
+    expect(metaCol?.type).toBe('TEXT');
+
+    db.close();
+  });
+
+  it('idempotent migration adds metadata column to existing databases', () => {
+    // First call creates the database
+    const db1 = initDatabase(dbPath);
+    db1.close();
+
+    // Second call should not error (ALTER TABLE is idempotent)
+    const db2 = initDatabase(dbPath);
+    const columns = db2.pragma('table_info(audit_log)') as Array<{ name: string }>;
+    const columnNames = columns.map((c) => c.name);
+    expect(columnNames).toContain('metadata');
+    db2.close();
+  });
 });

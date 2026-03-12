@@ -144,4 +144,64 @@ describe('WriteThrough', () => {
     expect(row.event_type).toBe('decision');
     expect(row.reasoning).toBe('test reasoning');
   });
+
+  it('appendAudit with metadata persists JSON and round-trips through queryAuditLog', () => {
+    const session = createSession(tmpDir);
+    const sessionDir = join(tmpDir, '.infrabrain', 'sessions', session.sessionId);
+    store.persistState(sessionDir, session);
+
+    const metadata = { stepIndex: 0, command: 'echo hi' };
+    const entry: AuditEntry = {
+      timestamp: new Date().toISOString(),
+      sessionId: session.sessionId,
+      eventType: 'step_complete',
+      metadata,
+    };
+
+    store.appendAudit(sessionDir, entry);
+
+    const results = store.queryAuditLog({ sessionId: session.sessionId });
+    expect(results).toHaveLength(1);
+    expect(results[0].metadata).toEqual(metadata);
+  });
+
+  it('appendAudit without metadata stores null and queryAuditLog returns undefined', () => {
+    const session = createSession(tmpDir);
+    const sessionDir = join(tmpDir, '.infrabrain', 'sessions', session.sessionId);
+    store.persistState(sessionDir, session);
+
+    const entry: AuditEntry = {
+      timestamp: new Date().toISOString(),
+      sessionId: session.sessionId,
+      eventType: 'decision',
+      decision: 'approve',
+    };
+
+    store.appendAudit(sessionDir, entry);
+
+    const results = store.queryAuditLog({ sessionId: session.sessionId });
+    expect(results).toHaveLength(1);
+    expect(results[0].metadata).toBeUndefined();
+  });
+
+  it('queryAuditLog returns parsed metadata object (not raw string)', () => {
+    const session = createSession(tmpDir);
+    const sessionDir = join(tmpDir, '.infrabrain', 'sessions', session.sessionId);
+    store.persistState(sessionDir, session);
+
+    const metadata = { nested: { key: 'value' }, count: 42 };
+    const entry: AuditEntry = {
+      timestamp: new Date().toISOString(),
+      sessionId: session.sessionId,
+      eventType: 'step_complete',
+      metadata,
+    };
+
+    store.appendAudit(sessionDir, entry);
+
+    const results = store.queryAuditLog({ sessionId: session.sessionId });
+    expect(results[0].metadata).toEqual(metadata);
+    expect(typeof results[0].metadata).toBe('object');
+    expect(typeof results[0].metadata).not.toBe('string');
+  });
 });
