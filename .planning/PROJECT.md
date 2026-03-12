@@ -91,6 +91,224 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 | JSON envelope for all CLI output | Consistent { ok, command, data, error } shape enables scripting and CI integration | — Confirmed |
 | Parameterized SQL for audit queries | No string concatenation in SQL; prevents injection in queryable audit log | — Confirmed |
 
+## Day 0 & Ecosystem Architecture (v2.0+)
+
+> **Vision:** InfraBrain v1.0 is a local CLI tool. v2.0+ transforms it into a scalable enterprise platform with automated onboarding, dynamic skill/LoRA distribution, and customer-local knowledge bases — all while maintaining the 100% on-premise guarantee.
+
+> **Research validated:** 2026-03-12 — see `.planning/research/DAY0-ECOSYSTEM.md` for full feasibility analysis with 50+ sources.
+
+---
+
+### Pillar 1: Skill & LoRA Distribution ("App Store")
+
+**Pattern:** OCI Registry + ORAS CLI (CNCF-backed, content-addressable, signable)
+
+```
+Master Repo (InfraBrain Lab)                Customer Site
+┌──────────────────────────┐                ┌──────────────────────────┐
+│  Harbor Registry          │  oras push/   │  Zot Registry (air-gap)  │
+│  registry.infrabrain.io/  │  pull or USB  │  local.registry/         │
+│    skills/nginx-diagnose  │◄─────────────►│    skills/nginx-diagnose │
+│    skills/sap-hana-debug  │               │    loras/sap-hana-r16    │
+│    loras/sap-hana-r16     │               │                          │
+│    loras/cisco-ios-r32    │               │  Engine pulls from local │
+└──────────────────────────┘                └──────────────────────────┘
+```
+
+**Key design decisions:**
+- **Development phase:** All skills, scenarios, and integration tests built in central Master Repo (our lab)
+- **Customer phase:** InfraBrain ships as lightweight "empty" engine — no hardcoded skills or LoRAs
+- **Dynamic pull:** Skills and LoRAs pulled from secure registry based on customer's actual environment
+- **Air-gap support:** Zot (single binary, ~20MB) for air-gapped sites; Harbor for enterprise with RBAC
+- **Supply-chain security:** Every artifact signed with Cosign before distribution, verified before loading
+- **Artifact format:** OCI artifacts with custom media types (`application/vnd.infrabrain.lora.v1`, `application/vnd.infrabrain.skill.v1`)
+
+**Feasibility: PROVEN** — OCI Distribution Spec v1.1.1, ORAS v1.3.0, Zot v2.1+, Harbor v2.12+, Cosign v2.x
+
+---
+
+### Pillar 2: Day 0 Setup Wizard & Deep Scan
+
+**Trigger:** `/infra:setup` command spawns specialized Discovery Agents
+
+```
+/infra:setup
+     │
+     ├──► Network Scanner (Nmap)      → hosts, ports, services, versions
+     ├──► AD/LDAP Crawler (ldapts)    → domains, OUs, computers, users
+     ├──► Docker Inspector (dockerode) → containers, networks, volumes
+     ├──► K8s Inspector (@k8s/client)  → nodes, services, pods, namespaces
+     └──► DNS/Service Discovery        → internal DNS, service endpoints
+           │
+           ▼
+     ┌─────────────────────────────┐
+     │  Unified Topology Graph      │
+     │  (SQLite + TOON-encoded)     │
+     │                              │
+     │  Networks → Hosts → Services │
+     │  AD: domain, OUs, computers  │
+     │  K8s: clusters, namespaces   │
+     └─────────────────────────────┘
+```
+
+**Key design decisions:**
+- **ldapts over ldapjs:** ldapjs decommissioned April 2025. ldapts is TypeScript-native, promise-based (148K weekly/npm). Abstract behind interface for future swappability
+- **Nmap as system dependency:** GPL license prevents bundling in standalone binary. Document as prerequisite; provide degraded pure-JS fallback for basic host discovery
+- **Credential management:** OS keychain storage (keytar npm). Never plaintext. AD service account needs READ-only access
+- **Scan safety:** Default to Nmap `-T3` (normal) for production networks. `-T4` opt-in. Document for SOC teams
+- **Data classification:** Topology DB encrypted at rest (filesystem-level: LUKS/BitLocker/FileVault)
+
+**Feasibility: VALIDATED** — Individual tools proven, integration layer is custom engineering
+
+---
+
+### Pillar 3: Auto-Provisioning from System Analysis
+
+**Flow:** Day 0 scan → Tech detection → Registry match → HITL approval → Pull & verify
+
+```
+Day 0 Scan: "Found SAP HANA, nginx, Docker, AD, Cisco switches"
+     │
+     ▼
+Matching Engine: tech signature → Expert Pack mapping
+     │
+     ▼
+Provisioning Plan: SAP HANA LoRA (60MB) + nginx LoRA (60MB) + 6 Skill packs
+     │
+     ▼
+HITL Approval: "Download 180MB of Expert Packs? [Y/N] [Show details]"
+     │ (Y)
+     ▼
+ORAS Pull + Cosign Verify → Place in loras/ and skills/ directories
+```
+
+**Key design decisions:**
+- **HITL gate is mandatory:** Auto-downloading LoRAs (which influence model behavior) without admin approval is a non-starter for enterprise
+- **Version pinning:** Provisioning plan pins exact OCI digests, not mutable tags
+- **Tech-to-pack mapping:** Ships as JSON config with engine, updated from registry. Expect false positives from Nmap service detection — admin reviews plan
+- **Incremental provisioning:** `/infra:setup --update` re-scans and suggests new packs for newly detected tech
+
+**Feasibility: LOW-MEDIUM** — Logic straightforward, but mapping accuracy depends on Nmap detection quality. Needs real-world iteration.
+
+---
+
+### Pillar 4: Local Knowledge Base (Customer Air-Gap)
+
+**Principle:** 100% of proprietary company knowledge stays on customer hardware. Period.
+
+```
+Customer Documents                 Local Embedding           Local Qdrant
+(never leave site)                 (bge-m3 via Ollama)       (single binary, ~80MB)
+
+┌────────────────┐   chunk    ┌──────────────────┐  embed   ┌──────────────┐
+│ SAP manuals    │───────────►│ 512-token chunks  │─────────►│ Dense + BM25 │
+│ AD export      │            │ + contextual      │          │ sparse       │
+│ Internal wikis │            │   headers         │          │ 1024-dim     │
+│ Network docs   │            │                   │          │ int8 quant   │
+│ Runbooks       │            └──────────────────┘          └──────────────┘
+└────────────────┘
+```
+
+**Storage budget (enterprise scale):**
+
+| Document Volume | Chunks (~) | Storage (int8 quant) | RAM for Serving |
+|-----------------|-----------|---------------------|-----------------|
+| 10K pages | 100K | ~200-400 MB | ~500 MB |
+| 100K pages | 1M | ~2-4 GB | ~1.4-3 GB |
+| 1M pages | 10M | ~25-40 GB | ~3-6 GB |
+
+**Key design decisions:**
+- **Qdrant binary:** Single pre-built binary (~80MB), zero dependencies, fully air-gap compatible. Bundled alongside InfraBrain
+- **Hybrid search:** BM25 sparse + dense semantic (79% accuracy vs 65% vector-only). Cross-encoder reranking (bge-reranker-v2-m3) adds ~50ms for 91% accuracy
+- **Encryption:** Filesystem-level (LUKS/BitLocker/FileVault). Qdrant binds to localhost only
+- **Data lifecycle:** `/infra:purge-knowledge` command for complete data removal
+- **Embedding model:** bge-m3 via Ollama (568M params, ~1GB VRAM, MIT license, only 2% behind OpenAI embeddings)
+
+**Feasibility: PROVEN** — Qdrant pre-built binary, bge-m3 via Ollama, all fully offline-capable
+
+---
+
+### Intelligence Forge: LoRA Production Pipeline
+
+**The 4-step process for creating domain Expert Packs:**
+
+```
+Step 1: RAW INGESTION              Step 2: THE ALCHEMIST
+┌─────────────────────┐            ┌──────────────────────────────┐
+│ Domain docs, wikis,  │           │ Stage 1: Claude Opus designs │
+│ error logs, manuals  │──────────►│   training curriculum (legal)│
+│ (SAP, Cisco, etc.)   │           │                              │
+└─────────────────────┘            │ Stage 2: Llama 405B on      │
+                                   │   RunPod writes 5,000+ DPEV  │
+                                   │   training scenarios (clean  │
+                                   │   provenance: Llama license) │
+                                   │                              │
+                                   │ Stage 2.5: Quality filtering │
+                                   │   dedup, format check, score │
+                                   └──────────────┬───────────────┘
+                                                  │
+Step 4: THE DELIVERY               Step 3: THE FURNACE
+┌─────────────────────┐            ┌──────────────────────────────┐
+│ vLLM multi-LoRA      │◄──────────│ Unsloth QLoRA fine-tuning    │
+│ Per-request adapter   │           │ on Qwen 32B base model       │
+│ selection ~0ms        │           │                              │
+│ 2,000 concurrent     │           │ Output: .safetensors adapter  │
+│ adapters (S-LoRA)    │           │ 60-240MB per domain          │
+│                       │           │ Rank-16 (quality/size sweet  │
+│ Hot-swap sub-second  │           │ spot for IT-Ops diagnostics) │
+└─────────────────────┘            └──────────────────────────────┘
+```
+
+**Estimated cost per domain Expert Pack:** ~$50-100, 8-15 hours
+
+| Step | Tool | Status | Hardware |
+|------|------|--------|----------|
+| 1. Raw Ingestion | pdf-parse, cheerio, Markdown built-in | PROVEN | Any machine |
+| 2. The Alchemist | Claude (curriculum) + Llama 405B (data) | VALIDATED | RunPod 2xH200 ($8/hr) |
+| 2.5. Quality Filter | MinHash dedup + DPEV format validation | PROVEN | Local compute |
+| 3. The Furnace | Unsloth QLoRA (2-3x faster, 70% less VRAM) | PROVEN | A100 80GB or 2xA40 |
+| 4. The Delivery | vLLM multi-LoRA, per-request adapter selection | PROVEN | Customer GPU (RTX 5090) |
+
+**Key validated findings:**
+- **Unsloth is the clear winner** for training — NVIDIA-endorsed, AWS SageMaker integrated, 2-3x faster than alternatives
+- **vLLM multi-LoRA is production-ready** — static loading stable, dynamic loading available with flag, S-LoRA demonstrated 2,000 concurrent adapters
+- **Two-stage data pipeline validated** by InstructLab (Red Hat/IBM) and NVIDIA Nemotron-4 patterns
+- **Legal provenance clean:** Claude designs curriculum (user-generated content), Llama writes data (permissive license)
+- **vLLM dynamic loading security:** `VLLM_ALLOW_RUNTIME_LORA_UPDATING=True` flag required. Bind to localhost only. Acceptable for air-gapped deployment
+
+---
+
+### Ecosystem Build Order
+
+| Phase | Name | Depends On | Can Parallelize With |
+|-------|------|-----------|---------------------|
+| A | Registry & Distribution (ORAS + Zot/Harbor) | Nothing | B, D |
+| B | Day 0 Discovery Agents | Nothing | A, D |
+| C | Auto-Provisioning (glue layer) | A + B | D |
+| D | LoRA Production Pipeline | Nothing (longest lead time) | A, B |
+| E | vLLM Integration + Hot-Swap (capstone) | D (needs test adapters) | — |
+
+**A and B are independent foundations — start in parallel. D has longest lead time — start early.**
+
+---
+
+### Proven vs Aspirational Assessment
+
+| Component | Status |
+|-----------|--------|
+| OCI artifact distribution (ORAS + Zot/Harbor) | **PROVEN** |
+| Nmap/Docker/K8s discovery | **PROVEN** |
+| AD/LDAP discovery (ldapts) | **VALIDATED** (fragile ecosystem) |
+| Qdrant air-gapped deployment | **PROVEN** |
+| vLLM static multi-LoRA | **PROVEN** |
+| vLLM dynamic LoRA loading | **VALIDATED** (security flag) |
+| Unsloth QLoRA training | **PROVEN** |
+| Two-stage synthetic data | **VALIDATED** (quality needs iteration) |
+| Auto-provisioning accuracy | **ASPIRATIONAL** (Nmap detection imperfect) |
+| Full Day 0 wizard E2E | **ASPIRATIONAL** (pieces proven, orchestration untested) |
+
+---
+
 ## Phase 6+ Strategic Roadmap
 
 > **Hard constraint**: Primary data path is always 100% local. Cloud resources are ephemeral, optional, zero data residue. All enterprise data stays on-premise.
