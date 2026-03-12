@@ -119,7 +119,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Lock audit events: emit lock_acquired, lock_released, lock_conflict, lock_override in executor
+- [x] 06-01-PLAN.md — Lock audit events: emit lock_acquired, lock_released, lock_conflict, lock_override in executor
 - [ ] 06-02-PLAN.md — Resume wiring: halt persistence in execute route, real runner in resume route, formatResumeSummary in CLI
 
 ## Progress
@@ -134,8 +134,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Execution Engine and Safety Net | 3/3 | Complete   | 2026-03-08 |
 | 4. Session Management and CLI Polish | 4/4 | Complete | 2026-03-08 |
 | 5. POC Scenario and Integration | 2/2 | Complete   | 2026-03-08 |
-| 6. Resume Wiring and Audit Completeness | 0/2 | Not started | - |
+| 6. Resume Wiring and Audit Completeness | 1/2 | In progress | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-12 — Phase 6 plans created (2 plans, 1 wave)*
+*Last updated: 2026-03-12 — Phase 6 Plan 1 complete (lock audit events)*
