@@ -112,6 +112,10 @@ describe('executePlan', () => {
     expect(result.stepResults).toHaveLength(2);
     expect(result.stepResults[0].status).toBe('success');
     expect(result.stepResults[1].status).toBe('success');
+    // Rolling context should contain step descriptions from completed steps
+    expect(result.rollingContext).toBeDefined();
+    expect(result.rollingContext).toContain('Step 0');
+    expect(result.rollingContext).toContain('Step 1');
   });
 
   it('captures snapshot before WRITE step execution', async () => {
@@ -159,6 +163,8 @@ describe('executePlan', () => {
     expect(result.status).toBe('halted');
     expect(result.reason).toContain('circuit_breaker');
     expect(rollbackStep).toHaveBeenCalled();
+    // Rolling context should be defined even on halted (partial results)
+    expect(result.rollingContext).toBeDefined();
   });
 
   it('triggers rollback and returns halted on damage budget exceeded', async () => {
@@ -182,6 +188,8 @@ describe('executePlan', () => {
     expect(result.status).toBe('halted');
     expect(result.reason).toContain('damage_budget');
     expect(rollbackStep).toHaveBeenCalled();
+    // Rolling context should be defined even on halted (partial results from prior steps)
+    expect(result.rollingContext).toBeDefined();
   });
 
   it('returns rejected on lock conflict without override', async () => {
@@ -203,6 +211,8 @@ describe('executePlan', () => {
 
     expect(result.status).toBe('rejected');
     expect(result.reason).toContain('lock');
+    // Rolling context should be undefined -- context not yet created before lock acquisition
+    expect(result.rollingContext).toBeUndefined();
   });
 
   it('releases lock in finally block even when error thrown', async () => {
