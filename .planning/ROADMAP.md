@@ -68,9 +68,13 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Running `docker compose up` in the Docker storage demo directory starts an environment where a container volume is 100% full and the container is crashing
   2. The `docker-storage.md` skill diagnoses via `df -h` and `docker system df`, and produces a fix plan to prune or truncate
-  3. Running `demo/reset-docker-storage.sh` idempotently restores the broken state so the scenario can be re-run
+  3. Running `demo/docker-storage/reset-docker-storage.sh` idempotently restores the broken state so the scenario can be re-run
   4. An automated E2E test proves the full DPEV loop: diagnose identifies the full volume, plan proposes cleanup, execute runs it, verify confirms recovery
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 10-01-PLAN.md — Docker Compose environment with shared tmpfs volume and idempotent reset script
+- [ ] 10-02-PLAN.md — docker-storage diagnostic skill and discovery commands
+- [ ] 10-03-PLAN.md — E2E test proving full DPEV loop for Docker storage scenario
 
 ### Phase 11: Cross-Scenario Validation and UX Polish
 **Goal**: Both scenarios have verified audit trail completeness and the history command gets usability improvements
@@ -97,9 +101,9 @@ Plans:
 | 7. Audit Metadata and Integration Polish | v1.0 | 3/3 | Complete | 2026-03-12 |
 | 8. Rolling Context Injection | v1.1 | 2/2 | Complete | 2026-03-13 |
 | 9. Postgres Failure Scenario | 2/3 | In Progress|  | - |
-| 10. Docker Storage Failure Scenario | v1.1 | 0/? | Not started | - |
+| 10. Docker Storage Failure Scenario | v1.1 | 0/3 | Planned | - |
 | 11. Cross-Scenario Validation and UX Polish | v1.1 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-13 — Phase 9 planned (3 plans, 2 waves)*
+*Last updated: 2026-03-13 — Phase 10 planned (3 plans, 2 waves)*
