@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: The Scenario Factory
-status: ready_to_plan
-stopped_at: Roadmap created for v1.1 — 4 phases, 13 requirements mapped
-last_updated: "2026-03-12T18:00:00Z"
-last_activity: 2026-03-12 -- v1.1 roadmap created (Phases 8-11)
+status: executing
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-03-13T08:27:27.735Z"
+last_activity: 2026-03-13 -- 08-01 rolling context injection complete
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 ## Current Position
 
 Phase: 8 of 11 (Rolling Context Injection)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-03-12 — v1.1 roadmap created
+Plan: 1 of 2 complete
+Status: Executing
+Last activity: 2026-03-13 -- 08-01 rolling context injection complete
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -51,8 +51,10 @@ Progress: [░░░░░░░░░░] 0%
 | 6 - Resume Wiring | 2 | 5min | 2.5min |
 | 7 - Audit Polish | 3 | 10min | 3min |
 
+| 8 - Rolling Context | 1 (of 2) | 1min | 1min |
+
 **Recent Trend:**
-- Last 5 plans: 06-01 (2min), 06-02 (3min), 07-01 (2min), 07-02 (6min), 07-03 (2min)
+- Last 5 plans: 06-02 (3min), 07-01 (2min), 07-02 (6min), 07-03 (2min), 08-01 (1min)
 - Trend: stable
 
 ## Accumulated Context
@@ -66,6 +68,7 @@ Recent decisions affecting current work:
 - [v1.0]: RollingContext exposed on ExecutionResult but NOT injected into sub-agent LLM calls (tech debt CORE-07)
 - [v1.0]: store optional in ExecuteRouteDeps (backwards-compatible)
 - [v1.1]: ENGN-01/02 must come before scenarios — multi-step fix plans need rolling context
+- [v1.1 08-01]: onBeforeStep placed after skip check, before budget check; receives raw context string not RollingContext object
 
 ### Pending Todos
 
@@ -77,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12
-Stopped at: v1.1 roadmap created — ready to plan Phase 8
+Last session: 2026-03-13T08:27:27.733Z
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None

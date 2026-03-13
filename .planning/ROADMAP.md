@@ -41,7 +41,7 @@
   1. When executePlan runs step 3 of a fix plan, the sub-agent LLM call includes a summary of what steps 1 and 2 produced
   2. Resume route passes accumulated rolling context to the LLM provider so resumed sessions do not lose prior step awareness
   3. A unit test confirms that rollingContext.getContext() output appears in the LLM prompt for steps after step 1
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 08-01-PLAN.md — Add onBeforeStep callback to executor for rolling context injection
 - [ ] 08-02-PLAN.md — Wire rolling context into execute and resume routes
@@ -91,7 +91,7 @@ Plans:
 | 5. POC Scenario and Integration | v1.0 | 2/2 | Complete | 2026-03-08 |
 | 6. Resume Wiring and Audit Completeness | v1.0 | 2/2 | Complete | 2026-03-12 |
 | 7. Audit Metadata and Integration Polish | v1.0 | 3/3 | Complete | 2026-03-12 |
-| 8. Rolling Context Injection | v1.1 | 0/2 | Planned | - |
+| 8. Rolling Context Injection | 1/2 | In Progress|  | - |
 | 9. Postgres Failure Scenario | v1.1 | 0/? | Not started | - |
 | 10. Docker Storage Failure Scenario | v1.1 | 0/? | Not started | - |
 | 11. Cross-Scenario Validation and UX Polish | v1.1 | 0/? | Not started | - |

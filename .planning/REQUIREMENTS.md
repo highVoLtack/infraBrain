@@ -24,7 +24,7 @@ Requirements for v1.1 The Scenario Factory. Each maps to roadmap phases.
 
 ### Engine Enhancement
 
-- [ ] **ENGN-01**: `executePlan` injects `rollingContext.getContext()` into sub-agent LLM calls so multi-step plans maintain awareness of prior step results
+- [x] **ENGN-01**: `executePlan` injects `rollingContext.getContext()` into sub-agent LLM calls so multi-step plans maintain awareness of prior step results
 - [ ] **ENGN-02**: Execute and resume routes pass rolling context to LLM provider for follow-up interactions
 
 ### UX Polish
@@ -76,7 +76,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ENGN-01 | Phase 8 | Pending |
+| ENGN-01 | Phase 8 | Complete |
 | ENGN-02 | Phase 8 | Pending |
 | SCEN-01 | Phase 9 | Pending |
 | SCEN-02 | Phase 9 | Pending |
