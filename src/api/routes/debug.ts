@@ -86,6 +86,25 @@ const DISCOVERY_COMMANDS: Record<string, { command: string; label: string }[]> =
     { command: 'docker ps --format "{{.Names}}"', label: 'Running containers' },
     { command: 'docker network ls --format "{{.Name}}"', label: 'Docker networks' },
   ],
+  'postgres-troubleshoot': [
+    { command: 'docker ps --format "{{.Names}}"', label: 'Running containers' },
+    {
+      command: 'docker network inspect postgres_pgnet --format "{{range .Containers}}{{.Name}}:{{.IPv4Address}} {{end}}"',
+      label: 'Container IP mapping',
+    },
+    {
+      command: 'docker exec postgres-demo psql -U postgres -t -c "SELECT count(*) AS active FROM pg_stat_activity"',
+      label: 'Active connection count',
+    },
+    {
+      command: 'docker exec postgres-demo psql -U postgres -t -c "SHOW max_connections"',
+      label: 'Max connections setting',
+    },
+    {
+      command: 'docker exec postgres-demo psql -U postgres -t -A -c "SELECT pid, state, client_addr, usename, query, state_change FROM pg_stat_activity WHERE state = \'idle\' ORDER BY state_change"',
+      label: 'Idle connections detail',
+    },
+  ],
 };
 
 /**
