@@ -53,7 +53,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Running `docker compose up` in the Postgres demo directory starts an environment where Postgres has hit max_connections from a connection-leaking app
   2. The `postgres-troubleshoot.md` skill queries pg_stat_activity, identifies idle/leaked connections, and produces a fix plan that terminates and recovers connections
-  3. Running `demo/reset-postgres.sh` idempotently restores the broken state so the scenario can be re-run
+  3. Running `demo/postgres/reset-postgres.sh` idempotently restores the broken state so the scenario can be re-run
   4. An automated E2E test proves the full DPEV loop: diagnose identifies the connection leak, plan proposes termination, execute runs it, verify confirms recovery
 **Plans:** 2/3 plans executed
 Plans:
