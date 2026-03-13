@@ -45,6 +45,7 @@ export interface ExecutionDeps {
   readline?: ReadlineInterface;
   sessionId: string;
   sessionDir: string;
+  onBeforeStep?: (stepIndex: number, rollingContext: string) => Promise<void>;
 }
 
 export type { FixPlan, FixStep };
