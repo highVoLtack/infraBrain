@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { AuditLogger } from '../../audit/logger.js';
 import type { InfraBrainConfig } from '../../config/types.js';
 import type { RunResult } from '../../execution/types.js';
+import type { LLMProvider } from '../../llm/types.js';
 import type { WriteThrough } from '../../state/store.js';
 import type { SessionState } from '../../state/types.js';
 import { FixPlanSchema } from '../../orchestrator/types.js';
@@ -14,6 +15,7 @@ export interface ExecuteRouteDeps {
   sessionId: string;
   sessionDir: string;
   store?: WriteThrough;
+  provider?: LLMProvider;
 }
 
 /**
@@ -63,6 +65,20 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
         },
       };
 
+      // Build onBeforeStep callback for rolling context injection when provider exists
+      const onBeforeStep = deps.provider
+        ? async (stepIndex: number, rollingContext: string): Promise<void> => {
+            deps.auditLogger.logExecution('context_injection', {
+              stepIndex,
+              contextLength: rollingContext.length,
+              contextPreview: rollingContext.substring(0, 200),
+            });
+            // Rolling context is now available at the LLM injection point.
+            // Phase 9+ will add: await deps.provider!.generateCommand(prompt + rollingContext, systemPrompt)
+            // For Phase 8: wiring is complete, context flows, injection is audited.
+          }
+        : undefined;
+
       // Execute the plan (auto-approve all in API mode since approval happened upstream)
       const result = await executePlan(planResult.data, target, {
         runner,
@@ -71,6 +87,7 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
         config: deps.config,
         sessionId: deps.sessionId,
         sessionDir: deps.sessionDir,
+        onBeforeStep,
       });
 
       // Persist resume metadata on halt so /infra:resume can find this session
