@@ -1,0 +1,2 @@
+CREATE USER leaky WITH PASSWORD 'leaky';
+GRANT CONNECT ON DATABASE postgres TO leaky;
