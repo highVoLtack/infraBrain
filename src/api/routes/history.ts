@@ -15,11 +15,29 @@ export function createHistoryRoute(deps: HistoryRouteDeps): Router {
   const router = Router();
 
   router.get('/', (req, res) => {
-    const { session, type, risk, since, until, limit, verbose } = req.query as Record<string, string | undefined>;
+    const { session, type, risk, since, until, limit, verbose, list } = req.query as Record<string, string | undefined>;
+
+    // List mode: return session overview
+    if (list === 'true') {
+      const sessions = deps.store.getSessionList(limit ? parseInt(limit, 10) : 20);
+      res.json({ sessions, count: sessions.length });
+      return;
+    }
 
     const filters: Record<string, unknown> = {};
 
-    if (session) filters.sessionId = session;
+    // Session alias resolution
+    if (session === 'last' || session === 'previous') {
+      const resolved = deps.store.getSessionIdByAlias(session);
+      if (!resolved) {
+        res.status(404).json({ error: `No session found for alias '${session}'` });
+        return;
+      }
+      filters.sessionId = resolved;
+    } else if (session) {
+      filters.sessionId = session;
+    }
+
     if (type) filters.eventType = type;
     if (risk) filters.riskLevel = risk;
     if (since) filters.since = parseTimeInput(since);

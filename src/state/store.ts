@@ -80,6 +80,59 @@ export class WriteThrough {
   }
 
   /**
+   * Get the most recent session ID, or null if no sessions exist.
+   */
+  getLatestSessionId(): string | null {
+    const row = this.db
+      .prepare('SELECT id FROM sessions ORDER BY updated_at DESC LIMIT 1')
+      .get() as { id: string } | undefined;
+    return row?.id ?? null;
+  }
+
+  /**
+   * Resolve a session alias ('last' or 'previous') to a real session ID.
+   * Returns null if no session exists at that offset.
+   */
+  getSessionIdByAlias(alias: 'last' | 'previous'): string | null {
+    const offset = alias === 'last' ? 0 : 1;
+    const row = this.db
+      .prepare('SELECT id FROM sessions ORDER BY updated_at DESC LIMIT 1 OFFSET ?')
+      .get(offset) as { id: string } | undefined;
+    return row?.id ?? null;
+  }
+
+  /**
+   * Get a list of sessions with event counts, ordered by updated_at DESC.
+   */
+  getSessionList(limit: number = 20): Array<{ id: string; status: string; target: string; updatedAt: string; eventCount: number }> {
+    const rows = this.db
+      .prepare(`
+        SELECT
+          s.id,
+          s.state,
+          s.updated_at,
+          COUNT(a.id) AS event_count
+        FROM sessions s
+        LEFT JOIN audit_log a ON a.session_id = s.id
+        GROUP BY s.id
+        ORDER BY s.updated_at DESC
+        LIMIT ?
+      `)
+      .all(limit) as Array<{ id: string; state: string; updated_at: string; event_count: number }>;
+
+    return rows.map((row) => {
+      const state = JSON.parse(row.state) as SessionState;
+      return {
+        id: row.id,
+        status: state.status,
+        target: state.target ?? '',
+        updatedAt: row.updated_at,
+        eventCount: row.event_count,
+      };
+    });
+  }
+
+  /**
    * Query audit log with parameterized filters (AND logic).
    * Returns entries ordered by timestamp DESC with configurable limit.
    */
