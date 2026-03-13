@@ -366,6 +366,124 @@ function summarizeAuditEntry(entry: AuditEntry): string {
   }
 }
 
+// ---------- DPEV Summary ----------
+
+/**
+ * Format audit entries as a compact DPEV (Skill -> Decision -> Execution -> Verification) summary line.
+ * Extracts key events from a session's audit trail to show the high-level flow.
+ */
+export function formatDPEVSummary(entries: AuditEntry[]): string {
+  // Sort by timestamp ASC to follow the flow
+  const sorted = [...entries].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+  let skill = '';
+  let decision = '';
+  let stepCount = 0;
+  let verification = '';
+
+  for (const entry of sorted) {
+    const meta = entry.metadata as Record<string, unknown> | undefined;
+    switch (entry.eventType) {
+      case 'skill_selection':
+        skill = (meta?.skillName as string) ?? '';
+        break;
+      case 'decision':
+        decision = entry.decision ?? '';
+        break;
+      case 'step_complete':
+        stepCount++;
+        break;
+      case 'execution_complete': {
+        const status = (meta?.status as string) ?? 'completed';
+        verification = status;
+        break;
+      }
+    }
+  }
+
+  // If no decision event, try to extract from discovery or diagnosis
+  if (!decision) {
+    const discoveryEntry = sorted.find((e) => e.eventType === 'discovery_complete');
+    if (discoveryEntry) {
+      decision = (discoveryEntry.metadata as Record<string, unknown>)?.skill as string ?? 'diagnosis';
+    }
+  }
+
+  // Truncate decision to ~40 chars
+  const truncatedDecision = decision.length > 40 ? decision.slice(0, 37) + '...' : decision;
+
+  const parts: string[] = [];
+  parts.push(chalk.cyan(`S: ${skill || '(none)'}`));
+  parts.push(chalk.yellow(`D: ${truncatedDecision || '(none)'}`));
+  parts.push(chalk.green(`E: ${stepCount} steps`));
+
+  if (verification) {
+    parts.push(chalk.green(`V: ${verification}`));
+  } else {
+    parts.push(chalk.gray('V: (no verification)'));
+  }
+
+  return parts.join(' -> ');
+}
+
+// ---------- Session List ----------
+
+/**
+ * Format a list of sessions as a table for CLI display.
+ */
+export function formatSessionList(sessions: Array<{ id: string; status: string; target: string; updatedAt: string; eventCount: number }>): string {
+  if (sessions.length === 0) {
+    return 'No sessions found.';
+  }
+
+  const lines: string[] = [];
+
+  // Header
+  lines.push(
+    chalk.bold(
+      'SESSION'.padEnd(12) +
+        'STATUS'.padEnd(14) +
+        'TARGET'.padEnd(25) +
+        'AGE'.padEnd(12) +
+        'EVENTS'
+    )
+  );
+
+  for (const s of sessions) {
+    const shortId = s.id.slice(0, 8);
+    const ageMs = Date.now() - new Date(s.updatedAt).getTime();
+    const age = formatAge(ageMs);
+
+    let statusFormatted: string;
+    switch (s.status) {
+      case 'completed':
+        statusFormatted = chalk.green(s.status.padEnd(14));
+        break;
+      case 'active':
+      case 'in_progress':
+        statusFormatted = chalk.yellow(s.status.padEnd(14));
+        break;
+      case 'failed':
+        statusFormatted = chalk.red(s.status.padEnd(14));
+        break;
+      default:
+        statusFormatted = s.status.padEnd(14);
+    }
+
+    const target = (s.target || '-').slice(0, 23).padEnd(25);
+
+    lines.push(
+      shortId.padEnd(12) +
+        statusFormatted +
+        target +
+        age.padEnd(12) +
+        String(s.eventCount)
+    );
+  }
+
+  return lines.join('\n');
+}
+
 function truncateLines(text: string, maxLines: number): string {
   const lines = text.split('\n');
   if (lines.length <= maxLines) return text;

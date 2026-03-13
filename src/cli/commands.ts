@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import type * as readline from 'node:readline/promises';
 import chalk from 'chalk';
-import { formatDiagnosis, formatCommand, formatError, formatApprovalResult, formatStatusDashboard, formatHistoryTable, formatResumeSummary } from './formatter.js';
+import { formatDiagnosis, formatCommand, formatError, formatApprovalResult, formatStatusDashboard, formatHistoryTable, formatResumeSummary, formatDPEVSummary, formatSessionList } from './formatter.js';
 
 /** Simple CLI spinner for long-running operations */
 function createSpinner(message: string) {
@@ -294,13 +294,54 @@ export function registerCommands(config: CommandConfig): Command {
     .option('--until <time>', 'Filter entries before time (e.g., "30m ago", ISO 8601)')
     .option('--limit <n>', 'Maximum entries to return (default 20)', '20')
     .option('--verbose', 'Show expanded entry details')
-    .action(async function (this: Command, options: { session?: string; type?: string; risk?: string; since?: string; until?: string; limit?: string; verbose?: boolean }) {
+    .option('--list', 'Show session overview')
+    .action(async function (this: Command, options: { session?: string; type?: string; risk?: string; since?: string; until?: string; limit?: string; verbose?: boolean; list?: boolean }) {
       const jsonMode = this.optsWithGlobals().json;
       const verbose = options.verbose ?? false;
       try {
         // Build query params
         const params = new URLSearchParams();
-        if (options.session) params.set('session', options.session);
+
+        // --list mode: fetch session overview
+        if (options.list) {
+          params.set('list', 'true');
+          if (options.limit) params.set('limit', options.limit);
+
+          const qs = params.toString();
+          const url = `${config.apiBaseUrl}/history${qs ? `?${qs}` : ''}`;
+          const res = await fetch(url);
+
+          if (!res.ok) {
+            const body = await res.json() as { error: string };
+            if (jsonMode) {
+              console.log(JSON.stringify(errorEnvelope('history', body.error)));
+              return;
+            }
+            console.log(formatError(`Error: ${body.error}`));
+            return;
+          }
+
+          const data = await res.json() as { sessions: Array<{ id: string; status: string; target: string; updatedAt: string; eventCount: number }>; count: number };
+
+          if (jsonMode) {
+            console.log(JSON.stringify(envelope('history', data)));
+            return;
+          }
+
+          console.log('\n' + formatSessionList(data.sessions) + '\n');
+          return;
+        }
+
+        // Default-to-latest (UX-01): when no --session and no other filters, auto-send ?session=last
+        const hasFilters = options.type || options.risk || options.since || options.until;
+        const isDefaultLatest = !options.session && !hasFilters;
+
+        if (isDefaultLatest) {
+          params.set('session', 'last');
+        } else if (options.session) {
+          params.set('session', options.session);
+        }
+
         if (options.type) params.set('type', options.type);
         if (options.risk) params.set('risk', options.risk);
         if (options.since) {
@@ -337,7 +378,19 @@ export function registerCommands(config: CommandConfig): Command {
           return;
         }
 
-        console.log('\n' + formatHistoryTable(data.entries as any, verbose) + '\n');
+        // Non-verbose: show compact DPEV summary above the table
+        if (!verbose && data.entries.length > 0) {
+          console.log('\n' + formatDPEVSummary(data.entries as any));
+        }
+
+        console.log('\n' + formatHistoryTable(data.entries as any, verbose));
+
+        // Footer hint when showing auto-resolved latest session
+        if (isDefaultLatest && data.entries.length > 0) {
+          console.log(chalk.gray('Showing latest session. Use --list to see all sessions.'));
+        }
+
+        console.log('');
       } catch (err) {
         if (jsonMode) {
           console.log(JSON.stringify(errorEnvelope('history', (err as Error).message)));
