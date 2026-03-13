@@ -12,9 +12,9 @@ Requirements for v1.1 The Scenario Factory. Each maps to roadmap phases.
 - [x] **SCEN-01**: Docker Compose environment starts with Postgres hitting max_connections from connection-leaking app
 - [x] **SCEN-02**: `postgres-troubleshoot.md` skill diagnoses pg_stat_activity, identifies idle/leaked connections, generates fix plan to terminate and recover
 - [x] **SCEN-03**: Postgres scenario has reset script (`demo/postgres/reset-postgres.sh`) that reproduces the broken state idempotently
-- [ ] **SCEN-04**: Docker Compose environment starts with a container whose volume is 100% full, causing crashes
+- [x] **SCEN-04**: Docker Compose environment starts with a container whose volume is 100% full, causing crashes
 - [x] **SCEN-05**: `docker-storage.md` skill diagnoses via `df -h` / `docker system df`, generates fix plan to prune or truncate
-- [ ] **SCEN-06**: Docker volume scenario has reset script (`demo/reset-docker-storage.sh`) that reproduces the broken state idempotently
+- [x] **SCEN-06**: Docker volume scenario has reset script (`demo/reset-docker-storage.sh`) that reproduces the broken state idempotently
 
 ### E2E Validation
 
@@ -82,9 +82,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCEN-02 | Phase 9 | Complete |
 | SCEN-03 | Phase 9 | Complete |
 | E2E-01 | Phase 9 | Complete |
-| SCEN-04 | Phase 10 | Pending |
+| SCEN-04 | Phase 10 | Complete |
 | SCEN-05 | Phase 10 | Complete |
-| SCEN-06 | Phase 10 | Pending |
+| SCEN-06 | Phase 10 | Complete |
 | E2E-02 | Phase 10 | Pending |
 | E2E-03 | Phase 11 | Pending |
 | UX-01 | Phase 11 | Pending |
@@ -97,4 +97,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-12*
-*Last updated: 2026-03-12 — traceability updated for v1.1 roadmap*
+*Last updated: 2026-03-13 — SCEN-04, SCEN-06 complete (10-01)*

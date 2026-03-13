@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: The Scenario Factory
 status: in-progress
-stopped_at: Completed 10-02 docker-storage skill + discovery commands
-last_updated: "2026-03-13T12:09:00Z"
-last_activity: 2026-03-13 -- 10-02 Docker storage skill and discovery commands
+stopped_at: Completed 10-01 Docker storage failure environment + reset script
+last_updated: "2026-03-13T12:20:00Z"
+last_activity: 2026-03-13 -- 10-01 Docker storage failure environment and reset script
 progress:
   total_phases: 4
   completed_phases: 2
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control — every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.1 The Scenario Factory — Phase 10 in progress (2 of 3 plans delivered)
+**Current focus:** v1.1 The Scenario Factory — Phase 10 in progress (2 of 3 plans delivered, 10-03 E2E remaining)
 
 ## Current Position
 
 Phase: 10 of 11 (Docker Storage Failure Scenario)
 Plan: 2 of 3 complete
 Status: In Progress
-Last activity: 2026-03-13 -- 10-02 Docker storage skill and discovery commands
+Last activity: 2026-03-13 -- 10-01 Docker storage failure environment and reset script
 
 Progress: [█████████░] 93%
 
@@ -76,6 +76,7 @@ Recent decisions affecting current work:
 - [Phase 09 09-01]: Postgres leaky-app uses non-superuser, leaving 2 superuser slots for diagnostics
 - [Phase 09 09-02]: Hardcoded network name postgres_pgnet (Docker Compose convention); pg_terminate_backend is write risk not destructive; 5 discovery commands pre-inject all evidence for pure LLM reasoning
 - [Phase 09 09-03]: E2E test uses usename='leaky' filter (not IP) for robustness; 120s timeout for Docker operations; mock LLMProvider includes registry property
+- [Phase 10 10-01]: Fill tmpfs to 100% via dd until ENOSPC; BusyBox df parsing via awk; 3s startup delay for Redis; dual verification archetype (disk full + Redis MISCONF)
 - [Phase 10 10-02]: Causal Deduplication as Step 3 -- LLM classifies files as log bloat vs state data before remediation; truncate over rm for inode preservation; dual verification archetype
 
 ### Pending Todos
@@ -88,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T12:09:00Z
-Stopped at: Completed 10-02 docker-storage skill + discovery commands
-Resume file: .planning/phases/10-docker-storage-failure-scenario/10-02-SUMMARY.md
+Last session: 2026-03-13T12:20:00Z
+Stopped at: Completed 10-01 Docker storage failure environment + reset script
+Resume file: .planning/phases/10-docker-storage-failure-scenario/10-01-SUMMARY.md
