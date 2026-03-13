@@ -80,8 +80,8 @@ describe('POC: Nginx 502 End-to-End', { timeout: 120_000 }, () => {
   };
 
   beforeAll(() => {
-    // 1. Run demo/reset.sh to start broken environment
-    execSync('bash demo/reset.sh', {
+    // 1. Run demo/nginx/reset.sh to start broken environment
+    execSync('bash demo/nginx/reset.sh', {
       cwd: PROJECT_ROOT,
       timeout: 60_000,
       stdio: 'pipe',
@@ -179,7 +179,7 @@ describe('POC: Nginx 502 End-to-End', { timeout: 120_000 }, () => {
   afterAll(() => {
     // Tear down Docker environment
     try {
-      execSync('docker compose -f demo/docker-compose.yml down --remove-orphans', {
+      execSync('docker compose -f demo/nginx/docker-compose.yml down --remove-orphans', {
         cwd: PROJECT_ROOT,
         timeout: 30_000,
         stdio: 'pipe',
