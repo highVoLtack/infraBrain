@@ -70,7 +70,7 @@ Plans:
   2. The `docker-storage.md` skill diagnoses via `df -h` and `docker system df`, and produces a fix plan to prune or truncate
   3. Running `demo/docker-storage/reset-docker-storage.sh` idempotently restores the broken state so the scenario can be re-run
   4. An automated E2E test proves the full DPEV loop: diagnose identifies the full volume, plan proposes cleanup, execute runs it, verify confirms recovery
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 Plans:
 - [ ] 10-01-PLAN.md — Docker Compose environment with shared tmpfs volume and idempotent reset script
 - [ ] 10-02-PLAN.md — docker-storage diagnostic skill and discovery commands
@@ -101,7 +101,7 @@ Plans:
 | 7. Audit Metadata and Integration Polish | v1.0 | 3/3 | Complete | 2026-03-12 |
 | 8. Rolling Context Injection | v1.1 | 2/2 | Complete | 2026-03-13 |
 | 9. Postgres Failure Scenario | 2/3 | In Progress|  | - |
-| 10. Docker Storage Failure Scenario | v1.1 | 0/3 | Planned | - |
+| 10. Docker Storage Failure Scenario | 1/3 | In Progress|  | - |
 | 11. Cross-Scenario Validation and UX Polish | v1.1 | 0/? | Not started | - |
 
 ---

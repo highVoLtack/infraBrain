@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: The Scenario Factory
-status: completed
-stopped_at: Phase 10 context gathered
-last_updated: "2026-03-13T10:56:01.431Z"
-last_activity: 2026-03-13 -- 09-03 Postgres connection leak E2E test
+status: in-progress
+stopped_at: Completed 10-02 docker-storage skill + discovery commands
+last_updated: "2026-03-13T12:09:00Z"
+last_activity: 2026-03-13 -- 10-02 Docker storage skill and discovery commands
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_plans: 8
+  completed_plans: 7
+  percent: 93
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control — every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.1 The Scenario Factory — Phase 9 complete (all 3 plans delivered)
+**Current focus:** v1.1 The Scenario Factory — Phase 10 in progress (2 of 3 plans delivered)
 
 ## Current Position
 
-Phase: 9 of 11 (Postgres Failure Scenario)
-Plan: 3 of 3 complete
-Status: Phase Complete
-Last activity: 2026-03-13 -- 09-03 Postgres connection leak E2E test
+Phase: 10 of 11 (Docker Storage Failure Scenario)
+Plan: 2 of 3 complete
+Status: In Progress
+Last activity: 2026-03-13 -- 10-02 Docker storage skill and discovery commands
 
-Progress: [██████████] 100%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Recent decisions affecting current work:
 - [Phase 09 09-01]: Postgres leaky-app uses non-superuser, leaving 2 superuser slots for diagnostics
 - [Phase 09 09-02]: Hardcoded network name postgres_pgnet (Docker Compose convention); pg_terminate_backend is write risk not destructive; 5 discovery commands pre-inject all evidence for pure LLM reasoning
 - [Phase 09 09-03]: E2E test uses usename='leaky' filter (not IP) for robustness; 120s timeout for Docker operations; mock LLMProvider includes registry property
+- [Phase 10 10-02]: Causal Deduplication as Step 3 -- LLM classifies files as log bloat vs state data before remediation; truncate over rm for inode preservation; dual verification archetype
 
 ### Pending Todos
 
@@ -87,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T10:56:01.428Z
-Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-docker-storage-failure-scenario/10-CONTEXT.md
+Last session: 2026-03-13T12:09:00Z
+Stopped at: Completed 10-02 docker-storage skill + discovery commands
+Resume file: .planning/phases/10-docker-storage-failure-scenario/10-02-SUMMARY.md
