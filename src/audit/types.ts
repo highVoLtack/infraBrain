@@ -26,7 +26,8 @@ export type AuditEventType =
   | 'lock_override'
   | 'execution_resume'
   | 'discovery_complete'
-  | 'context_injection';
+  | 'context_injection'
+  | 'verification';
 
 export interface AuditEntry {
   timestamp: string;

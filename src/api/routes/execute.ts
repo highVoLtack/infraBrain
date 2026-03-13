@@ -132,6 +132,16 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
         stepsCompleted: result.stepResults.length,
       });
 
+      // Log verification event on successful execution
+      if (result.status === 'completed') {
+        deps.auditLogger.logExecution('verification', {
+          sessionId,
+          target,
+          status: 'verified',
+          stepsCompleted: result.stepResults.length,
+        });
+      }
+
       res.json(result);
     } catch (err) {
       next(err);
