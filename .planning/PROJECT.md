@@ -41,7 +41,7 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 ### Active
 
 - [ ] Standalone binary distribution (via pkg/nexe, no Node.js required)
-- [ ] Knowledge Layer: Qdrant + BGE-M3 for declarative knowledge retrieval
+- [ ] Knowledge Layer: Qdrant + BGE-M3 for declarative knowledge retrieval (v1.2)
 
 ### Out of Scope
 
@@ -69,9 +69,15 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 
 **Key architectural innovation:** Engine-First Architecture — shifted command syntax complexity from LLM prompts into deterministic TypeScript code (SQL Rewriter, findDbContainer, stripHostFlag, risk auto-override). The LLM writes only SQL; the engine handles container targeting, TTY sanitization, and auth.
 
-## Next Milestone: v1.2 The Knowledge Layer (planned)
+## Current Milestone: v1.2 The Knowledge Layer
 
-**Goal:** Give InfraBrain permanent memory via Qdrant + BGE-M3 vector search, enabling declarative knowledge retrieval from vendor docs, runbooks, and internal wikis.
+**Goal:** Give InfraBrain permanent local memory via Qdrant + BGE-M3 vector search, enabling declarative knowledge retrieval from vendor docs, runbooks, and internal wikis.
+
+**Target features:**
+- Qdrant integration as local binary (single-process, air-gap compatible)
+- BGE-M3 embedding pipeline via Ollama (dense + sparse vectors)
+- Knowledge ingestion pipeline (PDF, Markdown → chunking → embedding → Qdrant)
+- RAG-based diagnosis (skills retrieve relevant docs before reasoning)
 
 ## Context
 
