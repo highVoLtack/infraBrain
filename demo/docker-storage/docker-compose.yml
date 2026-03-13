@@ -1,0 +1,23 @@
+services:
+  logger:
+    build: ./logger
+    container_name: storage-logger
+    volumes:
+      - shared-tmpfs:/shared
+
+  redis:
+    image: redis:7-alpine
+    container_name: storage-redis
+    command: redis-server --save 1 1 --dir /shared --dbfilename dump.rdb --stop-writes-on-bgsave-error yes
+    ports:
+      - "6380:6379"
+    volumes:
+      - shared-tmpfs:/shared
+
+volumes:
+  shared-tmpfs:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      o: "size=10m"
+      device: tmpfs
