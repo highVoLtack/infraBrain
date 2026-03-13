@@ -10,7 +10,7 @@ Requirements for v1.1 The Scenario Factory. Each maps to roadmap phases.
 ### Scenarios (Chaos Library)
 
 - [x] **SCEN-01**: Docker Compose environment starts with Postgres hitting max_connections from connection-leaking app
-- [ ] **SCEN-02**: `postgres-troubleshoot.md` skill diagnoses pg_stat_activity, identifies idle/leaked connections, generates fix plan to terminate and recover
+- [x] **SCEN-02**: `postgres-troubleshoot.md` skill diagnoses pg_stat_activity, identifies idle/leaked connections, generates fix plan to terminate and recover
 - [x] **SCEN-03**: Postgres scenario has reset script (`demo/reset-postgres.sh`) that reproduces the broken state idempotently
 - [ ] **SCEN-04**: Docker Compose environment starts with a container whose volume is 100% full, causing crashes
 - [ ] **SCEN-05**: `docker-storage.md` skill diagnoses via `df -h` / `docker system df`, generates fix plan to prune or truncate
@@ -79,7 +79,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ENGN-01 | Phase 8 | Complete |
 | ENGN-02 | Phase 8 | Complete |
 | SCEN-01 | Phase 9 | Complete |
-| SCEN-02 | Phase 9 | Pending |
+| SCEN-02 | Phase 9 | Complete |
 | SCEN-03 | Phase 9 | Complete |
 | E2E-01 | Phase 9 | Pending |
 | SCEN-04 | Phase 10 | Pending |
