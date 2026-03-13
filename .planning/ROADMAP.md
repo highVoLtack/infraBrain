@@ -26,7 +26,7 @@
 
 **Milestone Goal:** Prove the scalability of the v1.0 DPEV engine by expanding the skill library with complex, real-world failure scenarios and automated E2E validation — a "Chaos Library" that demonstrates autonomous diagnosis and repair.
 
-- [ ] **Phase 8: Rolling Context Injection** - Sub-agent LLM calls receive prior step results for multi-step plan awareness
+- [x] **Phase 8: Rolling Context Injection** - Sub-agent LLM calls receive prior step results for multi-step plan awareness (completed 2026-03-13)
 - [ ] **Phase 9: Postgres Failure Scenario** - Complete vertical slice: Docker Compose env, diagnostic skill, reset script, E2E test
 - [ ] **Phase 10: Docker Storage Failure Scenario** - Complete vertical slice: Docker Compose env, storage skill, reset script, E2E test
 - [ ] **Phase 11: Cross-Scenario Validation and UX Polish** - Audit trail completeness across both scenarios, history command improvements
@@ -41,7 +41,7 @@
   1. When executePlan runs step 3 of a fix plan, the sub-agent LLM call includes a summary of what steps 1 and 2 produced
   2. Resume route passes accumulated rolling context to the LLM provider so resumed sessions do not lose prior step awareness
   3. A unit test confirms that rollingContext.getContext() output appears in the LLM prompt for steps after step 1
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 08-01-PLAN.md — Add onBeforeStep callback to executor for rolling context injection
 - [ ] 08-02-PLAN.md — Wire rolling context into execute and resume routes
@@ -91,7 +91,7 @@ Plans:
 | 5. POC Scenario and Integration | v1.0 | 2/2 | Complete | 2026-03-08 |
 | 6. Resume Wiring and Audit Completeness | v1.0 | 2/2 | Complete | 2026-03-12 |
 | 7. Audit Metadata and Integration Polish | v1.0 | 3/3 | Complete | 2026-03-12 |
-| 8. Rolling Context Injection | 1/2 | In Progress|  | - |
+| 8. Rolling Context Injection | 2/2 | Complete   | 2026-03-13 | - |
 | 9. Postgres Failure Scenario | v1.1 | 0/? | Not started | - |
 | 10. Docker Storage Failure Scenario | v1.1 | 0/? | Not started | - |
 | 11. Cross-Scenario Validation and UX Polish | v1.1 | 0/? | Not started | - |
