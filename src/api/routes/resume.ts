@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { WriteThrough } from '../../state/store.js';
 import type { InfraBrainConfig } from '../../config/types.js';
 import type { AuditLogger } from '../../audit/logger.js';
+import type { LLMProvider } from '../../llm/types.js';
 import type { RunResult } from '../../execution/types.js';
 import { executePlan, type ResumeOptions } from '../../execution/executor.js';
 import { runCommand } from '../../execution/runner.js';
@@ -13,6 +14,7 @@ export interface ResumeRouteDeps {
   auditLogger: AuditLogger;
   sessionId: string;
   sessionDir: string;
+  provider?: LLMProvider;
 }
 
 /**
@@ -85,6 +87,18 @@ export function createResumeRoute(deps: ResumeRouteDeps): Router {
         },
       };
 
+      // Build onBeforeStep callback for rolling context injection when provider exists
+      const onBeforeStep = deps.provider
+        ? async (stepIndex: number, rollingContext: string): Promise<void> => {
+            deps.auditLogger.logExecution('context_injection', {
+              stepIndex,
+              contextLength: rollingContext.length,
+              contextPreview: rollingContext.substring(0, 200),
+              resumed: true,
+            });
+          }
+        : undefined;
+
       // Execute with resume
       const result = await executePlan(fixPlan, target, {
         runner,
@@ -93,6 +107,7 @@ export function createResumeRoute(deps: ResumeRouteDeps): Router {
         config: deps.config,
         sessionId: deps.sessionId,
         sessionDir: deps.sessionDir,
+        onBeforeStep,
       }, resumeOptions);
 
       const response: Record<string, unknown> = {
