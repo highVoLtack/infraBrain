@@ -100,6 +100,13 @@ export async function executePlan(
       }
 
       const step = plan.steps[i];
+
+      // Inject rolling context for steps after step 0
+      const currentContext = context.getContext();
+      if (deps.onBeforeStep && currentContext && i > 0) {
+        await deps.onBeforeStep(i, currentContext);
+      }
+
       const cost = budget.costFor(step.risk);
 
       // a. Check damage budget
