@@ -35,8 +35,8 @@ import { validateCommand } from '../../src/safety/validator.js';
 import { InfraBrainConfigSchema } from '../../src/config/types.js';
 import { selectSkill } from '../../src/orchestrator/router.js';
 import { generateFixPlan } from '../../src/orchestrator/planner.js';
-import type { LLMProvider } from '../../src/llm/types.js';
 import type { FixPlan } from '../../src/orchestrator/types.js';
+import { assertDPEVSequence, createMockLLMProvider } from './helpers/index.js';
 
 const PROJECT_ROOT = join(import.meta.dirname, '..', '..');
 
@@ -130,26 +130,19 @@ describe('POC: Postgres Connection Leak End-to-End', { timeout: 120_000 }, () =>
     );
     store = new WriteThrough(db);
 
-    // 5. Create mock LLM provider
-    const mockProvider: LLMProvider = {
-      model: {} as any,
-      registry: { get: () => ({} as any), entries: () => [] } as any,
-      async *streamDiagnosis() { yield 'test'; },
-      async generateCommand(): Promise<string> {
-        return [
-          'Diagnostic Ladder Investigation:',
-          '',
-          'Step 0 - Container Discovery: Found postgres-demo and leaky-app containers.',
-          'Step 1 - Connection Saturation: 20/20 connections active. System is saturated.',
-          "Step 2 - Idle Analysis: 18 idle connections from user 'leaky' (leaky-app container).",
-          'Step 3 - Cross-Domain Correlation: leaky-app (172.20.0.3) holds 18 idle connections to postgres-demo. This is a connection leak.',
-          'Step 4 - Fix Proposal: Terminate idle connections from leaky user.',
-          '',
-          "Root Cause: Connection leak from leaky-app -- 18 connections opened and never closed.",
-          'Fix: Terminate idle connections via pg_terminate_backend.',
-        ].join('\n');
-      },
-    };
+    // 5. Create mock LLM provider via shared factory
+    const mockProvider = createMockLLMProvider([
+      'Diagnostic Ladder Investigation:',
+      '',
+      'Step 0 - Container Discovery: Found postgres-demo and leaky-app containers.',
+      'Step 1 - Connection Saturation: 20/20 connections active. System is saturated.',
+      "Step 2 - Idle Analysis: 18 idle connections from user 'leaky' (leaky-app container).",
+      'Step 3 - Cross-Domain Correlation: leaky-app (172.20.0.3) holds 18 idle connections to postgres-demo. This is a connection leak.',
+      'Step 4 - Fix Proposal: Terminate idle connections from leaky user.',
+      '',
+      "Root Cause: Connection leak from leaky-app -- 18 connections opened and never closed.",
+      'Fix: Terminate idle connections via pg_terminate_backend.',
+    ].join('\n'));
 
     // 6. Set up mocks for skill selection and fix plan generation
     const registry = new SkillRegistry();
@@ -265,7 +258,7 @@ describe('POC: Postgres Connection Leak End-to-End', { timeout: 120_000 }, () =>
     expect(result).toContain('1');
   });
 
-  it('audit trail contains full DPEV evidence', () => {
+  it('audit trail contains full DPEV evidence with correct ordering', () => {
     // Query audit log directly from store for this session
     const entries = store.queryAuditLog({
       sessionId: testSessionId,
@@ -274,14 +267,8 @@ describe('POC: Postgres Connection Leak End-to-End', { timeout: 120_000 }, () =>
 
     expect(entries.length).toBeGreaterThan(0);
 
-    const eventTypes = entries.map((e) => e.eventType);
-
-    // Verify all DPEV event types are present
-    expect(eventTypes).toContain('skill_selection');
-    expect(eventTypes).toContain('decision');
-    expect(eventTypes).toContain('execution_start');
-    expect(eventTypes).toContain('step_complete');
-    expect(eventTypes).toContain('execution_complete');
+    // Validate DPEV sequence: S -> D -> E -> V ordering and completeness
+    assertDPEVSequence(entries);
 
     // Verify at least one entry contains reasoning/diagnostic information
     const hasReasoning = entries.some((e) => e.reasoning && e.reasoning.length > 0);
