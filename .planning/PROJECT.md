@@ -31,14 +31,17 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 - ✓ Session resume with retry/skip for interrupted fix plans — v1.0
 - ✓ Multi-model registry with domain-expertise routing — v1.0
 - ✓ Log-analysis pre-filtering wired into debug route — v1.0
+- ✓ Postgres connection leak scenario with Engine-First SQL Rewriter and forensic routing — v1.1
+- ✓ Docker volume full scenario with causal deduplication and dual verification — v1.1
+- ✓ Rolling context injection into sub-agent LLM calls (CORE-07 closed) — v1.1
+- ✓ `/infra:history` defaults to most recent session + `--session last` alias — v1.1
+- ✓ Anti-hallucination: Sanity Checker, GROUND TRUTH labels, structured Zod diagnosis — v1.1
+- ✓ Engine-First architecture: SQL Rewriter, findDbContainer, stripHostFlag, risk auto-override — v1.1
 
 ### Active
 
-- [ ] Postgres connection limit/deadlock scenario with diagnostic skill and E2E test
-- [ ] Docker volume full scenario with storage skill and E2E test
-- [ ] Rolling context injection into sub-agent LLM calls (CORE-07 — required for multi-step scenarios)
-- [ ] `/infra:history` defaults to most recent session + `--session last` alias
 - [ ] Standalone binary distribution (via pkg/nexe, no Node.js required)
+- [ ] Knowledge Layer: Qdrant + BGE-M3 for declarative knowledge retrieval
 
 ### Out of Scope
 
@@ -53,15 +56,22 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 - Mobile or web UI — CLI-first, web interface is a future layer
 - Cloud-hosted option — privacy-first, 100% on-premise only
 
-## Current Milestone: v1.1 The Scenario Factory
+## Milestone: v1.1 The Scenario Factory — SHIPPED 2026-03-13
 
 **Goal:** Prove the scalability of the v1.0 DPEV engine by expanding the skill library with complex, real-world failure scenarios and automated E2E validation — a "Chaos Library" that demonstrates autonomous diagnosis and repair.
 
-**Target features:**
-- Postgres connection limit/deadlock scenario (Docker Compose + diagnostic skill + E2E test)
-- Docker volume full scenario (Docker Compose + storage skill + E2E test)
-- Rolling context injection into sub-agent LLM calls (CORE-07 tech debt closure)
-- UX polish: `/infra:history` defaults to most recent session, `--session last` alias
+**Delivered:**
+- ✓ Postgres connection leak scenario — Engine-First SQL Rewriter, forensic routing to DeepSeek R1, Sanity Checker
+- ✓ Docker volume full scenario — causal deduplication, truncate-over-rm, dual verification
+- ✓ Rolling context injection (CORE-07 closed) — sub-agent LLM calls see prior step results
+- ✓ UX polish — `/infra:history` defaults to latest, `--session last` alias, DPEV summary, structured diagnosis table
+- ✓ Anti-hallucination hardening — MANDATORY_EXECUTION_PROTOCOL, GROUND TRUTH labels, Zod schema enforcement, sanity checker with auto-retry
+
+**Key architectural innovation:** Engine-First Architecture — shifted command syntax complexity from LLM prompts into deterministic TypeScript code (SQL Rewriter, findDbContainer, stripHostFlag, risk auto-override). The LLM writes only SQL; the engine handles container targeting, TTY sanitization, and auth.
+
+## Next Milestone: v1.2 The Knowledge Layer (planned)
+
+**Goal:** Give InfraBrain permanent memory via Qdrant + BGE-M3 vector search, enabling declarative knowledge retrieval from vendor docs, runbooks, and internal wikis.
 
 ## Context
 
@@ -652,4 +662,4 @@ Deep research conducted across 4 domains with 50+ sources. Key corrections appli
 | Lambda Labs for JIT provisioning | 2-5 min cold-start (VM, not serverless) | Demoted, RunPod/API preferred |
 
 ---
-*Last updated: 2026-03-12 after v1.0 milestone — 39/39 requirements shipped, 354 tests, 10,770 LOC TypeScript*
+*Last updated: 2026-03-13 after v1.1 milestone — 440 tests, 42 test files, 60+ source files, Engine-First architecture proven*

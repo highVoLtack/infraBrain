@@ -47,11 +47,19 @@ interface IncompleteSessionInfo {
   stoppedAt: string;
 }
 
+interface StructuredDiagnosisResponse {
+  steps: Array<{ step: number; label: string; command: string; output: string; finding: string }>;
+  rootCause: string;
+  correlation: string;
+  fixPlan: Array<{ command: string; risk: string; expected: string }>;
+}
+
 interface DebugResponse {
   sessionId: string;
   skillMessage?: string;
   discovery?: Record<string, string>;
   diagnosis: string;
+  structuredDiagnosis?: StructuredDiagnosisResponse;
   commands: Array<{
     command: string;
     riskLevel: RiskLevel;
@@ -179,13 +187,33 @@ export function registerCommands(config: CommandConfig): Command {
           }
         }
 
-        // Display diagnosis
-        console.log('\n' + formatDiagnosis(data.diagnosis));
+        // Structured diagnosis: display rootCause + fixPlan table only (no LLM chatter)
+        if (data.structuredDiagnosis) {
+          const sd = data.structuredDiagnosis;
+          console.log('\n' + chalk.bold('Root Cause: ') + sd.rootCause);
+          console.log(chalk.gray('Correlation: ') + sd.correlation);
+          console.log('');
+          // Display structured fix plan as table
+          console.log(chalk.bold('  #   Command' + ' '.repeat(52) + 'Risk        Expected'));
+          console.log('  ' + '─'.repeat(4) + ' ' + '─'.repeat(56) + ' ' + '─'.repeat(12) + ' ' + '─'.repeat(50));
+          for (let i = 0; i < sd.fixPlan.length; i++) {
+            const step = sd.fixPlan[i];
+            const num = String(i + 1).padEnd(4);
+            const cmd = step.command.length > 54 ? step.command.slice(0, 51) + '...' : step.command.padEnd(56);
+            const risk = step.risk === 'read' ? chalk.green(step.risk.padEnd(12)) : step.risk === 'write' ? chalk.yellow(step.risk.padEnd(12)) : chalk.red(step.risk.padEnd(12));
+            const expected = step.expected.length > 50 ? step.expected.slice(0, 47) + '...' : step.expected;
+            console.log(`  ${num} ${cmd} ${risk} ${expected}`);
+          }
+          console.log(chalk.gray('\n  Run /infra:execute to apply this fix plan.\n'));
+        } else {
+          // Fallback: display free-text diagnosis
+          console.log('\n' + formatDiagnosis(data.diagnosis));
 
-        // Display fix plan if present
-        if (data.fixPlan) {
-          console.log('\n' + formatPlanTable(data.fixPlan));
-          console.log(chalk.gray('  Run /infra:execute to apply this fix plan.\n'));
+          // Display fix plan if present
+          if (data.fixPlan) {
+            console.log('\n' + formatPlanTable(data.fixPlan));
+            console.log(chalk.gray('  Run /infra:execute to apply this fix plan.\n'));
+          }
         }
 
         // Display commands with risk levels and approval gate

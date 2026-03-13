@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { generateObject } from 'ai';
 import type { LLMProvider } from '../../llm/types.js';
 import type { AuditLogger } from '../../audit/logger.js';
 import type { ValidationResult } from '../../safety/types.js';
@@ -10,17 +11,63 @@ import { generateFixPlan, generatePlanMarkdown, formatPlanTable } from '../../or
 import { enforceSkillAllowlist } from '../../skills/allowlist.js';
 import { buildMessages } from '../../orchestrator/context.js';
 import type { FixPlan } from '../../orchestrator/types.js';
+import { StructuredDiagnosisSchema, type StructuredDiagnosis } from '../../orchestrator/types.js';
 import { extractTarget } from '../../cli/approval.js';
 import { v7 as uuidv7 } from 'uuid';
-import { runCommand, parseCommand } from '../../execution/runner.js';
+import { runCommand, parseCommand, rewriteForContainer, findDbContainer } from '../../execution/runner.js';
 import { encodeForLLM, measureSavings } from '../../llm/toon-encoder.js';
 import { parseLog } from '../../log-analysis/parsers/index.js';
 import { preFilterLogs, formatForLLM } from '../../log-analysis/filter.js';
 
 const DEV_MODE = process.env.NODE_ENV !== 'production';
 
+/** Max sanity-check retries before giving up */
+const MAX_SANITY_RETRIES = 1;
+
 /** Regex matching common log indicators: level keywords and ISO-ish timestamps */
 const LOG_INDICATOR = /\b(ERROR|WARN|INFO|DEBUG|FATAL|CRITICAL)\b|\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/i;
+
+/**
+ * Patterns that indicate hallucinated/placeholder content in LLM output.
+ * If any match, the output fails the sanity check.
+ */
+const HALLUCINATION_PATTERNS = [
+  /<[a-z][a-z0-9_-]*>/i,           // <container-name>, <PID>, etc.
+  /\[PID\]/i,                       // [PID] placeholder
+  /\[IP\]/i,                        // [IP] placeholder
+  /\bExample Output\b/i,            // "Example Output" header
+  /\bAssume the following\b/i,      // hypothetical preamble
+  /\bFor example\b/i,               // example reasoning
+  /\bHypothetically\b/i,            // hypothetical reasoning
+  /\bLet's say\b/i,                 // hypothetical reasoning
+  /\bSample output\b/i,             // sample output header
+];
+
+/** Strict grounding penalty prompt appended on sanity-check retry */
+const STRICT_GROUNDING_PENALTY = `
+
+CRITICAL RETRY: Your previous response was REJECTED because it contained placeholder names, example output, or hypothetical reasoning. This is your FINAL attempt.
+
+RULES FOR THIS RETRY:
+- Every container name, IP, PID, port, and file path MUST come from the GROUND TRUTH section above.
+- If you write <anything>, [PID], [IP], or any placeholder, this response will be REJECTED and the system will HALT.
+- Do NOT explain what you "would" do. Do ONLY what the data shows.
+- Zero examples. Zero hypotheticals. Only real data.`;
+
+/**
+ * Sanity-check LLM output for hallucination patterns.
+ * Returns list of violations found, empty if clean.
+ */
+export function checkForHallucinations(text: string): string[] {
+  const violations: string[] = [];
+  for (const pattern of HALLUCINATION_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) {
+      violations.push(`Found hallucination pattern: "${match[0]}"`);
+    }
+  }
+  return violations;
+}
 
 /**
  * Detect log-heavy prompts and pre-filter them using the log-analysis pipeline.
@@ -209,6 +256,30 @@ function extractCommands(text: string): string[] {
 }
 
 /**
+ * Flatten a StructuredDiagnosis into a text diagnosis string
+ * for backward compatibility with existing consumers.
+ */
+function flattenDiagnosis(sd: StructuredDiagnosis): string {
+  const lines: string[] = [];
+  for (const step of sd.steps) {
+    lines.push(`Step ${step.step}: ${step.label}`);
+    lines.push(`Command: ${step.command}`);
+    lines.push(`Output: ${step.output}`);
+    lines.push(`Finding: ${step.finding}`);
+    lines.push('');
+  }
+  lines.push(`Root Cause: ${sd.rootCause}`);
+  lines.push(`Correlation: ${sd.correlation}`);
+  lines.push('');
+  lines.push('Fix Plan:');
+  for (let i = 0; i < sd.fixPlan.length; i++) {
+    const step = sd.fixPlan[i];
+    lines.push(`${i + 1}. Command: \`${step.command}\` | Risk: ${step.risk} | Expected: ${step.expected}`);
+  }
+  return lines.join('\n');
+}
+
+/**
  * Create the /debug route.
  * Accepts a prompt, generates a diagnosis via LLM, validates any commands.
  * When a SkillRegistry is provided, uses orchestrator for skill selection and fix plans.
@@ -289,6 +360,36 @@ export function createDebugRoute(
             !!skillOverride,
           );
 
+          // Routing enforcement: if skill declares a preferred_model, the registry MUST resolve it
+          // to a DIFFERENT model than default. No fallbacks allowed — fail hard with throw.
+          const preferredRole = selection.skill.frontmatter.preferred_model;
+          if (preferredRole && preferredRole !== 'default') {
+            const resolvedModel = provider.registry.get(preferredRole);
+            const defaultModel = provider.registry.getDefault();
+            const resolvedId = (resolvedModel as any).modelId ?? 'unknown';
+            const defaultId = (defaultModel as any).modelId ?? 'unknown';
+
+            // Three-layer check: object identity, modelId comparison, and unknown sentinel
+            const sameObject = resolvedModel === defaultModel;
+            const sameId = resolvedId === defaultId;
+            const isUnknown = resolvedId === 'unknown';
+
+            if (sameObject || (sameId && !isUnknown) || isUnknown) {
+              const msg = `ROUTING HALT: skill "${selection.skill.frontmatter.name}" requires role "${preferredRole}" (expected distinct model) but got "${resolvedId}" which matches default "${defaultId}". Configure modelMap.${preferredRole}.`;
+              auditLogger.logError(msg);
+              console.error(`[ROUTING] ${msg}`);
+              res.status(503).json({
+                error: msg,
+                hint: `Add "${preferredRole}" to your modelMap configuration. This skill cannot run on the default model.`,
+                debug: { preferredRole, resolvedId, defaultId, sameObject, sameId },
+              });
+              return;
+            }
+
+            // Log successful routing for debugging
+            console.log(`[ROUTING] Skill "${selection.skill.frontmatter.name}" routed to ${preferredRole} model: ${resolvedId} (default: ${defaultId})`);
+          }
+
           // Run discovery commands to get ground truth BEFORE LLM call
           const { context: discoveryContext, raw: discoveryRaw } = await runDiscovery(selection.skill.frontmatter.name);
 
@@ -303,18 +404,87 @@ export function createDebugRoute(
           const { system } = buildMessages(selection.skill, prompt);
           systemPrompt = system;
 
-          // Build enriched prompt with discovery context injected
+          // Build enriched prompt with discovery context injected as GROUND TRUTH
+          // Extract PIDs from idle connections detail for explicit rolling context
+          let rollingContext = '';
+          const idleDetail = discoveryRaw['Idle connections detail'];
+          if (idleDetail && idleDetail !== '(empty)') {
+            const pids = idleDetail.split('\n')
+              .map(line => line.split('|')[0]?.trim())
+              .filter(pid => pid && /^\d+$/.test(pid));
+            if (pids.length > 0) {
+              rollingContext = `\n\n--- ROLLING CONTEXT (from discovery) ---\nIdle connection PIDs found: [${pids.join(', ')}]\nThese PIDs MUST be referenced in the fix plan. Re-query to get fresh PIDs at fix time, but use these as the expected values.\n--- END ROLLING CONTEXT ---`;
+            }
+          }
+
           const enrichedPrompt = discoveryContext
-            ? `${prompt}\n\n${discoveryContext}\n\nIMPORTANT: Use ONLY the container and network names shown above. Do NOT invent names.`
+            ? `${prompt}\n\n--- GROUND TRUTH - USE ONLY THESE NAMES ---\n${discoveryContext}\n--- END GROUND TRUTH ---${rollingContext}\n\nMANDATORY: Use ONLY the container names, IPs, PIDs, and values shown in GROUND TRUTH above. Do NOT invent, guess, or substitute any names. If a value is not in GROUND TRUTH, run a command to discover it.`
             : prompt;
 
           // Pre-filter log-heavy prompts before LLM call to save tokens
-          const { filtered: preFilteredPrompt, wasFiltered: logWasFiltered } = preFilterIfLogHeavy(enrichedPrompt);
+          const { filtered: preFilteredPrompt } = preFilterIfLogHeavy(enrichedPrompt);
 
           // Generate diagnosis with skill context + discovery data
-          // Use preferred_model from skill frontmatter if specified, otherwise default
-          const preferredRole = selection.skill.frontmatter.preferred_model;
-          const diagnosis = await provider.generateCommand(preFilteredPrompt, systemPrompt, preferredRole);
+          // Use preferred_model from skill frontmatter — routing enforcement above ensures it's valid
+          let diagnosis: string;
+          let structuredDiagnosis: StructuredDiagnosis | undefined;
+
+          // Attempt structured diagnosis via generateObject for skills with discovery data
+          if (discoveryContext && preferredRole) {
+            try {
+              const targetModel = provider.registry.get(preferredRole);
+              const { object } = await generateObject({
+                model: targetModel,
+                schema: StructuredDiagnosisSchema,
+                system: systemPrompt,
+                prompt: preFilteredPrompt,
+              });
+              // Rewrite bare SQL/psql commands in fix plan to docker exec
+              // Use findDbContainer to pick the DB container, not just the first one
+              const allContainers = (discoveryRaw['Running containers'] ?? '')
+                .split('\n').map(c => c.trim()).filter(Boolean);
+              const pgContainer = findDbContainer(allContainers);
+              if (pgContainer) {
+                object.fixPlan = object.fixPlan.map(step => ({
+                  ...step,
+                  command: rewriteForContainer(step.command, pgContainer),
+                }));
+              }
+              structuredDiagnosis = object;
+              diagnosis = flattenDiagnosis(object);
+            } catch (structuredErr) {
+              // Fallback to free-text if structured generation fails
+              auditLogger.logError(`Structured diagnosis failed, falling back to free-text: ${(structuredErr as Error).message}`);
+              diagnosis = await provider.generateCommand(preFilteredPrompt, systemPrompt, preferredRole);
+            }
+          } else {
+            diagnosis = await provider.generateCommand(preFilteredPrompt, systemPrompt, preferredRole);
+          }
+
+          // Sanity checker: scan diagnosis for hallucination patterns
+          const violations = checkForHallucinations(diagnosis);
+          if (violations.length > 0) {
+            auditLogger.logError(`Sanity check failed (attempt 1): ${violations.join('; ')}`);
+
+            // Retry once with strict grounding penalty
+            const retryPrompt = preFilteredPrompt + STRICT_GROUNDING_PENALTY;
+            const retryDiagnosis = await provider.generateCommand(retryPrompt, systemPrompt, preferredRole);
+            const retryViolations = checkForHallucinations(retryDiagnosis);
+
+            if (retryViolations.length > 0) {
+              // Both attempts failed — return 422
+              auditLogger.logError(`Sanity check failed (attempt 2, halting): ${retryViolations.join('; ')}`);
+              res.status(422).json({
+                error: 'Diagnosis failed sanity check: LLM output contains hallucinated placeholders or example data',
+                violations: retryViolations,
+                hint: 'The LLM generated placeholder names instead of using real discovery data. This may indicate the model needs more context or a different model role.',
+              });
+              return;
+            }
+
+            // Retry succeeded
+            diagnosis = retryDiagnosis;
+          }
 
           // Always attempt fix plan generation from any skill's diagnosis
           const planningSkill = registry.get('planning');
@@ -378,9 +548,15 @@ export function createDebugRoute(
             'diagnosis_complete',
           );
 
-          // Extract target from first WRITE/DESTRUCTIVE step for downstream execution
+          // Extract target: prefer DB container from discovery, fallback to command parsing
           let planTarget: string | undefined;
-          if (fixPlan) {
+          const discoveredContainers = (discoveryRaw['Running containers'] ?? '')
+            .split('\n').map(c => c.trim()).filter(Boolean);
+          if (discoveredContainers.length > 0) {
+            // Use findDbContainer to pick the DB container (e.g. postgres-demo), not leaky-app
+            planTarget = findDbContainer(discoveredContainers);
+          }
+          if (!planTarget && fixPlan) {
             const firstWriteStep = fixPlan.steps.find(s => s.risk === 'write' || s.risk === 'destructive');
             if (firstWriteStep) {
               planTarget = extractTarget(firstWriteStep.command);
@@ -391,6 +567,7 @@ export function createDebugRoute(
             sessionId,
             skillMessage,
             diagnosis,
+            ...(structuredDiagnosis && { structuredDiagnosis }),
             commands,
             ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
             ...(fixPlan && { fixPlan }),

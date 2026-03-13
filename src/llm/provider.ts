@@ -7,6 +7,24 @@ import { checkBudget } from './token-budget.js';
 const DIAGNOSIS_BUDGET = 4096;
 const COMMAND_BUDGET = 2048;
 
+/**
+ * Role-specific output token limits.
+ * Forensic models (e.g. DeepSeek R1) need more space for internal
+ * Chain of Thought (<think> blocks) before producing the answer.
+ */
+const ROLE_OUTPUT_LIMITS: Record<string, number> = {
+  forensic: 4096,
+  strategic: 4096,
+  default: 2048,
+  worker: 2048,
+  vision: 2048,
+};
+
+function getOutputLimit(role?: ModelRole): number {
+  if (!role) return COMMAND_BUDGET;
+  return ROLE_OUTPUT_LIMITS[role] ?? COMMAND_BUDGET;
+}
+
 export function createProvider(model: LanguageModel, registry?: ModelRegistry): LLMProvider {
   const fallbackRegistry: ModelRegistry = {
     get: () => model,
@@ -47,9 +65,10 @@ export function createProvider(model: LanguageModel, registry?: ModelRegistry): 
 
     async generateCommand(prompt: string, systemPrompt: string, role?: ModelRole): Promise<string> {
       const targetModel = role ? activeRegistry.get(role) : model;
+      const outputLimit = getOutputLimit(role);
 
-      // Pre-flight token budget enforcement
-      const budget: TaskBudget = { maxTokens: COMMAND_BUDGET, taskType: 'command' };
+      // Pre-flight token budget enforcement — use role-aware limit
+      const budget: TaskBudget = { maxTokens: outputLimit, taskType: 'command' };
       const budgetCheck = checkBudget(prompt, systemPrompt, budget);
       if (!budgetCheck.allowed) {
         throw new Error(
@@ -61,7 +80,7 @@ export function createProvider(model: LanguageModel, registry?: ModelRegistry): 
         model: targetModel,
         system: systemPrompt,
         prompt,
-        maxOutputTokens: COMMAND_BUDGET,
+        maxOutputTokens: outputLimit,
       });
 
       const modelId = (targetModel as any).modelId ?? 'unknown';

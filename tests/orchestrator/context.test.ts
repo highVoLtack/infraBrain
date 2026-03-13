@@ -85,6 +85,7 @@ describe('buildMessages (TOON encoding)', () => {
 
     const result = buildMessages(skill, 'test');
 
-    expect(result.system).toBe('You are the planning skill.');
+    expect(result.system).toContain('You are the planning skill.');
+    expect(result.system).toContain('MANDATORY EXECUTION PROTOCOL');
   });
 });

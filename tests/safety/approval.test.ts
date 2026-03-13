@@ -20,6 +20,29 @@ describe('extractTarget', () => {
   it('extracts file path from "rm /tmp/file.txt"', () => {
     expect(extractTarget('rm /tmp/file.txt')).toBe('/tmp/file.txt');
   });
+
+  it('extracts container name from docker exec (not the SQL command)', () => {
+    expect(extractTarget('docker exec postgres-demo psql -U postgres -c "SELECT pg_terminate_backend(pid)"'))
+      .toBe('postgres-demo');
+  });
+
+  it('extracts container name from docker exec with -u flag', () => {
+    expect(extractTarget('docker exec -u postgres postgres-demo psql -c "SELECT 1"'))
+      .toBe('postgres-demo');
+  });
+
+  it('extracts container name from simple docker exec', () => {
+    expect(extractTarget('docker exec mycontainer ls /tmp'))
+      .toBe('mycontainer');
+  });
+
+  it('extracts container from docker stop', () => {
+    expect(extractTarget('docker stop redis-server')).toBe('redis-server');
+  });
+
+  it('extracts container from docker restart', () => {
+    expect(extractTarget('docker restart storage-redis')).toBe('storage-redis');
+  });
 });
 
 describe('requestApproval', () => {

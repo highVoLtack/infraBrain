@@ -223,6 +223,69 @@ describe('LLM Provider', () => {
     );
   });
 
+  it('generateCommand uses 4096 maxOutputTokens for forensic role', async () => {
+    const { generateText } = await import('ai');
+    const mockedGenerateText = vi.mocked(generateText);
+
+    mockedGenerateText.mockResolvedValue({
+      text: 'deep analysis with chain of thought',
+      usage: { promptTokens: 50, completionTokens: 3500, totalTokens: 3550 },
+    } as any);
+
+    const forensicModel = createMockModel();
+    const mockRegistry = {
+      get: vi.fn((role: string) => role === 'forensic' ? forensicModel : mockModel),
+      getDefault: () => mockModel,
+      entries: () => [
+        { role: 'default' as const, modelId: 'infrabrain' },
+        { role: 'forensic' as const, modelId: 'deepseek-r1:32b' },
+      ],
+    };
+
+    // Budget check must be called with 4096 for forensic, not 2048
+    vi.mocked(checkBudget).mockReturnValue({
+      allowed: true,
+      estimatedTokens: 100,
+      budgetTokens: 4096,
+    });
+
+    const provider = createProvider(mockModel, mockRegistry);
+    await provider.generateCommand('complex debug', 'system', 'forensic' as any);
+
+    // Verify budget check used forensic limit (4096)
+    expect(checkBudget).toHaveBeenCalledWith('complex debug', 'system', {
+      maxTokens: 4096,
+      taskType: 'command',
+    });
+
+    // Verify generateText used forensic limit (4096)
+    expect(mockedGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({ maxOutputTokens: 4096 }),
+    );
+  });
+
+  it('generateCommand uses 2048 maxOutputTokens for default role', async () => {
+    const { generateText } = await import('ai');
+    const mockedGenerateText = vi.mocked(generateText);
+
+    mockedGenerateText.mockResolvedValue({
+      text: 'simple result',
+      usage: { promptTokens: 50, completionTokens: 20, totalTokens: 70 },
+    } as any);
+
+    const provider = createProvider(mockModel);
+    await provider.generateCommand('simple task', 'system');
+
+    // No role → default 2048 limit
+    expect(checkBudget).toHaveBeenCalledWith('simple task', 'system', {
+      maxTokens: 2048,
+      taskType: 'command',
+    });
+    expect(mockedGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({ maxOutputTokens: 2048 }),
+    );
+  });
+
   it('generateCommand uses default model when no role is provided', async () => {
     const { generateText } = await import('ai');
     const mockedGenerateText = vi.mocked(generateText);

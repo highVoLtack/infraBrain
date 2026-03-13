@@ -101,7 +101,8 @@ describe('buildMessages', () => {
 
     const result = buildMessages(skill, 'nginx 502 error');
 
-    expect(result.system).toBe(skill.sections.systemPrompt);
+    expect(result.system).toContain(skill.sections.systemPrompt);
+    expect(result.system).toContain('MANDATORY EXECUTION PROTOCOL');
     expect(result.messages).toHaveLength(2);
     expect(result.messages[0].role).toBe('assistant');
     expect(result.messages[0].content).toContain('Allowed: grep, journalctl');

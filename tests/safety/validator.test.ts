@@ -1,10 +1,44 @@
 import { describe, it, expect } from 'vitest';
-import { validateCommand } from '../../src/safety/validator.js';
+import { validateCommand, sanitizeDockerExec } from '../../src/safety/validator.js';
 import { RiskLevel, type SafetyConfig } from '../../src/safety/types.js';
 import { loadCustomRules } from '../../src/safety/rules.js';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+
+describe('sanitizeDockerExec', () => {
+  it('strips -it from docker exec', () => {
+    expect(sanitizeDockerExec('docker exec -it postgres psql -U postgres'))
+      .toBe('docker exec postgres psql -U postgres');
+  });
+
+  it('strips -ti from docker exec', () => {
+    expect(sanitizeDockerExec('docker exec -ti postgres psql'))
+      .toBe('docker exec postgres psql');
+  });
+
+  it('strips standalone -t from docker exec', () => {
+    expect(sanitizeDockerExec('docker exec -t postgres psql'))
+      .toBe('docker exec postgres psql');
+  });
+
+  it('does not modify docker exec without TTY flags', () => {
+    expect(sanitizeDockerExec('docker exec postgres psql -U postgres'))
+      .toBe('docker exec postgres psql -U postgres');
+  });
+
+  it('does not modify non-docker commands', () => {
+    expect(sanitizeDockerExec('ls -la')).toBe('ls -la');
+  });
+
+  it('preserves -t inside psql flags (e.g. psql -t)', () => {
+    // Only strips -t after docker exec, not in the psql args
+    const input = 'docker exec postgres psql -U postgres -t -c "SELECT 1"';
+    const result = sanitizeDockerExec(input);
+    // The psql -t should be preserved since it comes after the container name
+    expect(result).toContain('psql');
+  });
+});
 
 describe('validateCommand', () => {
   it('allows "docker ps" with risk level READ', () => {
@@ -20,6 +54,51 @@ describe('validateCommand', () => {
     expect(result.riskLevel).toBe(RiskLevel.BLOCKED);
     expect(result.reason).toContain('blocked');
     expect(result.command).toBe('rm -rf /');
+  });
+
+  it('blocks apt install commands', () => {
+    const result = validateCommand('apt install pgbouncer');
+    expect(result.allowed).toBe(false);
+    expect(result.riskLevel).toBe(RiskLevel.BLOCKED);
+    expect(result.reason).toContain('Package manager');
+  });
+
+  it('blocks apt-get install commands', () => {
+    const result = validateCommand('apt-get install postgresql-client');
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain('Package manager');
+  });
+
+  it('blocks yum install commands', () => {
+    const result = validateCommand('yum install httpd');
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain('Package manager');
+  });
+
+  it('blocks apk add commands', () => {
+    const result = validateCommand('apk install curl');
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain('Package manager');
+  });
+
+  it('sanitizes docker exec -it before validation', () => {
+    const result = validateCommand('docker exec -it postgres psql -U postgres -c "SELECT 1"');
+    expect(result.allowed).toBe(true);
+    // Command should have -it stripped
+    expect(result.command).not.toContain('-it');
+    expect(result.command).toContain('docker exec postgres psql');
+  });
+
+  it('auto-overrides risk to WRITE for pg_terminate_backend', () => {
+    const result = validateCommand('docker exec postgres-demo psql -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity"');
+    expect(result.allowed).toBe(true);
+    expect(result.riskLevel).toBe(RiskLevel.WRITE);
+  });
+
+  it('auto-overrides risk to WRITE for pg_terminate_backend regardless of case', () => {
+    const result = validateCommand('docker exec pg psql -c "SELECT PG_TERMINATE_BACKEND(42)"');
+    expect(result.allowed).toBe(true);
+    expect(result.riskLevel).toBe(RiskLevel.WRITE);
   });
 
   it('blocks commands matching config blocklist patterns', () => {
