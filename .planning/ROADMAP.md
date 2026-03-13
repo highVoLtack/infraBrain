@@ -28,7 +28,7 @@
 
 - [x] **Phase 8: Rolling Context Injection** - Sub-agent LLM calls receive prior step results for multi-step plan awareness (completed 2026-03-13)
 - [ ] **Phase 9: Postgres Failure Scenario** - Complete vertical slice: Docker Compose env, diagnostic skill, reset script, E2E test
-- [ ] **Phase 10: Docker Storage Failure Scenario** - Complete vertical slice: Docker Compose env, storage skill, reset script, E2E test
+- [x] **Phase 10: Docker Storage Failure Scenario** - Complete vertical slice: Docker Compose env, storage skill, reset script, E2E test (completed 2026-03-13)
 - [ ] **Phase 11: Cross-Scenario Validation and UX Polish** - Audit trail completeness across both scenarios, history command improvements
 
 ## Phase Details
@@ -70,7 +70,7 @@ Plans:
   2. The `docker-storage.md` skill diagnoses via `df -h` and `docker system df`, and produces a fix plan to prune or truncate
   3. Running `demo/docker-storage/reset-docker-storage.sh` idempotently restores the broken state so the scenario can be re-run
   4. An automated E2E test proves the full DPEV loop: diagnose identifies the full volume, plan proposes cleanup, execute runs it, verify confirms recovery
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 10-01-PLAN.md — Docker Compose environment with shared tmpfs volume and idempotent reset script
 - [x] 10-02-PLAN.md — docker-storage diagnostic skill and discovery commands
@@ -101,7 +101,7 @@ Plans:
 | 7. Audit Metadata and Integration Polish | v1.0 | 3/3 | Complete | 2026-03-12 |
 | 8. Rolling Context Injection | v1.1 | 2/2 | Complete | 2026-03-13 |
 | 9. Postgres Failure Scenario | v1.1 | 2/3 | In Progress | - |
-| 10. Docker Storage Failure Scenario | v1.1 | 2/3 | In Progress | - |
+| 10. Docker Storage Failure Scenario | 3/3 | Complete   | 2026-03-13 | - |
 | 11. Cross-Scenario Validation and UX Polish | v1.1 | 0/? | Not started | - |
 
 ---
