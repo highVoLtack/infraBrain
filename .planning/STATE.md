@@ -4,7 +4,7 @@ milestone: v1.1
 milestone_name: The Scenario Factory
 status: completed
 stopped_at: Completed 11-02-PLAN.md
-last_updated: "2026-03-13T14:10:00.000Z"
+last_updated: "2026-03-13T14:16:03.398Z"
 last_activity: 2026-03-13 -- 11-02 History UX improvements (aliases, DPEV, session list)
 progress:
   total_phases: 4
