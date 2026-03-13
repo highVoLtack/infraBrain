@@ -55,7 +55,7 @@ Plans:
   2. The `postgres-troubleshoot.md` skill queries pg_stat_activity, identifies idle/leaked connections, and produces a fix plan that terminates and recovers connections
   3. Running `demo/reset-postgres.sh` idempotently restores the broken state so the scenario can be re-run
   4. An automated E2E test proves the full DPEV loop: diagnose identifies the connection leak, plan proposes termination, execute runs it, verify confirms recovery
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 Plans:
 - [ ] 09-01-PLAN.md — Demo directory restructure + Postgres Docker environment and reset script
 - [ ] 09-02-PLAN.md — Postgres diagnostic skill and discovery commands
@@ -96,7 +96,7 @@ Plans:
 | 6. Resume Wiring and Audit Completeness | v1.0 | 2/2 | Complete | 2026-03-12 |
 | 7. Audit Metadata and Integration Polish | v1.0 | 3/3 | Complete | 2026-03-12 |
 | 8. Rolling Context Injection | v1.1 | 2/2 | Complete | 2026-03-13 |
-| 9. Postgres Failure Scenario | v1.1 | 0/3 | Planned | - |
+| 9. Postgres Failure Scenario | 2/3 | In Progress|  | - |
 | 10. Docker Storage Failure Scenario | v1.1 | 0/? | Not started | - |
 | 11. Cross-Scenario Validation and UX Polish | v1.1 | 0/? | Not started | - |
 
