@@ -84,7 +84,10 @@ Plans:
   1. Both E2E tests verify that audit trail contains skill_selection, decision, and execution events for every DPEV step
   2. Running `/infra:history` with no `--session` flag defaults to displaying the most recent session
   3. Running `/infra:history --session last` resolves to the latest session_id from SQLite and displays that session
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 11-01-PLAN.md — Scenario Factory archetype: shared test helpers, verification event, E2E refactor
+- [ ] 11-02-PLAN.md — History UX: default-to-latest, session aliases, DPEV summary, session list
 
 ## Progress
 
@@ -101,9 +104,9 @@ Plans:
 | 7. Audit Metadata and Integration Polish | v1.0 | 3/3 | Complete | 2026-03-12 |
 | 8. Rolling Context Injection | v1.1 | 2/2 | Complete | 2026-03-13 |
 | 9. Postgres Failure Scenario | v1.1 | 2/3 | In Progress | - |
-| 10. Docker Storage Failure Scenario | 3/3 | Complete    | 2026-03-13 | - |
-| 11. Cross-Scenario Validation and UX Polish | v1.1 | 0/? | Not started | - |
+| 10. Docker Storage Failure Scenario | v1.1 | 3/3 | Complete | 2026-03-13 |
+| 11. Cross-Scenario Validation and UX Polish | v1.1 | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-13 — Phase 10 plan 01 complete (2/3 plans done)*
+*Last updated: 2026-03-13 — Phase 11 planned (2 plans in 1 wave)*
