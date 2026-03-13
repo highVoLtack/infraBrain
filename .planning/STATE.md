@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: The Scenario Factory
-status: executing
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-03-13T14:10:07.290Z"
-last_activity: 2026-03-13 -- 11-01 Scenario Factory test infrastructure
+status: completed
+stopped_at: Completed 11-02-PLAN.md
+last_updated: "2026-03-13T14:10:00.000Z"
+last_activity: 2026-03-13 -- 11-02 History UX improvements (aliases, DPEV, session list)
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 9
-  percent: 97
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control — every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.1 The Scenario Factory — Phase 11 in progress (1 of 2 plans delivered)
+**Current focus:** v1.1 The Scenario Factory — Phase 11 complete (2 of 2 plans delivered)
 
 ## Current Position
 
 Phase: 11 of 11 (Cross-Scenario Validation and UX Polish)
-Plan: 1 of 2 complete
-Status: In Progress
-Last activity: 2026-03-13 -- 11-01 Scenario Factory test infrastructure
+Plan: 2 of 2 complete
+Status: Complete
+Last activity: 2026-03-13 -- 11-02 History UX improvements (aliases, DPEV, session list)
 
-Progress: [██████████] 97%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [██████████] 97%
 - Trend: stable
 | Phase 08 P02 | 2min | 2 tasks | 4 files |
 | Phase 11 P01 | 2min | 2 tasks | 8 files |
+| Phase 11 P02 | 3min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,7 @@ Recent decisions affecting current work:
 - [Phase 10 10-02]: Causal Deduplication as Step 3 -- LLM classifies files as log bloat vs state data before remediation; truncate over rm for inode preservation; dual verification archetype
 - [Phase 10 10-03]: Explicit beforeAll timeout for Docker E2E tests; Redis MISCONF detection via stdout (not exit code); avoid shell globs in executor commands
 - [Phase 11 11-01]: DPEV phase map groups execution events under E phase; assertDPEVSequence sorts by timestamp ASC; Scenario Factory archetype with Zero Legacy policy
+- [Phase 11 11-02]: Session alias resolution server-side (last/previous); default-to-latest is CLI-side (?session=last); non-alias IDs get 200 empty (backward compat)
 
 ### Pending Todos
 
@@ -92,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T14:10:06.399Z
-Stopped at: Completed 11-01-PLAN.md
+Last session: 2026-03-13T14:10:00.000Z
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None

@@ -29,8 +29,8 @@ Requirements for v1.1 The Scenario Factory. Each maps to roadmap phases.
 
 ### UX Polish
 
-- [ ] **UX-01**: `/infra:history` defaults to the most recent session when no `--session` flag provided
-- [ ] **UX-02**: `/infra:history --session last` resolves to the latest session_id from SQLite
+- [x] **UX-01**: `/infra:history` defaults to the most recent session when no `--session` flag provided
+- [x] **UX-02**: `/infra:history --session last` resolves to the latest session_id from SQLite
 
 ## v2 Requirements
 
@@ -87,8 +87,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCEN-06 | Phase 10 | Complete |
 | E2E-02 | Phase 10 | Complete |
 | E2E-03 | Phase 11 | Complete |
-| UX-01 | Phase 11 | Pending |
-| UX-02 | Phase 11 | Pending |
+| UX-01 | Phase 11 | Complete |
+| UX-02 | Phase 11 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 13 total
