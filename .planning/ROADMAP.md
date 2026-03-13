@@ -43,8 +43,8 @@
   3. A unit test confirms that rollingContext.getContext() output appears in the LLM prompt for steps after step 1
 **Plans:** 2/2 plans complete
 Plans:
-- [ ] 08-01-PLAN.md — Add onBeforeStep callback to executor for rolling context injection
-- [ ] 08-02-PLAN.md — Wire rolling context into execute and resume routes
+- [x] 08-01-PLAN.md — Add onBeforeStep callback to executor for rolling context injection
+- [x] 08-02-PLAN.md — Wire rolling context into execute and resume routes
 
 ### Phase 9: Postgres Failure Scenario
 **Goal**: Users can demonstrate autonomous Postgres connection-limit diagnosis and recovery through a complete DPEV loop
@@ -55,7 +55,11 @@ Plans:
   2. The `postgres-troubleshoot.md` skill queries pg_stat_activity, identifies idle/leaked connections, and produces a fix plan that terminates and recovers connections
   3. Running `demo/reset-postgres.sh` idempotently restores the broken state so the scenario can be re-run
   4. An automated E2E test proves the full DPEV loop: diagnose identifies the connection leak, plan proposes termination, execute runs it, verify confirms recovery
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 09-01-PLAN.md — Demo directory restructure + Postgres Docker environment and reset script
+- [ ] 09-02-PLAN.md — Postgres diagnostic skill and discovery commands
+- [ ] 09-03-PLAN.md — E2E test proving full DPEV loop for Postgres scenario
 
 ### Phase 10: Docker Storage Failure Scenario
 **Goal**: Users can demonstrate autonomous Docker volume-full diagnosis and recovery through a complete DPEV loop
@@ -91,11 +95,11 @@ Plans:
 | 5. POC Scenario and Integration | v1.0 | 2/2 | Complete | 2026-03-08 |
 | 6. Resume Wiring and Audit Completeness | v1.0 | 2/2 | Complete | 2026-03-12 |
 | 7. Audit Metadata and Integration Polish | v1.0 | 3/3 | Complete | 2026-03-12 |
-| 8. Rolling Context Injection | 2/2 | Complete   | 2026-03-13 | - |
-| 9. Postgres Failure Scenario | v1.1 | 0/? | Not started | - |
+| 8. Rolling Context Injection | v1.1 | 2/2 | Complete | 2026-03-13 |
+| 9. Postgres Failure Scenario | v1.1 | 0/3 | Planned | - |
 | 10. Docker Storage Failure Scenario | v1.1 | 0/? | Not started | - |
 | 11. Cross-Scenario Validation and UX Polish | v1.1 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-13 — Phase 8 planned (2 plans, 2 waves)*
+*Last updated: 2026-03-13 — Phase 9 planned (3 plans, 2 waves)*
