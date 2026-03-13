@@ -105,6 +105,25 @@ const DISCOVERY_COMMANDS: Record<string, { command: string; label: string }[]> =
       label: 'Idle connections detail',
     },
   ],
+  'docker-storage': [
+    { command: 'docker ps --format "{{.Names}}"', label: 'Running containers' },
+    {
+      command: 'docker network inspect docker-storage_default --format "{{range .Containers}}{{.Name}}:{{.IPv4Address}} {{end}}"',
+      label: 'Container IP mapping',
+    },
+    {
+      command: 'docker exec storage-logger df -h /shared',
+      label: 'Shared volume capacity (logger view)',
+    },
+    {
+      command: 'docker exec storage-logger du -sh /shared/*',
+      label: 'Shared volume ownership breakdown',
+    },
+    {
+      command: 'docker system df',
+      label: 'Docker system storage overview',
+    },
+  ],
 };
 
 /**
