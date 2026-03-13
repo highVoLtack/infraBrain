@@ -41,7 +41,10 @@
   1. When executePlan runs step 3 of a fix plan, the sub-agent LLM call includes a summary of what steps 1 and 2 produced
   2. Resume route passes accumulated rolling context to the LLM provider so resumed sessions do not lose prior step awareness
   3. A unit test confirms that rollingContext.getContext() output appears in the LLM prompt for steps after step 1
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 08-01-PLAN.md — Add onBeforeStep callback to executor for rolling context injection
+- [ ] 08-02-PLAN.md — Wire rolling context into execute and resume routes
 
 ### Phase 9: Postgres Failure Scenario
 **Goal**: Users can demonstrate autonomous Postgres connection-limit diagnosis and recovery through a complete DPEV loop
@@ -88,11 +91,11 @@
 | 5. POC Scenario and Integration | v1.0 | 2/2 | Complete | 2026-03-08 |
 | 6. Resume Wiring and Audit Completeness | v1.0 | 2/2 | Complete | 2026-03-12 |
 | 7. Audit Metadata and Integration Polish | v1.0 | 3/3 | Complete | 2026-03-12 |
-| 8. Rolling Context Injection | v1.1 | 0/? | Not started | - |
+| 8. Rolling Context Injection | v1.1 | 0/2 | Planned | - |
 | 9. Postgres Failure Scenario | v1.1 | 0/? | Not started | - |
 | 10. Docker Storage Failure Scenario | v1.1 | 0/? | Not started | - |
 | 11. Cross-Scenario Validation and UX Polish | v1.1 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-12 — v1.1 roadmap created (4 phases, 13 requirements)*
+*Last updated: 2026-03-13 — Phase 8 planned (2 plans, 2 waves)*
