@@ -18,7 +18,7 @@ Requirements for v1.1 The Scenario Factory. Each maps to roadmap phases.
 
 ### E2E Validation
 
-- [ ] **E2E-01**: Postgres scenario has automated E2E test proving full DPEV loop (diagnose → plan → execute → verify recovery)
+- [x] **E2E-01**: Postgres scenario has automated E2E test proving full DPEV loop (diagnose → plan → execute → verify recovery)
 - [ ] **E2E-02**: Docker volume scenario has automated E2E test proving full DPEV loop
 - [ ] **E2E-03**: Both E2E tests verify audit trail completeness (skill_selection, decision, execution events)
 
@@ -81,7 +81,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCEN-01 | Phase 9 | Complete |
 | SCEN-02 | Phase 9 | Complete |
 | SCEN-03 | Phase 9 | Complete |
-| E2E-01 | Phase 9 | Pending |
+| E2E-01 | Phase 9 | Complete |
 | SCEN-04 | Phase 10 | Pending |
 | SCEN-05 | Phase 10 | Pending |
 | SCEN-06 | Phase 10 | Pending |

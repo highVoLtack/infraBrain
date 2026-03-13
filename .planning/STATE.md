@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: The Scenario Factory
 status: executing
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-03-13T09:42:03Z"
-last_activity: 2026-03-13 -- 09-02 Postgres diagnostic skill and discovery commands
+stopped_at: Completed 09-03-PLAN.md
+last_updated: "2026-03-13T09:46:09Z"
+last_activity: 2026-03-13 -- 09-03 Postgres connection leak E2E test
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 5
   completed_plans: 5
-  percent: 96
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control — every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.1 The Scenario Factory — Phase 9 in progress (09-02 complete)
+**Current focus:** v1.1 The Scenario Factory — Phase 9 complete (all 3 plans delivered)
 
 ## Current Position
 
 Phase: 9 of 11 (Postgres Failure Scenario)
-Plan: 2 of 3 complete
-Status: Executing
-Last activity: 2026-03-13 -- 09-02 Postgres diagnostic skill and discovery commands
+Plan: 3 of 3 complete
+Status: Phase Complete
+Last activity: 2026-03-13 -- 09-03 Postgres connection leak E2E test
 
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -75,6 +75,7 @@ Recent decisions affecting current work:
 - [Phase 09 09-01]: Chaos Library pattern established -- demo/<scenario>/ with per-scenario compose and reset scripts
 - [Phase 09 09-01]: Postgres leaky-app uses non-superuser, leaving 2 superuser slots for diagnostics
 - [Phase 09 09-02]: Hardcoded network name postgres_pgnet (Docker Compose convention); pg_terminate_backend is write risk not destructive; 5 discovery commands pre-inject all evidence for pure LLM reasoning
+- [Phase 09 09-03]: E2E test uses usename='leaky' filter (not IP) for robustness; 120s timeout for Docker operations; mock LLMProvider includes registry property
 
 ### Pending Todos
 
@@ -86,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T09:42:03Z
-Stopped at: Completed 09-02-PLAN.md
-Resume file: .planning/phases/09-postgres-failure-scenario/09-02-SUMMARY.md
+Last session: 2026-03-13T09:46:09Z
+Stopped at: Completed 09-03-PLAN.md
+Resume file: .planning/phases/09-postgres-failure-scenario/09-03-SUMMARY.md
