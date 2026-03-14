@@ -87,6 +87,7 @@ export function buildCorrectionPrompt(ctx: {
   containerContext: string;
   domainKnowledge?: string;
   rollingContext?: string;
+  correctionHistory?: string;
 }): string {
   const parts = [
     `The following command failed during execution.`,
@@ -98,6 +99,10 @@ export function buildCorrectionPrompt(ctx: {
     ``,
     `Step description: ${ctx.stepDescription}`,
   ];
+
+  if (ctx.correctionHistory) {
+    parts.push(``, `Previous correction attempts (do NOT repeat these):`, ctx.correctionHistory);
+  }
 
   if (ctx.availableTools) {
     parts.push(``, `Available tools: ${ctx.availableTools}`);
@@ -115,7 +120,7 @@ export function buildCorrectionPrompt(ctx: {
 
   parts.push(
     ``,
-    `Generate a corrected command that achieves the same goal. Consider privilege escalation (e.g. -u 0 on docker exec) if the error is permission-related. Output ONLY the corrected command, nothing else.`,
+    `Generate a corrected command that achieves the same goal. Consider privilege escalation (e.g. -u 0 on docker exec) if the error is permission-related. If the file does not exist, check the parent directory instead. Output ONLY the corrected command, nothing else.`,
   );
 
   return parts.join('\n');
@@ -270,15 +275,34 @@ export async function verifyEffect(
 }
 
 /**
+ * Detect whether the error type changed between two failures.
+ * A change means the last correction made progress (e.g. "Permission denied" → "No such file").
+ * Uses the first meaningful word/phrase from stderr to classify.
+ */
+export function errorTypeChanged(prevStderr: string, currentStderr: string): boolean {
+  const classify = (stderr: string): string => {
+    const lower = stderr.toLowerCase();
+    if (lower.includes('permission denied') || lower.includes('operation not permitted')) return 'permission';
+    if (lower.includes('no such file') || lower.includes('not found')) return 'not_found';
+    if (lower.includes('connection refused') || lower.includes('cannot connect')) return 'connection';
+    if (lower.includes('timeout') || lower.includes('timed out')) return 'timeout';
+    if (lower.includes('out of memory') || lower.includes('oom')) return 'oom';
+    if (lower.includes('disk full') || lower.includes('no space')) return 'disk';
+    // Fallback: first 40 chars as fingerprint
+    return lower.slice(0, 40).trim();
+  };
+  return classify(prevStderr) !== classify(currentStderr);
+}
+
+/**
  * Self-healing step: retry a failed command with LLM-corrected alternatives.
  *
- * Loop up to maxAttempts times. Each iteration:
- * 1. Check damage budget
- * 2. Ask LLM for corrected command
- * 3. Validate through full safety pipeline
- * 4. Execute corrected command
- * 5. For WRITE/DESTRUCTIVE-risk: verify effect
- * 6. Track attempt and audit log
+ * Dynamic error-driven loop:
+ * - Tracks the "working command" — starts as the original, evolves as corrections make progress
+ * - Detects error-type changes: if the error shifts (e.g. "Permission denied" → "No such file"),
+ *   the last correction was partial progress → adopt it as the new base command
+ * - Accumulates correction history so the LLM sees what was already tried
+ * - Grants bonus attempts when progress is detected (error type changes)
  */
 export async function selfHealStep(
   step: FixStep,
@@ -287,18 +311,29 @@ export async function selfHealStep(
 ): Promise<SelfHealResult> {
   const attempts: CorrectionAttempt[] = [];
   let currentError = failedResult;
+  let workingCommand = step.command; // Evolves as corrections make progress
   const stepRisk = context.stepRisk;
+  const maxAttempts = context.maxAttempts;
+  let attemptsRemaining = maxAttempts;
 
-  for (let i = 0; i < context.maxAttempts; i++) {
+  while (attemptsRemaining > 0) {
+    attemptsRemaining--;
+
     // 1. Check damage budget
     const cost = context.budget.costFor(stepRisk);
     if (!context.budget.canAfford(cost)) {
-      return { status: 'budget_exceeded', attempts, commandUsed: step.command };
+      return { status: 'budget_exceeded', attempts, commandUsed: workingCommand };
     }
 
-    // 2. Build correction prompt (fresh each time, only latest error)
+    // 2. Build correction history summary for the LLM
+    const historyLines = attempts
+      .filter(a => a.outcome === 'failed')
+      .map((a, idx) => `Attempt ${idx + 1}: tried "${a.correctedCommand}" → ${a.error.stderr.split('\n')[0]}`)
+      .join('\n');
+
+    // 3. Build correction prompt with evolving command + history
     const prompt = buildCorrectionPrompt({
-      originalCommand: step.command,
+      originalCommand: workingCommand,
       stderr: currentError.stderr,
       exitCode: currentError.exitCode,
       stepDescription: context.stepDescription,
@@ -306,33 +341,34 @@ export async function selfHealStep(
       containerContext: context.containerContext,
       domainKnowledge: context.domainKnowledge,
       rollingContext: context.rollingContext,
+      correctionHistory: historyLines || undefined,
     });
 
-    // 3. Call LLM for correction
+    // 4. Call LLM for correction
     const { text } = await generateText({
       model: context.model,
       prompt,
       maxTokens: 500,
     });
 
-    // 4. Parse LLM response
+    // 5. Parse LLM response
     const correctedCommand = extractCommandFromLLMResponse(text);
 
-    // 5. Validate through full safety pipeline
+    // 6. Validate through full safety pipeline
     const validation = await validateCorrectedCommand(correctedCommand, context);
 
     if (!validation.allowed) {
       // Safety blocked -- counts as failed attempt
       context.budget.deduct(cost);
       context.auditLogger.logExecution('self_heal_attempt', {
-        attempt: i + 1,
-        originalCommand: step.command,
+        attempt: attempts.length + 1,
+        originalCommand: workingCommand,
         correctedCommand,
         outcome: 'blocked_by_safety',
         reason: validation.reason,
       });
       attempts.push({
-        originalCommand: step.command,
+        originalCommand: workingCommand,
         correctedCommand,
         error: { stderr: currentError.stderr, exitCode: currentError.exitCode },
         outcome: 'blocked_by_safety',
@@ -342,7 +378,7 @@ export async function selfHealStep(
 
     const finalCommand = validation.command!;
 
-    // 6. Execute corrected command
+    // 7. Execute corrected command
     let runResult: RunResult;
     if (needsShell(finalCommand)) {
       runResult = await runShellCommand(finalCommand, {
@@ -355,30 +391,28 @@ export async function selfHealStep(
       });
     }
 
-    // 7. Deduct budget
+    // 8. Deduct budget
     context.budget.deduct(cost);
 
-    // 8. Check result
+    // 9. Check result
     if (runResult.exitCode === 0) {
       // For WRITE/DESTRUCTIVE-risk: verify effect
       if (stepRisk === 'write' || stepRisk === 'destructive') {
         const verification = await verifyEffect(finalCommand, context);
         if (!verification.verified) {
-          // Effect unverified -- continue loop
           context.auditLogger.logExecution('self_heal_attempt', {
-            attempt: i + 1,
-            originalCommand: step.command,
+            attempt: attempts.length + 1,
+            originalCommand: workingCommand,
             correctedCommand: finalCommand,
             outcome: 'effect_unverified',
             reason: verification.reason,
           });
           attempts.push({
-            originalCommand: step.command,
+            originalCommand: workingCommand,
             correctedCommand: finalCommand,
             error: { stderr: `Effect verification failed: ${verification.reason}`, exitCode: 1 },
             outcome: 'effect_unverified',
           });
-          // Update current error for next iteration
           currentError = {
             stdout: '',
             stderr: `Effect verification failed: ${verification.reason}`,
@@ -390,13 +424,13 @@ export async function selfHealStep(
 
       // Success
       context.auditLogger.logExecution('self_heal_attempt', {
-        attempt: i + 1,
-        originalCommand: step.command,
+        attempt: attempts.length + 1,
+        originalCommand: workingCommand,
         correctedCommand: finalCommand,
         outcome: 'success',
       });
       attempts.push({
-        originalCommand: step.command,
+        originalCommand: workingCommand,
         correctedCommand: finalCommand,
         error: { stderr: currentError.stderr, exitCode: currentError.exitCode },
         outcome: 'success',
@@ -404,30 +438,50 @@ export async function selfHealStep(
       return { status: 'success', finalResult: runResult, attempts, commandUsed: finalCommand };
     }
 
-    // Failed -- update error context for next attempt
+    // 10. Failed — check if error type changed (= partial progress)
+    const prevStderr = currentError.stderr;
+    const madeProgress = errorTypeChanged(prevStderr, runResult.stderr);
+
     context.auditLogger.logExecution('self_heal_attempt', {
-      attempt: i + 1,
-      originalCommand: step.command,
+      attempt: attempts.length + 1,
+      originalCommand: workingCommand,
       correctedCommand: finalCommand,
       outcome: 'failed',
       stderr: runResult.stderr,
       exitCode: runResult.exitCode,
+      errorTypeChanged: madeProgress,
     });
     attempts.push({
-      originalCommand: step.command,
+      originalCommand: workingCommand,
       correctedCommand: finalCommand,
       error: { stderr: runResult.stderr, exitCode: runResult.exitCode },
       outcome: 'failed',
     });
+
+    if (madeProgress) {
+      // The correction changed the error — adopt corrected command as new base
+      workingCommand = finalCommand;
+      // Grant bonus attempts (up to original max) since we're making progress
+      attemptsRemaining = Math.min(attemptsRemaining + Math.ceil(maxAttempts / 2), maxAttempts);
+      context.auditLogger.logExecution('self_heal_progress', {
+        attempt: attempts.length,
+        previousError: prevStderr.split('\n')[0],
+        newError: runResult.stderr.split('\n')[0],
+        adoptedCommand: finalCommand,
+        bonusAttempts: Math.ceil(maxAttempts / 2),
+      });
+    }
+
     currentError = runResult;
   }
 
   // Exhausted all attempts
   context.auditLogger.logExecution('self_heal_exhausted', {
     originalCommand: step.command,
+    finalCommand: workingCommand,
     attempts: attempts.length,
     attemptHistory: attempts,
   });
 
-  return { status: 'exhausted', attempts, commandUsed: step.command };
+  return { status: 'exhausted', attempts, commandUsed: workingCommand };
 }

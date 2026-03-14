@@ -384,10 +384,10 @@ describe('selfHealStep', () => {
 
   it('SH-03: max 3 attempts then returns exhausted', async () => {
     const { generateText } = await import('ai');
-    // Each attempt: correction + no verification (all fail)
+    // Each attempt: correction + no verification (all fail with same error type)
     (generateText as any).mockResolvedValue({ text: 'chown 1000:1000 /app/data' });
 
-    const runMock = vi.fn().mockResolvedValue({ stdout: '', stderr: 'still failing', exitCode: 1 });
+    const runMock = vi.fn().mockResolvedValue({ stdout: '', stderr: 'chown: Operation not permitted', exitCode: 1 });
     const ctx = makeContext({ runner: { run: runMock } });
 
     const result = await selfHealStep(makeStep(), failedResult, ctx);
@@ -460,7 +460,8 @@ describe('selfHealStep', () => {
     const { generateText } = await import('ai');
     (generateText as any).mockResolvedValue({ text: 'chown 1000:1000 /app/data' });
 
-    const runMock = vi.fn().mockResolvedValue({ stdout: '', stderr: 'fail', exitCode: 1 });
+    // Same error type as initial failedResult to avoid bonus attempts from error-type change
+    const runMock = vi.fn().mockResolvedValue({ stdout: '', stderr: 'chown: Operation not permitted', exitCode: 1 });
     const auditLogger = { logExecution: vi.fn() };
     const ctx = makeContext({ runner: { run: runMock }, auditLogger });
 
@@ -476,7 +477,8 @@ describe('selfHealStep', () => {
     const { generateText } = await import('ai');
     (generateText as any).mockResolvedValue({ text: 'chown 1000:1000 /app/data' });
 
-    const runMock = vi.fn().mockResolvedValue({ stdout: '', stderr: 'fail', exitCode: 1 });
+    // Same error type as initial failedResult to avoid bonus attempts
+    const runMock = vi.fn().mockResolvedValue({ stdout: '', stderr: 'chown: Operation not permitted', exitCode: 1 });
     const auditLogger = { logExecution: vi.fn() };
     const ctx = makeContext({ runner: { run: runMock }, auditLogger });
 
@@ -516,5 +518,89 @@ describe('selfHealStep', () => {
 
     expect(result.status).toBe('exhausted');
     expect(result.attempts.some(a => a.outcome === 'effect_unverified')).toBe(true);
+  });
+
+  it('grants bonus attempts when error type changes (progress detected)', async () => {
+    const { generateText } = await import('ai');
+    // LLM always suggests the same correction
+    (generateText as any).mockResolvedValue({ text: 'docker exec -u 0 test-container stat /app/data' });
+
+    // Attempt 1: Permission denied → No such file (progress!)
+    // Attempt 2+: No such file persists (no more progress)
+    const runMock = vi.fn()
+      .mockResolvedValueOnce({ stdout: '', stderr: 'stat: No such file or directory', exitCode: 1 }) // error type changed from initial "Operation not permitted"
+      .mockResolvedValueOnce({ stdout: '', stderr: 'stat: No such file or directory', exitCode: 1 })
+      .mockResolvedValueOnce({ stdout: '', stderr: 'stat: No such file or directory', exitCode: 1 })
+      .mockResolvedValueOnce({ stdout: '', stderr: 'stat: No such file or directory', exitCode: 1 })
+      .mockResolvedValueOnce({ stdout: '', stderr: 'stat: No such file or directory', exitCode: 1 });
+
+    const auditLogger = { logExecution: vi.fn() };
+    const ctx = makeContext({ runner: { run: runMock }, auditLogger, maxAttempts: 3 });
+
+    const result = await selfHealStep(makeStep(), failedResult, ctx);
+
+    // Should have more than 3 attempts due to bonus from error type change
+    expect(result.attempts.length).toBeGreaterThan(3);
+    // Progress event logged
+    const progressCalls = auditLogger.logExecution.mock.calls.filter(
+      (c: any[]) => c[0] === 'self_heal_progress'
+    );
+    expect(progressCalls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('adopts corrected command as new base when error type changes', async () => {
+    const { generateText } = await import('ai');
+    (generateText as any)
+      .mockResolvedValueOnce({ text: 'docker exec -u 0 test-container stat /app/data/status.pid' }) // attempt 1: adds -u 0
+      .mockResolvedValueOnce({ text: 'docker exec -u 0 test-container stat /app/data' })  // attempt 2: switch to directory
+      .mockResolvedValueOnce({ text: 'docker exec -u 0 test-container ls /app/data' }); // attempt 3
+
+    const runMock = vi.fn()
+      .mockResolvedValueOnce({ stdout: '', stderr: 'stat: No such file or directory', exitCode: 1 })  // error changed!
+      .mockResolvedValueOnce({ stdout: 'drwx------ root root', stderr: '', exitCode: 0 }); // success
+
+    const ctx = makeContext({ runner: { run: runMock } });
+
+    const result = await selfHealStep(makeStep({ command: 'stat /app/data/status.pid' }), failedResult, ctx);
+
+    expect(result.status).toBe('success');
+    // The second attempt used the adopted base (from first correction's progress)
+    expect(result.attempts.length).toBe(2);
+  });
+
+  it('includes correction history in subsequent prompts', async () => {
+    const { generateText } = await import('ai');
+    (generateText as any).mockResolvedValue({ text: 'chown 1000:1000 /app/data' });
+
+    // Same error type to not trigger progress, just check history is passed
+    const runMock = vi.fn().mockResolvedValue({ stdout: '', stderr: 'chown: Operation not permitted', exitCode: 1 });
+    const ctx = makeContext({ runner: { run: runMock } });
+
+    await selfHealStep(makeStep(), failedResult, ctx);
+
+    // The second call to generateText should have correction history in the prompt
+    const calls = (generateText as any).mock.calls;
+    expect(calls.length).toBe(3); // 3 attempts
+    // Second and third prompts should contain "Previous correction attempts"
+    expect(calls[1][0].prompt).toContain('Previous correction attempts');
+    expect(calls[2][0].prompt).toContain('Previous correction attempts');
+  });
+});
+
+describe('errorTypeChanged', () => {
+  // Import the function
+  it('detects permission → not_found change', async () => {
+    const { errorTypeChanged } = await import('../../src/execution/self-healer.js');
+    expect(errorTypeChanged('Permission denied writing to /app/data', 'No such file or directory')).toBe(true);
+  });
+
+  it('returns false for same error type', async () => {
+    const { errorTypeChanged } = await import('../../src/execution/self-healer.js');
+    expect(errorTypeChanged('Permission denied: /foo', 'Operation not permitted on /bar')).toBe(false);
+  });
+
+  it('detects connection → timeout change', async () => {
+    const { errorTypeChanged } = await import('../../src/execution/self-healer.js');
+    expect(errorTypeChanged('Connection refused', 'Connection timed out')).toBe(true);
   });
 });
