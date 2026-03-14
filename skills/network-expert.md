@@ -28,6 +28,11 @@ tools:
   ping: { risk: read }
   nginx: { risk: write }
 priority: 10
+negative_triggers: []
+when_not_to_use:
+  - "Filesystem permission or disk errors -- use linux-expert"
+  - "Database-specific issues (connections, deadlocks, queries) -- use postgres-expert"
+  - "Pure log parsing without network symptoms -- use log-analysis"
 discovery:
   - command: 'docker ps -a --format "{{.Names}} {{.Status}}"'
     label: 'Container Inventory'

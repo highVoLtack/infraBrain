@@ -3,13 +3,11 @@ name: log-analysis
 description: "Analyzes system logs to diagnose infrastructure problems -- pre-filters and parses syslog, JSON, Docker, and journald log formats"
 triggers:
   - log
-  - error
   - journal
   - syslog
   - docker logs
-  - debug
-  - diagnose
-  - why
+  - journalctl
+  - logfile
 preferred_model: default
 tools:
   grep: { risk: read }
@@ -21,6 +19,19 @@ tools:
   zcat: { risk: read }
   less: { risk: read }
 priority: 9
+negative_triggers:
+  - permission
+  - disk
+  - OOM
+  - connection limit
+  - deadlock
+  - "502"
+  - gateway
+  - proxy
+when_not_to_use:
+  - "Filesystem permission errors, disk pressure, or OOM -- use linux-expert"
+  - "Database connection issues, deadlocks, slow queries -- use postgres-expert"
+  - "HTTP errors, proxy failures, DNS issues -- use network-expert"
 ---
 
 ## System Prompt

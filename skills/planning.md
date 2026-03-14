@@ -10,6 +10,8 @@ triggers:
   - troubleshoot
 tools: []
 priority: 10
+negative_triggers: []
+when_not_to_use: []
 ---
 
 ## System Prompt

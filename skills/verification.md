@@ -19,6 +19,8 @@ tools:
   - dig
   - nslookup
 priority: 8
+negative_triggers: []
+when_not_to_use: []
 ---
 
 ## System Prompt

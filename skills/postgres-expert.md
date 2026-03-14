@@ -19,6 +19,11 @@ tools:
   docker: { risk: read }
 preferred_model: forensic
 priority: 10
+negative_triggers: []
+when_not_to_use:
+  - "Filesystem permission or disk errors without DB involvement -- use linux-expert"
+  - "HTTP/proxy/DNS issues -- use network-expert"
+  - "Pure log parsing without database symptoms -- use log-analysis"
 discovery:
   - command: 'docker ps -a --format "{{.Names}} {{.Status}}"'
     label: 'Container Inventory'

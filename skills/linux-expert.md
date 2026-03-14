@@ -38,6 +38,11 @@ tools:
   docker: { risk: read }
 preferred_model: default
 priority: 10
+negative_triggers: []
+when_not_to_use:
+  - "Database-specific errors (connection limits, deadlocks) -- use postgres-expert"
+  - "HTTP errors, proxy issues, DNS failures -- use network-expert"
+  - "Log format parsing without a clear system symptom -- use log-analysis"
 discovery:
   - command: 'docker ps -a --format "{{.Names}} {{.Status}}"'
     label: 'Container Inventory'
