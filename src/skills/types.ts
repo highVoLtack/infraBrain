@@ -11,14 +11,30 @@ export const DiscoveryCommandSchema = z.object({
 
 export type DiscoveryCommand = z.infer<typeof DiscoveryCommandSchema>;
 
+/**
+ * Schema for a tool declaration in the unified tool map.
+ * Each key in the tools map is a tool name, and the value describes
+ * its risk level, optional privilege escalation, wrapping, and flag stripping.
+ */
+export const ToolDeclarationSchema = z.object({
+  risk: z.enum(['read', 'write', 'destructive']),
+  user: z.string().optional(),
+  wrapper: z.string().optional(),
+  strip_flags: z.array(z.string()).optional(),
+  container: z.string().default('auto'),
+});
+
+export type ToolDeclaration = z.infer<typeof ToolDeclarationSchema>;
+
 export const SkillFrontmatterSchema = z.object({
   name: z.string().min(1, 'Skill name is required'),
   description: z.string().min(10, 'Skill description must be at least 10 characters'),
   triggers: z.array(z.string()).min(1, 'At least one trigger is required'),
-  tools: z.array(z.string()).default([]),
+  tools: z.union([
+    z.array(z.string()),
+    z.record(z.string(), ToolDeclarationSchema),
+  ]).default({}),
   preferred_model: ModelRoleSchema.optional(),
-  version: z.string().optional(),
-  author: z.string().optional(),
   priority: z.number().default(0),
   rewrite_rules: z.array(RewriteRuleSchema).default([]),
   discovery: z.array(DiscoveryCommandSchema).default([]),

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ToolDeclaration } from '../skills/types.js';
 
 /**
  * Zod schema for a rewrite rule declared in skill frontmatter.
@@ -219,4 +220,26 @@ export function dynamicRewrite(
 
   // No rule matched: pass through unchanged
   return trimmed;
+}
+
+/**
+ * Convert a unified tool map (from skill frontmatter) into RewriteRule[] format
+ * compatible with dynamicRewrite().
+ *
+ * Each tool name becomes a `^toolName\b` regex match pattern. All declaration
+ * fields (container, user, wrapper, risk, strip_flags) are forwarded directly.
+ */
+export function toolsToRewriteRules(tools: Record<string, ToolDeclaration>): RewriteRule[] {
+  return Object.entries(tools).map(([name, decl]) => {
+    // Escape special regex chars in tool name
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return {
+      match: `^${escaped}\\b`,
+      container: decl.container ?? 'auto',
+      ...(decl.user !== undefined && { user: decl.user }),
+      ...(decl.wrapper !== undefined && { wrapper: decl.wrapper }),
+      ...(decl.risk !== undefined && { risk: decl.risk }),
+      ...(decl.strip_flags !== undefined && { strip_flags: decl.strip_flags }),
+    };
+  });
 }
