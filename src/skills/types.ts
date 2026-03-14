@@ -38,6 +38,8 @@ export const SkillFrontmatterSchema = z.object({
   priority: z.number().default(0),
   rewrite_rules: z.array(RewriteRuleSchema).default([]),
   discovery: z.array(DiscoveryCommandSchema).default([]),
+  negative_triggers: z.array(z.string()).default([]),
+  when_not_to_use: z.array(z.string()).default([]),
 });
 
 export const SkillSectionsSchema = z.object({
