@@ -26,6 +26,26 @@ const DEV_MODE = process.env.NODE_ENV !== 'production';
 /** Max sanity-check retries before giving up */
 const MAX_SANITY_RETRIES = 1;
 
+/** DPEV phase ordering for sequence enforcement */
+export type DPEVPhase = 'discovery' | 'diagnosis' | 'plan' | 'execution' | 'verification';
+
+const DPEV_ORDER: DPEVPhase[] = ['discovery', 'diagnosis', 'plan', 'execution', 'verification'];
+
+/**
+ * Enforce DPEV sequence ordering. Throws if attempting to start a phase
+ * before all prior phases have completed.
+ */
+export function enforceDPEVSequence(current: DPEVPhase, completed: DPEVPhase[]): void {
+  const currentIdx = DPEV_ORDER.indexOf(current);
+  for (let i = 0; i < currentIdx; i++) {
+    if (!completed.includes(DPEV_ORDER[i])) {
+      throw new Error(
+        `DPEV VIOLATION: Cannot start "${current}" before "${DPEV_ORDER[i]}" completes`
+      );
+    }
+  }
+}
+
 /** Regex matching common log indicators: level keywords and ISO-ish timestamps */
 const LOG_INDICATOR = /\b(ERROR|WARN|INFO|DEBUG|FATAL|CRITICAL)\b|\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/i;
 
@@ -308,6 +328,9 @@ export function createDebugRoute(
       let planMarkdown: string | undefined;
       let planTable: string | undefined;
 
+      // DPEV sequence tracking
+      const completedPhases: DPEVPhase[] = [];
+
       // Determine system prompt and skill context
       let systemPrompt = 'You are an infrastructure diagnostic assistant. Analyze the issue and suggest specific commands to investigate or resolve it. Prefix commands with "Command:" on their own line.';
 
@@ -361,6 +384,9 @@ export function createDebugRoute(
           // Run discovery commands to get ground truth BEFORE LLM call
           const { context: discoveryContext, raw: discoveryRaw } = await runDiscovery(selection.skill);
 
+          // DPEV: discovery phase complete (auto-complete if no discovery commands)
+          completedPhases.push('discovery');
+
           if (discoveryContext) {
             auditLogger.logExecution('discovery_complete', {
               skill: selection.skill.frontmatter.name,
@@ -406,6 +432,9 @@ export function createDebugRoute(
           const targetContainers = dbContainer
             ? [dbContainer, ...allContainers.filter(c => c !== dbContainer)]
             : allContainers;
+
+          // DPEV: enforce discovery before diagnosis
+          enforceDPEVSequence('diagnosis', completedPhases);
 
           // Generate diagnosis with skill context + discovery data
           // Use preferred_model from skill frontmatter — routing enforcement above ensures it's valid
@@ -464,6 +493,12 @@ export function createDebugRoute(
             // Retry succeeded
             diagnosis = retryDiagnosis;
           }
+
+          // DPEV: diagnosis phase complete
+          completedPhases.push('diagnosis');
+
+          // DPEV: enforce diagnosis before plan
+          enforceDPEVSequence('plan', completedPhases);
 
           // Always attempt fix plan generation from any skill's diagnosis
           const planningSkill = registry.get('planning');
