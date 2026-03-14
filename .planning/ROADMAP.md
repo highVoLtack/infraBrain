@@ -181,7 +181,7 @@ Plans:
 
 **Goal:** Fix the broken skill routing (triggers not used, log-analysis catches everything) and merge the best patterns from Superpowers (composable skills, trigger-based routing, CSO) and GSD (context engineering, verification gates, atomic execution) into InfraBrain's engine. The Permission Trap live test must finally pass end-to-end.
 
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 12.5-01-PLAN.md — Schema extension + registry enrichment + skill frontmatter updates
@@ -219,7 +219,7 @@ Plans:
 | 12.2 | v1.2 | 2/2 | Complete | 2026-03-14 |
 | 12.3 | v1.2 | 2/2 | Complete | 2026-03-14 |
 | 12.4 | v1.2 | 3/3 | Complete | 2026-03-14 |
-| 12.5 | v1.2 | 0/3 | In Progress | — |
+| 12.5 | 1/3 | In Progress|  | — |
 
 ---
 *Roadmap created: 2026-03-07*

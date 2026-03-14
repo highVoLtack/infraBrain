@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
-status: completed
-stopped_at: Phase 12.5 context gathered
-last_updated: "2026-03-14T13:59:52.091Z"
-last_activity: 2026-03-14 -- Plan 12.4-03 complete (E2E + unit tests migrated to universal expert skills, 506 tests passing)
+status: executing
+stopped_at: Completed 12.5-01-PLAN.md
+last_updated: "2026-03-14T14:21:38.363Z"
+last_activity: 2026-03-14 -- Plan 12.5-01 complete (schema extended with negative_triggers/when_not_to_use, enriched registry.list(), all 6 skills updated)
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 16
+  completed_plans: 14
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 
 ## Current Position
 
-Phase: 12.4-agnostic-skill-redesign
-Plan: 03 of 3 complete
-Status: Complete
-Last activity: 2026-03-14 -- Plan 12.4-03 complete (E2E + unit tests migrated to universal expert skills, 506 tests passing)
+Phase: 12.5-intelligent-routing-and-framework-merge
+Plan: 01 of 3 complete
+Status: In Progress
+Last activity: 2026-03-14 -- Plan 12.5-01 complete (schema extended with negative_triggers/when_not_to_use, enriched registry.list(), all 6 skills updated)
 
 ## Accumulated Context
 
@@ -138,6 +138,15 @@ Last activity: 2026-03-14 -- Plan 12.4-03 complete (E2E + unit tests migrated to
 - 506 tests passing, 2 pre-existing nginx E2E failures, 4 skipped
 - Phase 12.4 complete: tool schema + universal skills + test migration all delivered
 
+### From Phase 12.5-01
+- SkillFrontmatterSchema extended with negative_triggers and when_not_to_use (both default to [])
+- EnrichedSkillSummary interface exported from registry.ts for typed routing data
+- registry.list() returns enriched objects: name, description, triggers, negative_triggers, when_not_to_use, priority
+- log-analysis triggers narrowed to 6 log-specific terms (error/debug/diagnose/why removed)
+- log-analysis has 8 negative_triggers and 3 when_not_to_use for routing exclusion
+- All 6 skills have negative_triggers and when_not_to_use in frontmatter
+- 512 tests passing, 2 pre-existing nginx E2E failures, 4 skipped
+
 ## Decisions
 
 - Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
@@ -176,8 +185,14 @@ Last activity: 2026-03-14 -- Plan 12.4-03 complete (E2E + unit tests migrated to
 - [Phase 12.4-03]: Mock skill objects in unit tests kept with old names -- self-contained fixtures that don't use registry.get()
 - [Phase 12.4-03]: 2 pre-existing nginx E2E failures remain out of scope (Docker networking environment issue)
 
+- [Phase 12.5-01]: negative_triggers and when_not_to_use use .default([]) for backwards compatibility
+- [Phase 12.5-01]: log-analysis triggers narrowed per user decision -- broad terms removed to prevent over-matching
+- [Phase 12.5-01]: EnrichedSkillSummary exported as named interface for router.ts/context.ts imports
+- [Phase 12.5-01]: registry.list() return type is breaking change -- Plan 02 updates callers
+- [Phase 12.5]: negative_triggers and when_not_to_use use .default([]) for backwards compatibility
+
 ## Session Continuity
 
-Last session: 2026-03-14T13:59:52.088Z
-Stopped at: Phase 12.5 context gathered
-Next: Phase 12.4 complete -- all plans delivered
+Last session: 2026-03-14T14:21:34.429Z
+Stopped at: Completed 12.5-01-PLAN.md
+Next: Plan 12.5-02 -- pre-filter logic using enriched skill summaries
