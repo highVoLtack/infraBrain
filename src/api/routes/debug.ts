@@ -171,6 +171,18 @@ const DISCOVERY_COMMANDS: Record<string, { command: string; label: string }[]> =
       label: 'Docker system storage overview',
     },
   ],
+  'linux-filesystem-troubleshoot': [
+    { command: 'docker ps -a --format "{{.Names}} {{.Status}}"', label: 'All containers with status' },
+    { command: 'docker logs permission-app --tail 50', label: 'App crash logs' },
+    {
+      command: 'docker exec permission-app ls -ld /app/data',
+      label: 'Target directory permissions',
+    },
+    {
+      command: 'docker exec permission-app id',
+      label: 'App user identity',
+    },
+  ],
 };
 
 /**

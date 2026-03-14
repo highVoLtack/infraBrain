@@ -33,6 +33,8 @@ export const DEFAULT_RULES: ClassificationRule[] = [
   { pattern: /^uptime/, level: RiskLevel.READ },
   { pattern: /^whoami/, level: RiskLevel.READ },
   { pattern: /^hostname/, level: RiskLevel.READ },
+  { pattern: /^id\b/, level: RiskLevel.READ },
+  { pattern: /^stat\s+/, level: RiskLevel.READ },
   // Write
   { pattern: /^docker\s+restart\s+/, level: RiskLevel.WRITE },
   { pattern: /^docker\s+start\s+/, level: RiskLevel.WRITE },
@@ -41,6 +43,9 @@ export const DEFAULT_RULES: ClassificationRule[] = [
   { pattern: /^systemctl\s+start\s+/, level: RiskLevel.WRITE },
   { pattern: /^systemctl\s+stop\s+/, level: RiskLevel.WRITE },
   { pattern: /^systemctl\s+reload\s+/, level: RiskLevel.WRITE },
+  { pattern: /^docker\s+exec\s+/, level: RiskLevel.WRITE },
+  { pattern: /^chown\s+/, level: RiskLevel.WRITE },
+  { pattern: /^chmod\s+/, level: RiskLevel.WRITE },
   // Destructive
   { pattern: /^docker\s+rm\s+/, level: RiskLevel.DESTRUCTIVE },
   { pattern: /^docker\s+rmi\s+/, level: RiskLevel.DESTRUCTIVE },
