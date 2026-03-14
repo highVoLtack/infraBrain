@@ -208,6 +208,33 @@ Plans:
 **Dependencies:** Phase 12.4
 **Requirements:** ENGN-07
 
+### Phase 12.6: Self-Healing Executor (INSERTED)
+
+**Goal:** Replace the band-aid regex command sanitizer with a self-healing execution loop. When a command fails, the executor captures stderr + exit code, feeds them back to the LLM with the original command, and lets the LLM generate a corrected command — like a human reading `--help`. Merges the best patterns from Superpowers (systematic-debugging 4-phase protocol, verification-before-completion evidence gates) and GSD (deviation auto-fix rules, checkpoint state, goal-backward verification) into InfraBrain's execution engine. This makes even weak local LLMs (7B) effective because the SYSTEM compensates for model limitations through error-driven self-correction.
+
+**Plans:** TBD
+
+**Scope:**
+1. Self-healing retry loop in executor: on command failure → capture stderr/exit code → LLM generates corrected command → retry (max N attempts, budget-tracked)
+2. Remove fixKnownCommandErrors() regex band-aid — self-healing replaces it
+3. Error context injection: failed command + stderr + exit code formatted as structured prompt for correction LLM call
+4. Correction budget: each self-heal attempt costs damage budget points (prevents infinite loops)
+5. Correction history: track original → corrected command pairs for learning/audit
+6. Verification gate: after self-healed command succeeds, verify actual effect (not just exit code 0)
+7. Permission Trap live DPEV must pass end-to-end with self-healing (no regex patches)
+
+**Success criteria:**
+1. LLM generates wrong `chown` syntax → executor catches error → LLM corrects → fix applies successfully
+2. fixKnownCommandErrors() removed — zero regex command patches remain
+3. Self-healing works across all skill types (linux-expert, postgres-expert, network-expert)
+4. Correction budget prevents runaway retry loops (max 3 self-heal attempts per step)
+5. All correction attempts audited (original command, error, corrected command, outcome)
+6. Permission Trap live test passes without any hardcoded command fixes
+7. All existing E2E tests pass (538+)
+
+**Dependencies:** Phase 12.5
+**Requirements:** ENGN-08
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
@@ -219,8 +246,9 @@ Plans:
 | 12.2 | v1.2 | 2/2 | Complete | 2026-03-14 |
 | 12.3 | v1.2 | 2/2 | Complete | 2026-03-14 |
 | 12.4 | v1.2 | 3/3 | Complete | 2026-03-14 |
-| 12.5 | 3/3 | Complete    | 2026-03-14 | — |
+| 12.5 | v1.2 | 3/3 | Complete | 2026-03-14 |
+| 12.6 | v1.2 | 0/0 | Planning | — |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-14 — Phase 12.5 planned (3 plans in 3 waves)*
+*Last updated: 2026-03-14 — Phase 12.6 added (Self-Healing Executor)*
