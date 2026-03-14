@@ -34,13 +34,41 @@
 
 </details>
 
+## v1.2 The Knowledge Layer
+
+### Phase 12: Linux Filesystem Permission Trap Scenario (INSERTED)
+
+**Goal:** Prove that the Technical Lead (Qwen 32B) can handle raw Linux OS-level troubleshooting without any DB-specific logic — autonomous diagnosis and repair of filesystem permission issues in Docker containers.
+
+**Plans:** 3 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — Docker permission trap demo environment (compose, app, reset script)
+- [ ] 12-02-PLAN.md — Diagnostic skill, discovery commands, and safety rule updates
+- [ ] 12-03-PLAN.md — Full DPEV loop E2E test
+
+**Scope:**
+1. Scenario setup: `demo/permission-trap/` with Docker Compose — Python app writing to `/app/data/status.pid`, directory owned by root:root with 700 permissions, app runs as UID 1000 → crashes with Permission Denied
+2. New skill: `linux-filesystem-troubleshoot.md` with diagnostic ladder (logs → permissions → user check → correlate owner mismatch → fix)
+3. E2E validation: InfraBrain autonomously diagnoses and fixes the permission issue
+
+**Success criteria:**
+1. Docker scenario starts and reproduces Permission Denied crash
+2. InfraBrain diagnoses root cause (owner mismatch) via DPEV loop
+3. Fix applied (chown/chmod) and verified (app writes successfully)
+4. No DB-specific logic used — pure OS-level troubleshooting
+
+**Dependencies:** Phases 1-11 (Engine-First architecture, DPEV loop, sub-agent execution)
+**Requirements:** SCEN-07
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
 | 1-7 | v1.0 | 22/22 | Complete | 2026-03-12 |
 | 8-11 | v1.1 | 10/10 | Complete | 2026-03-13 |
+| 12 | v1.2 | 0/3 | Planned | — |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-13 — v1.1 milestone shipped*
+*Last updated: 2026-03-14 — Phase 12 planned (3 plans in 2 waves)*
