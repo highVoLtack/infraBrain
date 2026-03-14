@@ -65,7 +65,7 @@ Plans:
 
 **Goal:** Replace the hardcoded SQL Rewriter with a universal, skill-driven command rewriting engine. Each skill declares rewrite rules (container targeting, privilege escalation, command wrapping) in its frontmatter — the engine applies them dynamically. No new TypeScript code needed per scenario.
 
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 12.1-01-PLAN.md — Dynamic rewriter pure function + Zod schema + TDD unit tests
@@ -97,7 +97,7 @@ Plans:
 | 1-7 | v1.0 | 22/22 | Complete | 2026-03-12 |
 | 8-11 | v1.1 | 10/10 | Complete | 2026-03-13 |
 | 12 | v1.2 | 3/3 | Complete | 2026-03-14 |
-| 12.1 | v1.2 | 0/3 | Planned | — |
+| 12.1 | 2/3 | In Progress|  | — |
 
 ---
 *Roadmap created: 2026-03-07*

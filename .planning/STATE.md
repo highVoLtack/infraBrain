@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
-status: completed
-last_updated: "2026-03-14T08:28:04.889Z"
-last_activity: 2026-03-14 -- Plan 12-03 complete (E2E integration test)
+status: in-progress
+last_updated: "2026-03-14T09:15:03Z"
+last_activity: 2026-03-14 -- Plan 12.1-02 complete (skill frontmatter schema extension)
 progress:
-  total_phases: 1
+  total_phases: 2
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 6
+  completed_plans: 5
 ---
 
 # Project State
@@ -23,10 +23,10 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 
 ## Current Position
 
-Phase: 12-linux-filesystem-permission-trap
-Plan: 03 complete -- Phase 12 COMPLETE (all 3 plans delivered)
-Status: Phase 12 complete
-Last activity: 2026-03-14 -- Plan 12-03 complete (E2E integration test)
+Phase: 12.1-dynamic-command-rewriter
+Plan: 02 of 3 complete
+Status: Phase 12.1 in progress
+Last activity: 2026-03-14 -- Plan 12.1-02 complete (skill frontmatter schema extension)
 
 ## Accumulated Context
 
@@ -46,6 +46,7 @@ Last activity: 2026-03-14 -- Plan 12-03 complete (E2E integration test)
 ### Roadmap Evolution
 
 - Phase 12 inserted as first v1.2 phase: Linux Filesystem Permission Trap Scenario (URGENT) — prove OS-level troubleshooting without DB logic
+- Phase 12.1 inserted: Dynamic Command Rewriter — Permission Trap revealed hardcoded SQL Rewriter doesn't scale. New skill-driven rewrite engine replaces scenario-specific TypeScript
 
 ### From Phase 12-01
 - Permission trap demo: demo/permission-trap/ with compose, Dockerfile, app.py, reset script
@@ -65,14 +66,21 @@ Last activity: 2026-03-14 -- Plan 12-03 complete (E2E integration test)
 - Recovery verified via log polling (container may exit after successful PID write)
 - No DB-specific logic -- pure OS-level troubleshooting proven
 
+### From Phase 12.1-02
+- RewriteRuleSchema defined inline in types.ts (Plan 01 not yet delivered)
+- 3 skills migrated with declarative rewrite_rules in YAML frontmatter
+- Backwards-compatible: skills without rewrite_rules default to []
+
 ## Decisions
 
 - Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
 - Followed existing skill structure (docker-storage.md pattern) for consistency
 - Poll logs for recovery signal instead of docker exec after restart (container exits after success)
+- Defined RewriteRuleSchema inline in types.ts since Plan 01 dynamic-rewriter.ts not yet created
+- Used YAML single-quoted strings for regex patterns in skill frontmatter to avoid escape issues
 
 ## Session Continuity
 
 Last session: 2026-03-14
-Status: Phase 12 complete (all 3 plans delivered)
-Next: Next v1.2 phase (Qdrant + BGE-M3 knowledge layer)
+Stopped at: Completed 12.1-02-PLAN.md
+Next: Plan 12.1-03 (integration) to wire dynamic rewriter engine with skill frontmatter
