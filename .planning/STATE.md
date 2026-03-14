@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: in-progress
-last_updated: "2026-03-14T09:15:03Z"
-last_activity: 2026-03-14 -- Plan 12.1-02 complete (skill frontmatter schema extension)
+last_updated: "2026-03-14T09:21:40Z"
+last_activity: 2026-03-14 -- Plan 12.1-03 complete (dynamic rewriter integration)
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -24,9 +24,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 12.1-dynamic-command-rewriter
-Plan: 02 of 3 complete
-Status: Phase 12.1 in progress
-Last activity: 2026-03-14 -- Plan 12.1-02 complete (skill frontmatter schema extension)
+Plan: 03 of 3 complete
+Status: Phase 12.1 COMPLETE
+Last activity: 2026-03-14 -- Plan 12.1-03 complete (dynamic rewriter integration)
 
 ## Accumulated Context
 
@@ -78,6 +78,14 @@ Last activity: 2026-03-14 -- Plan 12.1-02 complete (skill frontmatter schema ext
 - 3 skills migrated with declarative rewrite_rules in YAML frontmatter
 - Backwards-compatible: skills without rewrite_rules default to []
 
+### From Phase 12.1-03
+- debug.ts wired to dynamicRewrite() replacing hardcoded rewriteForContainer()
+- Both structured diagnosis and generateFixPlan paths apply dynamic rewriting
+- extractContainerNames() handles both "Running containers" and "All containers with status" discovery keys
+- DB container prioritized at front of targetContainers via findDbContainer()
+- rewriteForContainer() and stripHostFlag() marked @deprecated in runner.ts
+- 475 tests passing (2 pre-existing nginx E2E failures out of scope)
+
 ## Decisions
 
 - Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
@@ -87,9 +95,12 @@ Last activity: 2026-03-14 -- Plan 12.1-02 complete (skill frontmatter schema ext
 - Used YAML single-quoted strings for regex patterns in skill frontmatter to avoid escape issues
 - Wrapper {cmd} replaces with full stripped command -- wrapper is the entire executable line
 - Empty containers list causes passthrough (no container = no docker exec wrapping)
+- DB container prioritized at front of targetContainers list for rewrite rule resolution
+- Rewrite rules and containers extracted once before diagnosis, shared by both code paths
+- Kept findDbContainer in debug.ts for DB container prioritization (not deprecated)
 
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 12.1-02-PLAN.md
-Next: Plan 12.1-03 (integration) to wire dynamic rewriter engine with skill frontmatter
+Stopped at: Completed 12.1-03-PLAN.md (Phase 12.1 complete)
+Next: Next milestone phase (Knowledge Layer / Qdrant integration)
