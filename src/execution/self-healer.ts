@@ -74,6 +74,43 @@ export function extractSkillDomainKnowledge(skill: SkillFile): string {
 }
 
 /**
+ * Infer correction hints from stderr patterns.
+ * These are agnostic transformation rules: "if error says X, try Y instead".
+ * Helps the LLM avoid repeating the same mistake.
+ */
+export function inferCorrectionHints(stderr: string): string | null {
+  const lower = stderr.toLowerCase();
+  const hints: string[] = [];
+
+  // "already exists" → use ALTER/UPDATE instead of CREATE/INSERT
+  if (lower.includes('already exists')) {
+    hints.push('- The resource already exists. Use ALTER/UPDATE/MODIFY instead of CREATE/INSERT/ADD.');
+  }
+  // Permission denied → privilege escalation
+  if (lower.includes('permission denied') || lower.includes('operation not permitted')) {
+    hints.push('- Permission denied. Try running with elevated privileges (e.g. -u 0 on docker exec, sudo, or as a different user).');
+  }
+  // No such file or directory → check parent, use different path
+  if (lower.includes('no such file') || lower.includes('not found')) {
+    hints.push('- Path does not exist. Check the parent directory, or the resource may not have been created yet.');
+  }
+  // Connection refused / unreachable → network isolation
+  if (lower.includes('connection refused') || lower.includes('name or service not known') || lower.includes('unreachable')) {
+    hints.push('- Connection failed. The target may be on a different Docker network. Use `docker network connect` to bridge networks.');
+  }
+  // TTY error → remove -it flags
+  if (lower.includes('not a tty') || lower.includes('input device is not a tty')) {
+    hints.push('- TTY error. Remove -it or -t flags from docker exec. Use -i only, or neither.');
+  }
+  // Syntax / command not found
+  if (lower.includes('command not found') || lower.includes('syntax error')) {
+    hints.push('- Command not found or syntax error. Check the command exists in the container and the syntax is correct.');
+  }
+
+  return hints.length > 0 ? hints.join('\n') : null;
+}
+
+/**
  * Build a correction prompt for the LLM given a failed command context.
  * Each prompt is fresh -- no previous attempts included (per user decision).
  * Enriched with skill domain knowledge, tool declarations, and discovery context.
@@ -118,9 +155,15 @@ export function buildCorrectionPrompt(ctx: {
     parts.push(``, `Domain knowledge (from skill):`, ctx.domainKnowledge);
   }
 
+  // Add error-specific correction hints (agnostic, derived from stderr patterns)
+  const hints = inferCorrectionHints(ctx.stderr);
+  if (hints) {
+    parts.push(``, `Correction hints based on error pattern:`, hints);
+  }
+
   parts.push(
     ``,
-    `Generate a corrected command that achieves the same goal. Consider privilege escalation (e.g. -u 0 on docker exec) if the error is permission-related. If the file does not exist, check the parent directory instead. Output ONLY the corrected command, nothing else.`,
+    `Generate a corrected command that achieves the same goal. Do NOT repeat the same command that already failed. Output ONLY the corrected command, nothing else.`,
   );
 
   return parts.join('\n');

@@ -8,6 +8,7 @@ import {
   selfHealStep,
   buildToolListFromSkill,
   extractSkillDomainKnowledge,
+  inferCorrectionHints,
 } from '../../src/execution/self-healer.js';
 import type { RunResult, SelfHealContext } from '../../src/execution/types.js';
 import type { FixStep } from '../../src/orchestrator/types.js';
@@ -181,7 +182,7 @@ describe('buildCorrectionPrompt', () => {
       containerContext: 'Container: permission-app',
     });
 
-    expect(prompt).toContain('privilege escalation');
+    expect(prompt).toContain('elevated privileges');
     expect(prompt).toContain('-u 0');
   });
 });
@@ -602,5 +603,40 @@ describe('errorTypeChanged', () => {
   it('detects connection → timeout change', async () => {
     const { errorTypeChanged } = await import('../../src/execution/self-healer.js');
     expect(errorTypeChanged('Connection refused', 'Connection timed out')).toBe(true);
+  });
+});
+
+describe('inferCorrectionHints', () => {
+  it('suggests ALTER for "already exists" errors', () => {
+    const hints = inferCorrectionHints('ERROR: role "svcuser" already exists');
+    expect(hints).toContain('ALTER');
+    expect(hints).toContain('already exists');
+  });
+
+  it('suggests privilege escalation for permission denied', () => {
+    const hints = inferCorrectionHints('Permission denied writing to /app/data');
+    expect(hints).toContain('elevated privileges');
+    expect(hints).toContain('-u 0');
+  });
+
+  it('suggests network connect for connection refused', () => {
+    const hints = inferCorrectionHints('Error -2 connecting to kv-cache-01:6379. Name or service not known.');
+    expect(hints).toContain('docker network connect');
+  });
+
+  it('suggests removing -it for TTY errors', () => {
+    const hints = inferCorrectionHints('the input device is not a TTY');
+    expect(hints).toContain('-it');
+  });
+
+  it('returns null for unknown errors', () => {
+    const hints = inferCorrectionHints('some random error nobody has seen');
+    expect(hints).toBeNull();
+  });
+
+  it('returns multiple hints for multi-pattern errors', () => {
+    const hints = inferCorrectionHints('Permission denied: No such file or directory');
+    expect(hints).toContain('elevated privileges');
+    expect(hints).toContain('parent directory');
   });
 });
