@@ -14,7 +14,8 @@ import type { FixPlan } from '../../orchestrator/types.js';
 import { StructuredDiagnosisSchema, type StructuredDiagnosis } from '../../orchestrator/types.js';
 import { extractTarget } from '../../cli/approval.js';
 import { v7 as uuidv7 } from 'uuid';
-import { runCommand, parseCommand, rewriteForContainer, findDbContainer } from '../../execution/runner.js';
+import { runCommand, parseCommand, findDbContainer } from '../../execution/runner.js';
+import { dynamicRewrite } from '../../execution/dynamic-rewriter.js';
 import { encodeForLLM, measureSavings } from '../../llm/toon-encoder.js';
 import { parseLog } from '../../log-analysis/parsers/index.js';
 import { preFilterLogs, formatForLLM } from '../../log-analysis/filter.js';
@@ -268,6 +269,21 @@ function extractCommands(text: string): string[] {
 }
 
 /**
+ * Extract container names from discovery output, handling both key formats:
+ * - "Running containers": simple name list from `docker ps --format "{{.Names}}"`
+ * - "All containers with status": `name status` pairs from `docker ps -a --format "{{.Names}} {{.Status}}"`
+ */
+function extractContainerNames(discoveryRaw: Record<string, string>): string[] {
+  const raw = discoveryRaw['Running containers']
+    ?? discoveryRaw['All containers with status']
+    ?? '';
+  return raw
+    .split('\n')
+    .map(line => line.trim().split(/\s+/)[0])
+    .filter(Boolean);
+}
+
+/**
  * Flatten a StructuredDiagnosis into a text diagnosis string
  * for backward compatibility with existing consumers.
  */
@@ -436,6 +452,16 @@ export function createDebugRoute(
           // Pre-filter log-heavy prompts before LLM call to save tokens
           const { filtered: preFilteredPrompt } = preFilterIfLogHeavy(enrichedPrompt);
 
+          // Extract containers and rewrite rules BEFORE diagnosis so both paths can use them
+          const allContainers = extractContainerNames(discoveryRaw);
+          const rewriteRules = selection.skill.frontmatter.rewrite_rules ?? [];
+
+          // For DB skills, prioritize the DB container at the front of the list
+          const dbContainer = findDbContainer(allContainers);
+          const targetContainers = dbContainer
+            ? [dbContainer, ...allContainers.filter(c => c !== dbContainer)]
+            : allContainers;
+
           // Generate diagnosis with skill context + discovery data
           // Use preferred_model from skill frontmatter — routing enforcement above ensures it's valid
           let diagnosis: string;
@@ -451,15 +477,11 @@ export function createDebugRoute(
                 system: systemPrompt,
                 prompt: preFilteredPrompt,
               });
-              // Rewrite bare SQL/psql commands in fix plan to docker exec
-              // Use findDbContainer to pick the DB container, not just the first one
-              const allContainers = (discoveryRaw['Running containers'] ?? '')
-                .split('\n').map(c => c.trim()).filter(Boolean);
-              const pgContainer = findDbContainer(allContainers);
-              if (pgContainer) {
+              // Apply dynamic rewrite rules to structured diagnosis fix plan
+              if (rewriteRules.length > 0 && targetContainers.length > 0) {
                 object.fixPlan = object.fixPlan.map(step => ({
                   ...step,
-                  command: rewriteForContainer(step.command, pgContainer),
+                  command: dynamicRewrite(step.command, rewriteRules, targetContainers),
                 }));
               }
               structuredDiagnosis = object;
@@ -515,6 +537,14 @@ export function createDebugRoute(
                 registry: provider.registry,
               });
 
+              // Apply dynamic rewrite rules to generated fix plan
+              if (rewriteRules.length > 0 && targetContainers.length > 0) {
+                fixPlan.steps = fixPlan.steps.map(step => ({
+                  ...step,
+                  command: dynamicRewrite(step.command, rewriteRules, targetContainers),
+                }));
+              }
+
               // Validate plan doesn't contain placeholder names
               const planProblems = validatePlanNames(fixPlan, discoveryRaw);
               if (planProblems.length > 0) {
@@ -562,11 +592,9 @@ export function createDebugRoute(
 
           // Extract target: prefer DB container from discovery, fallback to command parsing
           let planTarget: string | undefined;
-          const discoveredContainers = (discoveryRaw['Running containers'] ?? '')
-            .split('\n').map(c => c.trim()).filter(Boolean);
-          if (discoveredContainers.length > 0) {
+          if (allContainers.length > 0) {
             // Use findDbContainer to pick the DB container (e.g. postgres-demo), not leaky-app
-            planTarget = findDbContainer(discoveredContainers);
+            planTarget = findDbContainer(allContainers);
           }
           if (!planTarget && fixPlan) {
             const firstWriteStep = fixPlan.steps.find(s => s.risk === 'write' || s.risk === 'destructive');

@@ -39,6 +39,9 @@ export function findDbContainer(containers: string[]): string | undefined {
 /**
  * Strip `-h <host>` / `--host <host>` / `--host=<host>` from a psql argument string.
  * Forces local unix socket connection inside the container — faster, no password needed.
+ *
+ * @deprecated Use dynamicRewrite() from dynamic-rewriter.ts instead.
+ * Kept for backwards compatibility with existing tests.
  */
 export function stripHostFlag(args: string): string {
   return args
@@ -49,6 +52,10 @@ export function stripHostFlag(args: string): string {
     .trim();
 }
 
+/**
+ * @deprecated Use dynamicRewrite() from dynamic-rewriter.ts instead.
+ * Kept for backwards compatibility with existing tests.
+ */
 export function rewriteForContainer(command: string, containerName?: string): string {
   if (!containerName) return command;
 
