@@ -15,7 +15,7 @@ import type { FixPlan } from '../../orchestrator/types.js';
 import { StructuredDiagnosisSchema, type StructuredDiagnosis } from '../../orchestrator/types.js';
 import { extractTarget } from '../../cli/approval.js';
 import { v7 as uuidv7 } from 'uuid';
-import { runCommand, parseCommand, findDbContainer } from '../../execution/runner.js';
+import { runCommand, runShellCommand, parseCommand, needsShell, findDbContainer } from '../../execution/runner.js';
 import { dynamicRewrite, toolsToRewriteRules } from '../../execution/dynamic-rewriter.js';
 import { encodeForLLM, measureSavings } from '../../llm/toon-encoder.js';
 import { parseLog } from '../../log-analysis/parsers/index.js';
@@ -158,8 +158,13 @@ async function runDiscovery(skill: SkillFile): Promise<{ context: string; raw: R
   const parts: string[] = [];
 
   for (const { command, label } of commands) {
-    const { executable, args } = parseCommand(command);
-    const result = await runCommand(executable, args, { timeout: 10_000 });
+    let result;
+    if (needsShell(command)) {
+      result = await runShellCommand(command, { timeout: 15_000 });
+    } else {
+      const { executable, args } = parseCommand(command);
+      result = await runCommand(executable, args, { timeout: 10_000 });
+    }
     const output = result.stdout.trim() || result.stderr.trim() || '(empty)';
     results[label] = output;
     parts.push(`${label}:\n${output}`);

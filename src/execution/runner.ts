@@ -1,8 +1,9 @@
 import { promisify } from 'node:util';
-import { execFile as execFileCb } from 'node:child_process';
+import { execFile as execFileCb, exec as execCb } from 'node:child_process';
 import type { RunResult } from './types.js';
 
 const execFile = promisify(execFileCb);
+const exec = promisify(execCb);
 
 /**
  * Identify the database container from a list of container names.
@@ -142,6 +143,31 @@ export async function runCommand(
       timeout: options.timeout,
       maxBuffer: options.maxBuffer ?? 1024 * 1024,
       signal: controller.signal,
+    });
+    return { stdout, stderr, exitCode: 0 };
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; stderr?: string; code?: number | string; message?: string };
+    return {
+      stdout: e.stdout ?? '',
+      stderr: e.stderr ?? e.message ?? '',
+      exitCode: typeof e.code === 'number' ? e.code : 1,
+    };
+  }
+}
+
+/**
+ * Execute a shell command string (supports pipes, subshells, for-loops, etc.).
+ * Use for complex commands that need shell interpretation.
+ * Always resolves with a RunResult -- never throws.
+ */
+export async function runShellCommand(
+  command: string,
+  options: { timeout: number; maxBuffer?: number },
+): Promise<RunResult> {
+  try {
+    const { stdout, stderr } = await exec(command, {
+      timeout: options.timeout,
+      maxBuffer: options.maxBuffer ?? 1024 * 1024,
     });
     return { stdout, stderr, exitCode: 0 };
   } catch (err: unknown) {
