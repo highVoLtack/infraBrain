@@ -13,6 +13,7 @@ triggers:
   - network
   - connectivity
   - timeout
+preferred_model: default
 tools:
   docker: { risk: read }
   curl: { risk: read }

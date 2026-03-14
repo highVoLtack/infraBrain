@@ -10,6 +10,7 @@ triggers:
   - debug
   - diagnose
   - why
+preferred_model: default
 tools:
   grep: { risk: read }
   journalctl: { risk: read }
