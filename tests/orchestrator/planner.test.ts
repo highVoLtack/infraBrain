@@ -121,6 +121,11 @@ describe('fixKnownCommandErrors', () => {
       .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets');
   });
 
+  it('replaces $(docker exec CONTAINER id -u) nested shell expansion', () => {
+    expect(fixKnownCommandErrors('docker exec -u 0 vault-processor-99 chown $(docker exec vault-processor-99 id -u):$(docker exec vault-processor-99 id -g) /var/lib/internal/secrets/'))
+      .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/internal/secrets/');
+  });
+
   it('leaves correct commands unchanged', () => {
     expect(fixKnownCommandErrors('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets'))
       .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets');

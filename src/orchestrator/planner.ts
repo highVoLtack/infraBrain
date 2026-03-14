@@ -106,9 +106,13 @@ export function fixKnownCommandErrors(command: string): string {
     );
   }
 
-  // 4. Replace $(id -u):$(id -g) with 1000:1000 — shell expansion doesn't work in exec
+  // 4. Replace shell expansions with 1000 — shell substitution doesn't work in execFile
   fixed = fixed.replace(/\$\(id -u\)/g, '1000');
   fixed = fixed.replace(/\$\(id -g\)/g, '1000');
+  fixed = fixed.replace(/\$\(docker exec \S+ id -u\)/g, '1000');
+  fixed = fixed.replace(/\$\(docker exec \S+ id -g\)/g, '1000');
+  fixed = fixed.replace(/\$\(docker exec -\S+ \S+ id -u\)/g, '1000');
+  fixed = fixed.replace(/\$\(docker exec -\S+ \S+ id -g\)/g, '1000');
 
   if (fixed !== command) {
     console.log(`[PLANNER] Fixed command: "${command}" → "${fixed}"`);

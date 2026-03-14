@@ -507,6 +507,7 @@ export function createDebugRoute(
 
           // Always attempt fix plan generation from any skill's diagnosis
           const planningSkill = registry.get('planning');
+          console.log(`[DEBUG] planningSkill found: ${!!planningSkill}, preferred_model: ${planningSkill?.frontmatter?.preferred_model}`);
           if (planningSkill) {
             try {
               // Include discovery context in the diagnosis passed to planner
@@ -539,7 +540,9 @@ export function createDebugRoute(
 
               planMarkdown = generatePlanMarkdown(fixPlan);
               planTable = formatPlanTable(fixPlan);
+              console.log(`[DEBUG] generateFixPlan succeeded, steps: ${fixPlan.steps.map(s => s.command).join(' | ')}`);
             } catch (planErr) {
+              console.log(`[DEBUG] generateFixPlan FAILED: ${(planErr as Error).message}`);
               auditLogger.logError(`Fix plan generation failed: ${(planErr as Error).message}`);
             }
           }
