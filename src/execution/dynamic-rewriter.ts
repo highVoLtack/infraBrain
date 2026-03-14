@@ -19,6 +19,58 @@ export const RewriteRuleSchema = z.object({
 export type RewriteRule = z.infer<typeof RewriteRuleSchema>;
 
 /**
+ * Parsed components of a `docker exec` command.
+ */
+interface DockerExecParts {
+  flags: string[];
+  container: string;
+  inner: string;
+}
+
+/**
+ * Docker exec flags that consume the next token as a value.
+ */
+const DOCKER_EXEC_VALUE_FLAGS = new Set([
+  '-u', '--user',
+  '-e', '--env',
+  '-w', '--workdir',
+]);
+
+/**
+ * Parse a `docker exec [-flags] <container> <inner-command>` string
+ * into its component parts.
+ *
+ * Returns null if the command is not a docker exec, or if it lacks
+ * a container name or inner command.
+ */
+function parseDockerExec(cmd: string): DockerExecParts | null {
+  const match = cmd.match(/^docker\s+exec\s+(.+)$/i);
+  if (!match) return null;
+
+  const tokens = match[1].split(/\s+/);
+  const flags: string[] = [];
+  let i = 0;
+
+  while (i < tokens.length && tokens[i].startsWith('-')) {
+    const flag = tokens[i];
+    if (DOCKER_EXEC_VALUE_FLAGS.has(flag) && i + 1 < tokens.length) {
+      flags.push(flag, tokens[i + 1]);
+      i += 2;
+    } else {
+      flags.push(flag); // -it, -i, -t, --privileged, etc.
+      i += 1;
+    }
+  }
+
+  if (i >= tokens.length) return null; // No container found
+  const container = tokens[i];
+  const inner = tokens.slice(i + 1).join(' ');
+  if (!inner) return null; // No inner command
+
+  return { flags, container, inner };
+}
+
+/**
  * Resolve a container specification to an actual container name.
  *
  * - "auto" -> first container in the list
@@ -95,9 +147,42 @@ export function dynamicRewrite(
 ): string {
   const trimmed = command.trim();
 
-  // Prevent double-wrapping: if already a docker exec command, pass through
+  // Docker-exec-aware rewriting: parse, apply rules to inner command, reassemble
   if (/^docker\s+exec\b/i.test(trimmed)) {
-    return trimmed;
+    const parsed = parseDockerExec(trimmed);
+    if (!parsed) return trimmed; // Unparseable docker exec -- pass through
+
+    // Strip -it/-i/-t from existing flags (belt-and-suspenders with validator.ts)
+    let cleanFlags = parsed.flags.filter(f => !['-it', '-ti', '-i', '-t'].includes(f));
+
+    // Try to match inner command against rules (first-match-wins)
+    for (const rule of rules) {
+      const regex = new RegExp(rule.match, 'i');
+      if (!regex.test(parsed.inner)) continue;
+
+      // Apply strip_flags to inner command
+      let processed = parsed.inner;
+      if (rule.strip_flags && rule.strip_flags.length > 0) {
+        processed = stripFlags(processed, rule.strip_flags);
+      }
+
+      // Apply wrapper to inner command
+      if (rule.wrapper) {
+        processed = rule.wrapper.replace('{cmd}', processed);
+      }
+
+      // Inject -u if rule specifies user and not already present in flags
+      if (rule.user && !cleanFlags.includes('-u') && !cleanFlags.includes('--user')) {
+        cleanFlags = ['-u', rule.user, ...cleanFlags];
+      }
+
+      const flagStr = cleanFlags.length > 0 ? ' ' + cleanFlags.join(' ') : '';
+      return `docker exec${flagStr} ${parsed.container} ${processed}`;
+    }
+
+    // No rule matched inner command: return cleaned docker exec (-it stripped)
+    const flagStr = cleanFlags.length > 0 ? ' ' + cleanFlags.join(' ') : '';
+    return `docker exec${flagStr} ${parsed.container} ${parsed.inner}`;
   }
 
   // No rules: pass through
