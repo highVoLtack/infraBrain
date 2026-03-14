@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
-status: executing
-stopped_at: Completed 12.5-02-PLAN.md
-last_updated: "2026-03-14T14:28:37.000Z"
-last_activity: 2026-03-14 -- Plan 12.5-02 complete (two-tier routing with preFilterSkills, ROUTING_CONSTITUTION, DPEV enforcement, 523 tests)
+status: phase-complete
+stopped_at: Completed 12.5-03-PLAN.md
+last_updated: "2026-03-14T14:39:38Z"
+last_activity: 2026-03-14 -- Plan 12.5-03 complete (agnosticism proof with vault-processor-99 remix, dynamic E2E test, 523 tests)
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 12.5-intelligent-routing-and-framework-merge
-Plan: 02 of 3 complete
-Status: In Progress
-Last activity: 2026-03-14 -- Plan 12.5-02 complete (two-tier routing with preFilterSkills, ROUTING_CONSTITUTION, DPEV enforcement, 523 tests)
+Plan: 03 of 3 complete
+Status: Phase Complete
+Last activity: 2026-03-14 -- Plan 12.5-03 complete (agnosticism proof with vault-processor-99 remix, dynamic E2E test, 523 tests)
 
 ## Accumulated Context
 
@@ -157,6 +157,14 @@ Last activity: 2026-03-14 -- Plan 12.5-02 complete (two-tier routing with preFil
 - Debug route tracks completedPhases array (discovery -> diagnosis -> plan)
 - 523 tests passing, 2 pre-existing nginx E2E failures, 4 skipped
 
+### From Phase 12.5-03
+- Permission trap demo parameterized via DATA_DIR env var (app.py + Dockerfile ARG/ENV)
+- Remix scenario: vault-processor-99 container with /var/lib/internal/secrets path
+- E2E test discovers container name and data path dynamically -- zero hardcoded strings
+- Full DPEV chain proven with remix: linux-expert routing, chown -u 0 fix, PID recovery
+- Phase 12.5 complete: skill schema + two-tier routing + agnosticism proof delivered
+- 523 tests passing, 2 pre-existing nginx E2E failures, 4 skipped
+
 ## Decisions
 
 - Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
@@ -207,8 +215,12 @@ Last activity: 2026-03-14 -- Plan 12.5-02 complete (two-tier routing with preFil
 - [Phase 12.5-02]: DPEV enforcement is additive -- validates at transitions but doesn't restructure handler
 - [Phase 12.5-02]: Discovery auto-completes after runDiscovery returns (whether commands exist or not)
 
+- [Phase 12.5-03]: DATA_DIR defaults to /app/data for full backwards compatibility with original demo
+- [Phase 12.5-03]: Container name discovered via docker compose ps, data path via docker exec printenv
+- [Phase 12.5-03]: Canned fix plan built inside beforeAll after dynamic discovery (not at module scope)
+
 ## Session Continuity
 
-Last session: 2026-03-14T14:28:37.000Z
-Stopped at: Completed 12.5-02-PLAN.md
-Next: Plan 12.5-03 -- integration testing and wiring validation
+Last session: 2026-03-14T14:39:38Z
+Stopped at: Completed 12.5-03-PLAN.md
+Next: Phase 12.5 complete -- all 3 plans delivered
