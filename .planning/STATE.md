@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: executing
-stopped_at: Completed 12.6-01-PLAN.md
-last_updated: "2026-03-14T17:51:47.452Z"
-last_activity: 2026-03-14 -- Plan 12.6-01 complete (self-healing executor module with LLM correction loop, 22 tests, 560 total)
+stopped_at: Completed 12.6-02-PLAN.md
+last_updated: "2026-03-14T17:57:07Z"
+last_activity: 2026-03-14 -- Plan 12.6-02 complete (self-healing wired into executor, fixKnownCommandErrors deleted, 556 tests)
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 19
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 12.6-self-healing-executor
-Plan: 01 of 3 complete
+Plan: 02 of 3 complete
 Status: Executing
-Last activity: 2026-03-14 -- Plan 12.6-01 complete (self-healing executor module with LLM correction loop, 22 tests, 560 total)
+Last activity: 2026-03-14 -- Plan 12.6-02 complete (self-healing wired into executor, fixKnownCommandErrors deleted, 556 tests)
 
 ## Accumulated Context
 
@@ -243,7 +243,20 @@ Last activity: 2026-03-14 -- Plan 12.6-01 complete (self-healing executor module
 - self_heal_attempt and self_heal_exhausted audit event types
 - 22 new tests, 560 total passing (2 pre-existing nginx E2E failures)
 
+### From Phase 12.6-02
+- Self-healing wired into executor step loop: failed commands routed to selfHealStep when correctionModel+skill present
+- CircuitBreaker fallback preserved for callers without self-healing deps (backwards compatible)
+- fixKnownCommandErrors deleted from planner.ts (50 lines of regex patches removed)
+- Rolling context tracks actual corrected command, not original failed command
+- ExecutionDeps extended with optional correctionModel, skill, rewriteRules, containers
+- 556 tests passing (4 new, 8 removed, 2 pre-existing nginx E2E failures)
+
 ## Decisions
+
+- [Phase 12.6-02]: Self-healing deps optional on ExecutionDeps for backwards compatibility
+- [Phase 12.6-02]: First attempt runs directly (no CircuitBreaker), self-healing on failure only
+- [Phase 12.6-02]: needsShell() applied to first attempt too (shell mode for piped commands)
+- [Phase 12.6-02]: fixKnownCommandErrors deleted entirely -- self-healing replaces it
 
 - [Phase 12.6-01]: Fresh correction prompt per attempt (no previous attempt history) per user decision
 - [Phase 12.6-01]: Fail-open verification: bad verification commands skip rather than block successful fixes
@@ -252,6 +265,6 @@ Last activity: 2026-03-14 -- Plan 12.6-01 complete (self-healing executor module
 
 ## Session Continuity
 
-Last session: 2026-03-14T17:51:47.449Z
-Stopped at: Completed 12.6-01-PLAN.md
-Next: Phase 12.6 Plan 02 (executor integration -- wire selfHealStep into step execution loop)
+Last session: 2026-03-14T17:57:07Z
+Stopped at: Completed 12.6-02-PLAN.md
+Next: Phase 12.6 Plan 03 (E2E integration testing -- self-healing in live scenarios)
