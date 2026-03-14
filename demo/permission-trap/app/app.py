@@ -2,7 +2,8 @@ import os
 import sys
 import time
 
-pid_path = "/app/data/status.pid"
+data_dir = os.environ.get('DATA_DIR', '/app/data')
+pid_path = os.path.join(data_dir, 'status.pid')
 print(f"Writing PID to {pid_path}...")
 
 try:

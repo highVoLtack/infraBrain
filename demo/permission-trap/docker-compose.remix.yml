@@ -1,0 +1,9 @@
+services:
+  vault-processor-99:
+    build:
+      context: ./app
+      args:
+        DATA_DIR: /var/lib/internal/secrets
+    container_name: vault-processor-99
+    environment:
+      - DATA_DIR=/var/lib/internal/secrets
