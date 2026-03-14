@@ -66,6 +66,13 @@ Last activity: 2026-03-14 -- Plan 12.1-02 complete (skill frontmatter schema ext
 - Recovery verified via log polling (container may exit after successful PID write)
 - No DB-specific logic -- pure OS-level troubleshooting proven
 
+### From Phase 12.1-01
+- dynamicRewrite() pure function: regex-match pipeline with strip-then-wrap-then-exec
+- RewriteRuleSchema (Zod): match, container, user, wrapper, risk, strip_flags
+- Container auto-resolution: "auto" -> first discovered, specific -> verify + fallback
+- First-match-wins rule ordering, case-insensitive regex
+- 21 unit tests covering all rewrite behaviors
+
 ### From Phase 12.1-02
 - RewriteRuleSchema defined inline in types.ts (Plan 01 not yet delivered)
 - 3 skills migrated with declarative rewrite_rules in YAML frontmatter
@@ -78,6 +85,8 @@ Last activity: 2026-03-14 -- Plan 12.1-02 complete (skill frontmatter schema ext
 - Poll logs for recovery signal instead of docker exec after restart (container exits after success)
 - Defined RewriteRuleSchema inline in types.ts since Plan 01 dynamic-rewriter.ts not yet created
 - Used YAML single-quoted strings for regex patterns in skill frontmatter to avoid escape issues
+- Wrapper {cmd} replaces with full stripped command -- wrapper is the entire executable line
+- Empty containers list causes passthrough (no container = no docker exec wrapping)
 
 ## Session Continuity
 
