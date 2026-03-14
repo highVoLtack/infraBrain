@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
-status: completed
-stopped_at: Completed 12.2-02-PLAN.md
-last_updated: "2026-03-14T11:36:59.474Z"
-last_activity: 2026-03-14 -- Plan 12.2-02 complete (runDiscovery refactored, DISCOVERY_COMMANDS removed)
+status: Active
+stopped_at: Completed 12.3-01-PLAN.md
+last_updated: "2026-03-14T12:07:29.164Z"
+last_activity: 2026-03-14 -- Plan 12.3-01 complete (docker-exec-aware rewriting with parseDockerExec)
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 9
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 
 ## Current Position
 
-Phase: 12.2-skill-driven-discovery
-Plan: 02 of 2 complete
-Status: Complete
-Last activity: 2026-03-14 -- Plan 12.2-02 complete (runDiscovery refactored, DISCOVERY_COMMANDS removed)
+Phase: 12.3-engine-proof-rewriter
+Plan: 01 of 2 complete
+Status: Active
+Last activity: 2026-03-14 -- Plan 12.3-01 complete (docker-exec-aware rewriting with parseDockerExec)
 
 ## Accumulated Context
 
@@ -99,6 +99,13 @@ Last activity: 2026-03-14 -- Plan 12.2-02 complete (runDiscovery refactored, DIS
 - debug.ts is now a 100% Agnostic Engine -- zero hardcoded domain knowledge remains
 - 477 tests passing, all E2E scenarios work with skill-driven discovery
 
+### From Phase 12.3-01
+- parseDockerExec() token-walk parser: extracts flags, container, inner command from docker exec strings
+- Docker exec branch in dynamicRewrite(): parse -> match inner against rules -> inject user -> strip -it -> reassemble
+- No double-injection: checks for existing -u/--user before injecting rule.user
+- Belt-and-suspenders -it stripping in rewriter (complements validator.ts sanitizeDockerExec)
+- 29 unit tests (21 existing + 8 new docker-exec-aware), 488 full suite passing
+
 ## Decisions
 
 - Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
@@ -114,9 +121,13 @@ Last activity: 2026-03-14 -- Plan 12.2-02 complete (runDiscovery refactored, DIS
 - [Phase 12.2]: YAML single-quoted strings for Go template syntax and embedded quotes in discovery commands
 - [Phase 12.2]: Discovery commands declared in skill YAML frontmatter, not hardcoded in TypeScript
 - [Phase 12.2-02]: SkillFile import added for typed runDiscovery signature instead of string-based lookup
+- [Phase 12.3-01]: Token-walk parser over regex for docker exec flag parsing -- more robust for value-flags
+- [Phase 12.3-01]: parseDockerExec not exported -- internal helper, not public API
+- [Phase 12.3-01]: User injection prepended to flag list for consistent docker exec formatting
+- [Phase 12.3]: Token-walk parser over regex for docker exec flag parsing
 
 ## Session Continuity
 
-Last session: 2026-03-14T11:28:58.198Z
-Stopped at: Completed 12.2-02-PLAN.md
-Next: Phase 12.2 complete -- next milestone phase (Knowledge Layer / Qdrant integration)
+Last session: 2026-03-14T12:07:29.104Z
+Stopped at: Completed 12.3-01-PLAN.md
+Next: Plan 12.3-02 (skill prompt COMMAND-ONLY updates + E2E validation)
