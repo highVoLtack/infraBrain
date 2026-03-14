@@ -118,6 +118,27 @@ Plans:
 **Dependencies:** Phase 12.1 (Dynamic Rewriter pattern established)
 **Requirements:** ENGN-04
 
+### Phase 12.3: Agnostic Skills + Engine-Proof Rewriter (INSERTED)
+
+**Goal:** Complete the Agnostic Engine transition by making skills truly domain-generic: no hardcoded container names, no docker exec in prompts or examples. Skills describe WHAT to diagnose and fix using bare commands — the engine handles WHERE (container targeting) and HOW (privilege escalation, wrapping). The rewriter becomes docker-exec-aware to handle LLM outputs that still include docker exec as belt-and-suspenders.
+
+**Scope:**
+1. Rewriter: Parse pre-wrapped `docker exec` commands, extract inner command, apply rewrite rules, reassemble with injected flags (-u 0)
+2. Skill prompts: All 4 skills refactored to COMMAND-ONLY mode — no docker exec in system prompts, examples use bare commands with `{container}` placeholder only in discovery
+3. Discovery: Replace hardcoded container names with dynamic `{target}` or remove them (discovery commands should use container names from runtime, not skill file)
+4. All existing E2E tests must pass (canned fix plans may need updating)
+
+**Success criteria:**
+1. Skills contain zero hardcoded container names in prompts/examples
+2. LLM outputs bare commands, engine wraps them correctly
+3. `docker exec <container> chown ...` gets `-u 0` injected (belt-and-suspenders)
+4. Discovery commands work with any container name (not just demo-specific ones)
+5. Permission Trap live test passes end-to-end
+6. All existing E2E scenarios still pass
+
+**Dependencies:** Phase 12.2
+**Requirements:** ENGN-05
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
@@ -126,8 +147,9 @@ Plans:
 | 8-11 | v1.1 | 10/10 | Complete | 2026-03-13 |
 | 12 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.1 | v1.2 | 3/3 | Complete | 2026-03-14 |
-| 12.2 | 2/2 | Complete    | 2026-03-14 | — |
+| 12.2 | v1.2 | 2/2 | Complete | 2026-03-14 |
+| 12.3 | v1.2 | 0/? | Not planned | — |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-14 — Phase 12.2 planned (Skill-Driven Discovery)*
+*Last updated: 2026-03-14 — Phase 12.3 inserted (Engine-Proof Rewriter)*
