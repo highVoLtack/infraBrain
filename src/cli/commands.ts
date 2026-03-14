@@ -37,7 +37,7 @@ export interface CommandConfig {
 let moduleRl: readline.Interface | undefined;
 
 // Last debug result — used by /infra:execute to auto-pick the most recent plan
-let lastDebugResult: { sessionId: string; fixPlan: FixPlan; target: string; skillName?: string; containers?: string[] } | undefined;
+let lastDebugResult: { sessionId: string; fixPlan: FixPlan; target: string; skillName?: string; containers?: string[]; discoveryContext?: Record<string, string> } | undefined;
 
 interface IncompleteSessionInfo {
   sessionId: string;
@@ -175,6 +175,7 @@ export function registerCommands(config: CommandConfig): Command {
             target: (data as unknown as Record<string, unknown>).target as string ?? 'unknown',
             skillName: data.skillName,
             containers: data.containers,
+            discoveryContext: data.discovery,
           };
         }
 
@@ -545,6 +546,7 @@ export function registerCommands(config: CommandConfig): Command {
             // Self-healing context from debug route
             skillName: lastDebugResult.skillName,
             containers: lastDebugResult.containers,
+            discoveryContext: lastDebugResult.discoveryContext,
           }),
         });
 

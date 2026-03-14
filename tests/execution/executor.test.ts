@@ -26,6 +26,8 @@ vi.mock('../../src/execution/rollback.js', () => ({
 // Mock self-healer
 vi.mock('../../src/execution/self-healer.js', () => ({
   selfHealStep: vi.fn(),
+  buildToolListFromSkill: vi.fn().mockReturnValue('chown (write, runs as root via -u 0), stat (read)'),
+  extractSkillDomainKnowledge: vi.fn().mockReturnValue(''),
 }));
 
 // Mock chalk to avoid ANSI in test assertions

@@ -6,6 +6,8 @@ import {
   validateCorrectedCommand,
   verifyEffect,
   selfHealStep,
+  buildToolListFromSkill,
+  extractSkillDomainKnowledge,
 } from '../../src/execution/self-healer.js';
 import type { RunResult, SelfHealContext } from '../../src/execution/types.js';
 import type { FixStep } from '../../src/orchestrator/types.js';
@@ -137,6 +139,145 @@ describe('buildCorrectionPrompt', () => {
     expect(prompt).not.toContain('previous');
     expect(prompt).not.toContain('attempt');
     expect(prompt).toContain('ONLY the corrected command');
+  });
+
+  it('includes domain knowledge when provided', () => {
+    const prompt = buildCorrectionPrompt({
+      originalCommand: 'stat /app/data/status.pid',
+      stderr: 'Permission denied',
+      exitCode: 1,
+      stepDescription: 'Check file status',
+      availableTools: 'stat (read), chown (write, runs as root via -u 0)',
+      containerContext: 'Container: permission-app',
+      domainKnowledge: 'To run chown inside a container as root: `docker exec -u 0 <container> chown`',
+    });
+
+    expect(prompt).toContain('Domain knowledge');
+    expect(prompt).toContain('docker exec -u 0');
+  });
+
+  it('includes rolling context when provided', () => {
+    const prompt = buildCorrectionPrompt({
+      originalCommand: 'stat /app/data/status.pid',
+      stderr: 'Permission denied',
+      exitCode: 1,
+      stepDescription: 'Check file status',
+      availableTools: 'stat (read)',
+      containerContext: 'Container: permission-app',
+      rollingContext: 'Step 0: whoami → app (uid 1000)',
+    });
+
+    expect(prompt).toContain('Previous step results');
+    expect(prompt).toContain('whoami');
+  });
+
+  it('mentions privilege escalation hint for permission errors', () => {
+    const prompt = buildCorrectionPrompt({
+      originalCommand: 'stat /app/data/status.pid',
+      stderr: 'Permission denied',
+      exitCode: 1,
+      stepDescription: 'Check file status',
+      availableTools: 'stat (read)',
+      containerContext: 'Container: permission-app',
+    });
+
+    expect(prompt).toContain('privilege escalation');
+    expect(prompt).toContain('-u 0');
+  });
+});
+
+describe('buildToolListFromSkill', () => {
+  it('generates tool list with risk and user info from map-format tools', () => {
+    const skill = makeSkill({
+      stat: { risk: 'read' },
+      chown: { risk: 'write', user: '0' },
+      chmod: { risk: 'write', user: '0' },
+    } as any);
+    const result = buildToolListFromSkill(skill);
+
+    expect(result).toContain('stat(read)');
+    expect(result).toContain('chown(write, runs as root via -u 0)');
+    expect(result).toContain('chmod(write, runs as root via -u 0)');
+  });
+
+  it('returns comma-separated names for legacy string[] tools', () => {
+    const skill: SkillFile = {
+      frontmatter: {
+        name: 'test-skill',
+        description: 'Test skill for self-healer tests',
+        triggers: ['test'],
+        tools: ['ls', 'cat', 'stat'] as any,
+        priority: 0,
+        rewrite_rules: [],
+        discovery: [],
+        negative_triggers: [],
+        when_not_to_use: [],
+      },
+      sections: { systemPrompt: 'You are a test skill.' },
+      rawContent: '',
+      filePath: '/tmp/test-skill.md',
+    };
+    const result = buildToolListFromSkill(skill);
+
+    expect(result).toBe('ls, cat, stat');
+  });
+
+  it('returns empty string for empty tools', () => {
+    const skill = makeSkill({});
+    const result = buildToolListFromSkill(skill);
+
+    expect(result).toBe('');
+  });
+});
+
+describe('extractSkillDomainKnowledge', () => {
+  it('extracts DOMAIN KNOWLEDGE sections from system prompt', () => {
+    const skill: SkillFile = {
+      frontmatter: {
+        name: 'test-skill',
+        description: 'Test skill for self-healer tests',
+        triggers: ['test'],
+        tools: {},
+        priority: 0,
+        rewrite_rules: [],
+        discovery: [],
+        negative_triggers: [],
+        when_not_to_use: [],
+      },
+      sections: {
+        systemPrompt: `You are an expert.
+
+## DOMAIN KNOWLEDGE: PERMISSIONS
+
+- Use chown, not chmod 777
+- docker exec -u 0 for root access
+
+## Other Section
+
+This should not be extracted.
+
+## COMMON MISTAKES
+
+| What | Fix |
+| chmod 777 | chown uid:gid |`,
+      },
+      rawContent: '',
+      filePath: '/tmp/test-skill.md',
+    };
+    const result = extractSkillDomainKnowledge(skill);
+
+    expect(result).toContain('DOMAIN KNOWLEDGE: PERMISSIONS');
+    expect(result).toContain('docker exec -u 0');
+    expect(result).toContain('COMMON MISTAKES');
+    expect(result).toContain('chmod 777');
+    expect(result).not.toContain('Other Section');
+  });
+
+  it('returns empty string when no domain knowledge sections exist', () => {
+    const skill = makeSkill({});
+    const result = extractSkillDomainKnowledge(skill);
+
+    expect(result).toBe('');
   });
 });
 

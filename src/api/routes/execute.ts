@@ -30,7 +30,7 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
 
   router.post('/', async (req, res, next) => {
     try {
-      const { sessionId, fixPlan, target, adminName, skillName, containers: reqContainers } = req.body ?? {};
+      const { sessionId, fixPlan, target, adminName, skillName, containers: reqContainers, discoveryContext: reqDiscoveryContext } = req.body ?? {};
 
       // Validate input
       if (!sessionId || typeof sessionId !== 'string') {
@@ -87,6 +87,10 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
       const skill = skillName && deps.registry ? deps.registry.get(skillName) : undefined;
       const correctionModel = deps.provider?.registry?.get?.('default') ?? undefined;
       const containers: string[] = Array.isArray(reqContainers) ? reqContainers : [];
+      const discoveryContext: Record<string, string> | undefined =
+        reqDiscoveryContext && typeof reqDiscoveryContext === 'object' && !Array.isArray(reqDiscoveryContext)
+          ? reqDiscoveryContext as Record<string, string>
+          : undefined;
       let rewriteRules: import('../../execution/dynamic-rewriter.js').RewriteRule[] = [];
       if (skill) {
         const tools = skill.frontmatter.tools;
@@ -110,6 +114,7 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
           skill,
           rewriteRules,
           containers,
+          discoveryContext,
         } : {}),
       });
 

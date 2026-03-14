@@ -1,6 +1,7 @@
 import { generateText } from 'ai';
 import type { FixStep } from '../orchestrator/types.js';
 import type { RunResult, SelfHealResult, SelfHealContext, CorrectionAttempt } from './types.js';
+import type { SkillFile } from '../skills/types.js';
 import { enforceSkillAllowlist } from '../skills/allowlist.js';
 import { validateCommand } from '../safety/validator.js';
 import { dynamicRewrite } from './dynamic-rewriter.js';
@@ -8,8 +9,74 @@ import { needsShell, runShellCommand, parseCommand } from './runner.js';
 import { RiskLevel } from '../safety/types.js';
 
 /**
+ * Build a human-readable tool list from a skill's tool declarations.
+ * Includes risk level and privilege info so the LLM knows what's available.
+ *
+ * Example output:
+ *   "stat (read), ls (read), chown (write, runs as root via -u 0), chmod (write, runs as root via -u 0)"
+ */
+export function buildToolListFromSkill(skill: SkillFile): string {
+  const tools = skill.frontmatter.tools;
+  if (!tools || Array.isArray(tools)) {
+    // Legacy string[] format — just list names
+    return Array.isArray(tools) ? tools.join(', ') : '';
+  }
+
+  return Object.entries(tools)
+    .map(([name, decl]) => {
+      const parts = [name, `(${decl.risk}`];
+      if (decl.user) {
+        parts.push(`, runs as root via -u ${decl.user}`);
+      }
+      if (decl.wrapper) {
+        parts.push(`, wrapped`);
+      }
+      parts.push(')');
+      return parts.join('');
+    })
+    .join(', ');
+}
+
+/**
+ * Extract domain knowledge sections from a skill's system prompt.
+ * Returns relevant sections that help the LLM make better corrections.
+ */
+export function extractSkillDomainKnowledge(skill: SkillFile): string {
+  const systemPrompt = skill.sections.systemPrompt;
+  if (!systemPrompt) return '';
+
+  // Extract ## DOMAIN KNOWLEDGE and ## COMMON MISTAKES sections
+  const sections: string[] = [];
+  const lines = systemPrompt.split('\n');
+  let capturing = false;
+  let currentSection: string[] = [];
+
+  for (const line of lines) {
+    if (/^##\s+(DOMAIN KNOWLEDGE|COMMON MISTAKES)/i.test(line)) {
+      if (currentSection.length > 0) {
+        sections.push(currentSection.join('\n'));
+      }
+      currentSection = [line];
+      capturing = true;
+    } else if (capturing && /^##\s/.test(line) && !/^##\s+(DOMAIN KNOWLEDGE|COMMON MISTAKES)/i.test(line)) {
+      sections.push(currentSection.join('\n'));
+      currentSection = [];
+      capturing = false;
+    } else if (capturing) {
+      currentSection.push(line);
+    }
+  }
+  if (currentSection.length > 0) {
+    sections.push(currentSection.join('\n'));
+  }
+
+  return sections.join('\n\n');
+}
+
+/**
  * Build a correction prompt for the LLM given a failed command context.
  * Each prompt is fresh -- no previous attempts included (per user decision).
+ * Enriched with skill domain knowledge, tool declarations, and discovery context.
  */
 export function buildCorrectionPrompt(ctx: {
   originalCommand: string;
@@ -18,22 +85,40 @@ export function buildCorrectionPrompt(ctx: {
   stepDescription: string;
   availableTools: string;
   containerContext: string;
+  domainKnowledge?: string;
+  rollingContext?: string;
 }): string {
-  return `The following command failed during execution.
+  const parts = [
+    `The following command failed during execution.`,
+    ``,
+    `Command: ${ctx.originalCommand}`,
+    `Exit code: ${ctx.exitCode}`,
+    `Error output:`,
+    ctx.stderr,
+    ``,
+    `Step description: ${ctx.stepDescription}`,
+  ];
 
-Command: ${ctx.originalCommand}
-Exit code: ${ctx.exitCode}
-Error output:
-${ctx.stderr}
+  if (ctx.availableTools) {
+    parts.push(``, `Available tools: ${ctx.availableTools}`);
+  }
 
-Step description: ${ctx.stepDescription}
+  parts.push(``, `Environment context:`, ctx.containerContext);
 
-Available tools: ${ctx.availableTools}
+  if (ctx.rollingContext) {
+    parts.push(``, `Previous step results:`, ctx.rollingContext);
+  }
 
-Environment context:
-${ctx.containerContext}
+  if (ctx.domainKnowledge) {
+    parts.push(``, `Domain knowledge (from skill):`, ctx.domainKnowledge);
+  }
 
-Generate a corrected command that achieves the same goal. Output ONLY the corrected command, nothing else.`;
+  parts.push(
+    ``,
+    `Generate a corrected command that achieves the same goal. Consider privilege escalation (e.g. -u 0 on docker exec) if the error is permission-related. Output ONLY the corrected command, nothing else.`,
+  );
+
+  return parts.join('\n');
 }
 
 /**
@@ -219,6 +304,8 @@ export async function selfHealStep(
       stepDescription: context.stepDescription,
       availableTools: context.toolList,
       containerContext: context.containerContext,
+      domainKnowledge: context.domainKnowledge,
+      rollingContext: context.rollingContext,
     });
 
     // 3. Call LLM for correction

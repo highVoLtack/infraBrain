@@ -8,7 +8,7 @@ import { RollingContext } from './context-builder.js';
 import { captureSnapshot } from './snapshot.js';
 import { rollbackStep } from './rollback.js';
 import { parseCommand, needsShell, runShellCommand } from './runner.js';
-import { selfHealStep } from './self-healer.js';
+import { selfHealStep, buildToolListFromSkill, extractSkillDomainKnowledge } from './self-healer.js';
 import type { SelfHealContext } from './types.js';
 import { acquireLock, releaseLock, promptLockOverride } from '../locks/manager.js';
 
@@ -183,6 +183,23 @@ export async function executePlan(
 
       if (firstResult.exitCode !== 0 && hasSelfHealingDeps) {
         // Self-healing path: LLM-corrected retries
+        // Build rich context from skill + discovery + rolling context
+        const toolList = buildToolListFromSkill(deps.skill!);
+        const domainKnowledge = extractSkillDomainKnowledge(deps.skill!);
+
+        // Build container context from discovery data if available, else just names
+        const discoveryParts: string[] = [];
+        if (deps.discoveryContext && Object.keys(deps.discoveryContext).length > 0) {
+          for (const [label, value] of Object.entries(deps.discoveryContext)) {
+            discoveryParts.push(`${label}: ${value}`);
+          }
+        } else if ((deps.containers ?? []).length > 0) {
+          discoveryParts.push(`Containers: ${(deps.containers ?? []).join(', ')}`);
+        } else {
+          discoveryParts.push('No containers discovered');
+        }
+        const containerContext = discoveryParts.join('\n');
+
         const healContext: SelfHealContext = {
           maxAttempts: deps.config.selfHealing?.maxAttempts ?? 3,
           budget,
@@ -194,11 +211,11 @@ export async function executePlan(
           config: deps.config,
           auditLogger: deps.auditLogger,
           stepDescription: step.description,
-          toolList: '',
-          containerContext: (deps.containers ?? []).length > 0
-            ? `Containers: ${(deps.containers ?? []).join(', ')}`
-            : 'No containers discovered',
+          toolList,
+          containerContext,
           stepRisk: step.risk,
+          domainKnowledge: domainKnowledge || undefined,
+          rollingContext: context.getContext() || undefined,
         };
 
         const healResult = await selfHealStep(step, firstResult, healContext);

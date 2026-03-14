@@ -51,6 +51,7 @@ export interface ExecutionDeps {
   skill?: import('../skills/types.js').SkillFile;
   rewriteRules?: import('../execution/dynamic-rewriter.js').RewriteRule[];
   containers?: string[];
+  discoveryContext?: Record<string, string>;
 }
 
 export interface CorrectionAttempt {
@@ -85,6 +86,8 @@ export interface SelfHealContext {
   toolList: string;
   containerContext: string;
   stepRisk: 'read' | 'write' | 'destructive';
+  domainKnowledge?: string;
+  rollingContext?: string;
 }
 
 export type { FixPlan, FixStep };
