@@ -199,4 +199,72 @@ describe('dynamicRewrite', () => {
     // No container to resolve -- should pass through
     expect(result).toBe('ls -la');
   });
+
+  // === Docker-exec-aware rewriting tests ===
+
+  describe('docker exec aware rewriting', () => {
+    it('Case A: injects -u 0 when rule requires it and docker exec lacks it', () => {
+      const result = dynamicRewrite(
+        'docker exec permission-app chown 1000:1000 /app/data',
+        [privilegeRule],
+        ['permission-app'],
+      );
+      expect(result).toBe('docker exec -u 0 permission-app chown 1000:1000 /app/data');
+    });
+
+    it('Case B: does NOT double-inject -u 0 when already present', () => {
+      const result = dynamicRewrite(
+        'docker exec -u 0 permission-app chown 1000:1000 /app/data',
+        [privilegeRule],
+        ['permission-app'],
+      );
+      expect(result).toBe('docker exec -u 0 permission-app chown 1000:1000 /app/data');
+    });
+
+    it('Case C: strips -it flags from docker exec', () => {
+      const result = dynamicRewrite(
+        'docker exec -it permission-app ls -ld /app/data',
+        [simpleContainerRule],
+        ['permission-app'],
+      );
+      expect(result).toBe('docker exec permission-app ls -ld /app/data');
+    });
+
+    it('Case D: docker exec with no matching rule passes through with -it stripped', () => {
+      const result = dynamicRewrite(
+        'docker exec -it mycontainer echo hello',
+        [sqlRule],
+        ['pg-container'],
+      );
+      expect(result).toBe('docker exec mycontainer echo hello');
+    });
+
+    it('Case E: applies strip_flags to inner command of docker exec', () => {
+      const result = dynamicRewrite(
+        'docker exec pg-container psql -U postgres -h 172.20.0.2 -c "SELECT 1"',
+        [stripFlagsRule],
+        ['pg-container'],
+      );
+      expect(result).toBe('docker exec pg-container psql -U postgres -c "SELECT 1"');
+    });
+
+    it('Case F: unparseable docker exec (no inner command) passes through', () => {
+      const result = dynamicRewrite('docker exec', [sqlRule], ['pg-container']);
+      expect(result).toBe('docker exec');
+    });
+
+    it('Case G: docker exec with container but no inner command passes through', () => {
+      const result = dynamicRewrite('docker exec mycontainer', [sqlRule], ['pg-container']);
+      expect(result).toBe('docker exec mycontainer');
+    });
+
+    it('Case H: strips -it and preserves existing -u 0 without double-inject', () => {
+      const result = dynamicRewrite(
+        'docker exec -u 0 -it permission-app chown 1000:1000 /app/data',
+        [privilegeRule],
+        ['permission-app'],
+      );
+      expect(result).toBe('docker exec -u 0 permission-app chown 1000:1000 /app/data');
+    });
+  });
 });
