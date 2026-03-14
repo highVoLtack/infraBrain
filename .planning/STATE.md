@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: Active
-stopped_at: Completed 12.4-02-PLAN.md
-last_updated: "2026-03-14T12:41:02.548Z"
-last_activity: 2026-03-14 -- Plan 12.4-02 complete (3 universal expert skills, old skills deleted, log-analysis updated)
+stopped_at: Completed 12.4-03-PLAN.md
+last_updated: "2026-03-14T12:47:25Z"
+last_activity: 2026-03-14 -- Plan 12.4-03 complete (E2E + unit tests migrated to universal expert skills, 506 tests passing)
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 13
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 12.4-agnostic-skill-redesign
-Plan: 02 of 3 complete
-Status: Active
-Last activity: 2026-03-14 -- Plan 12.4-02 complete (3 universal expert skills, old skills deleted, log-analysis updated)
+Plan: 03 of 3 complete
+Status: Complete
+Last activity: 2026-03-14 -- Plan 12.4-03 complete (E2E + unit tests migrated to universal expert skills, 506 tests passing)
 
 ## Accumulated Context
 
@@ -132,6 +132,12 @@ Last activity: 2026-03-14 -- Plan 12.4-02 complete (3 universal expert skills, o
 - log-analysis.md converted to map-format tools
 - 6 total skills: linux-expert, postgres-expert, network-expert, log-analysis, planning, verification
 
+### From Phase 12.4-03
+- All 4 E2E tests migrated: permission-trap, docker-storage, nginx-502, postgres-connleak use universal expert skills
+- 2 new loader tests: map-format tools validation, real skills directory integration (6 skills)
+- 506 tests passing, 2 pre-existing nginx E2E failures, 4 skipped
+- Phase 12.4 complete: tool schema + universal skills + test migration all delivered
+
 ## Decisions
 
 - Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
@@ -167,8 +173,11 @@ Last activity: 2026-03-14 -- Plan 12.4-02 complete (3 universal expert skills, o
 - [Phase 12.4-02]: log-analysis.md tool "docker logs" changed to "docker" key in map format
 - [Phase 12.4]: Universal expert skills replace scenario-specific skills: linux-expert merges permissions+disk+OOM, Domain Knowledge over Diagnostic Ladders
 
+- [Phase 12.4-03]: Mock skill objects in unit tests kept with old names -- self-contained fixtures that don't use registry.get()
+- [Phase 12.4-03]: 2 pre-existing nginx E2E failures remain out of scope (Docker networking environment issue)
+
 ## Session Continuity
 
-Last session: 2026-03-14T12:40:58.294Z
-Stopped at: Completed 12.4-02-PLAN.md
-Next: Plan 12.4-03 (cleanup -- remove rewrite_rules field and legacy string[] code paths)
+Last session: 2026-03-14T12:47:25Z
+Stopped at: Completed 12.4-03-PLAN.md
+Next: Phase 12.4 complete -- all plans delivered
