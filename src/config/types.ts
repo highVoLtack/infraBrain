@@ -44,6 +44,10 @@ export const InfraBrainConfigSchema = z.object({
     commandTimeoutMs: z.number().default(30000),
     maxBufferBytes: z.number().default(1024 * 1024),
   }).default({ commandTimeoutMs: 30000, maxBufferBytes: 1024 * 1024 }),
+  selfHealing: z.object({
+    maxAttempts: z.number().default(3),
+    correctionTimeoutMs: z.number().default(15000),
+  }).default({ maxAttempts: 3, correctionTimeoutMs: 15000 }),
 });
 
 export type InfraBrainConfig = z.infer<typeof InfraBrainConfigSchema>;

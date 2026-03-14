@@ -48,4 +48,38 @@ export interface ExecutionDeps {
   onBeforeStep?: (stepIndex: number, rollingContext: string) => Promise<void>;
 }
 
+export interface CorrectionAttempt {
+  originalCommand: string;
+  correctedCommand: string;
+  error: { stderr: string; exitCode: number };
+  outcome: 'success' | 'failed' | 'blocked_by_safety' | 'effect_unverified';
+}
+
+export interface SelfHealResult {
+  status: 'success' | 'exhausted' | 'budget_exceeded';
+  finalResult?: RunResult;
+  attempts: CorrectionAttempt[];
+  commandUsed: string;
+}
+
+export interface SelfHealContext {
+  maxAttempts: number;
+  budget: import('../execution/damage-budget.js').DamageBudget;
+  model: import('ai').LanguageModel;
+  skill: import('../skills/types.js').SkillFile;
+  runner: {
+    run: (executable: string, args: string[], options: { timeout: number; maxBuffer?: number }) => Promise<RunResult>;
+  };
+  rewriteRules: import('../execution/dynamic-rewriter.js').RewriteRule[];
+  containers: string[];
+  config: InfraBrainConfig;
+  auditLogger: {
+    logExecution: (eventType: import('../audit/types.js').AuditEventType, details: Record<string, unknown>) => void;
+  };
+  stepDescription: string;
+  toolList: string;
+  containerContext: string;
+  stepRisk: 'read' | 'write' | 'destructive';
+}
+
 export type { FixPlan, FixStep };

@@ -27,7 +27,9 @@ export type AuditEventType =
   | 'execution_resume'
   | 'discovery_complete'
   | 'context_injection'
-  | 'verification';
+  | 'verification'
+  | 'self_heal_attempt'
+  | 'self_heal_exhausted';
 
 export interface AuditEntry {
   timestamp: string;
