@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
-status: completed
-stopped_at: Completed 12.1-03-PLAN.md (Phase 12.1 complete)
-last_updated: "2026-03-14T09:31:42.625Z"
-last_activity: 2026-03-14 -- Plan 12.1-03 complete (dynamic rewriter integration)
+status: in-progress
+stopped_at: Completed 12.2-01-PLAN.md
+last_updated: "2026-03-14T11:24:25.871Z"
+last_activity: 2026-03-14 -- Plan 12.2-01 complete (discovery schema + YAML migration)
 progress:
-  total_phases: 2
+  total_phases: 3
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 8
+  completed_plans: 7
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 
 ## Current Position
 
-Phase: 12.1-dynamic-command-rewriter
-Plan: 03 of 3 complete
-Status: Phase 12.1 COMPLETE
-Last activity: 2026-03-14 -- Plan 12.1-03 complete (dynamic rewriter integration)
+Phase: 12.2-skill-driven-discovery
+Plan: 01 of 2 complete
+Status: In Progress
+Last activity: 2026-03-14 -- Plan 12.2-01 complete (discovery schema + YAML migration)
 
 ## Accumulated Context
 
@@ -87,6 +87,12 @@ Last activity: 2026-03-14 -- Plan 12.1-03 complete (dynamic rewriter integration
 - rewriteForContainer() and stripHostFlag() marked @deprecated in runner.ts
 - 475 tests passing (2 pre-existing nginx E2E failures out of scope)
 
+### From Phase 12.2-01
+- DiscoveryCommandSchema validates command+label pairs via Zod with min-length constraints
+- discovery field on SkillFrontmatterSchema defaults to [] for backwards compatibility
+- 16 discovery commands migrated from hardcoded DISCOVERY_COMMANDS into 4 skill YAML files
+- YAML single-quoted strings handle Go template syntax ({{.Names}}) and embedded SQL quotes ('idle')
+
 ## Decisions
 
 - Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
@@ -99,9 +105,11 @@ Last activity: 2026-03-14 -- Plan 12.1-03 complete (dynamic rewriter integration
 - DB container prioritized at front of targetContainers list for rewrite rule resolution
 - Rewrite rules and containers extracted once before diagnosis, shared by both code paths
 - Kept findDbContainer in debug.ts for DB container prioritization (not deprecated)
+- [Phase 12.2]: YAML single-quoted strings for Go template syntax and embedded quotes in discovery commands
+- [Phase 12.2]: Discovery commands declared in skill YAML frontmatter, not hardcoded in TypeScript
 
 ## Session Continuity
 
-Last session: 2026-03-14
-Stopped at: Completed 12.1-03-PLAN.md (Phase 12.1 complete)
+Last session: 2026-03-14T11:24:25.869Z
+Stopped at: Completed 12.2-01-PLAN.md
 Next: Next milestone phase (Knowledge Layer / Qdrant integration)
