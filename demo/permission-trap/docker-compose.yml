@@ -1,0 +1,4 @@
+services:
+  permission-app:
+    build: ./app
+    container_name: permission-app
