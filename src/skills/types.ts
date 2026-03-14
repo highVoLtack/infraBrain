@@ -4,6 +4,13 @@ import { RewriteRuleSchema } from '../execution/dynamic-rewriter.js';
 
 export type { RewriteRule } from '../execution/dynamic-rewriter.js';
 
+export const DiscoveryCommandSchema = z.object({
+  command: z.string().min(1, 'Discovery command is required'),
+  label: z.string().min(1, 'Discovery label is required'),
+});
+
+export type DiscoveryCommand = z.infer<typeof DiscoveryCommandSchema>;
+
 export const SkillFrontmatterSchema = z.object({
   name: z.string().min(1, 'Skill name is required'),
   description: z.string().min(10, 'Skill description must be at least 10 characters'),
@@ -14,6 +21,7 @@ export const SkillFrontmatterSchema = z.object({
   author: z.string().optional(),
   priority: z.number().default(0),
   rewrite_rules: z.array(RewriteRuleSchema).default([]),
+  discovery: z.array(DiscoveryCommandSchema).default([]),
 });
 
 export const SkillSectionsSchema = z.object({

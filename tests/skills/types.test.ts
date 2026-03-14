@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SkillFrontmatterSchema } from '../../src/skills/types.js';
+import { SkillFrontmatterSchema, DiscoveryCommandSchema } from '../../src/skills/types.js';
 
 const BASE_FRONTMATTER = {
   name: 'test-skill',
@@ -64,5 +64,56 @@ describe('SkillFrontmatterSchema rewrite_rules', () => {
     expect(result.rewrite_rules[0].wrapper).toBeUndefined();
     expect(result.rewrite_rules[0].risk).toBeUndefined();
     expect(result.rewrite_rules[0].strip_flags).toBeUndefined();
+  });
+});
+
+describe('SkillFrontmatterSchema discovery', () => {
+  it('accepts frontmatter without discovery (defaults to empty array)', () => {
+    const result = SkillFrontmatterSchema.parse(BASE_FRONTMATTER);
+    expect(result.discovery).toEqual([]);
+  });
+
+  it('accepts frontmatter with valid discovery array (command + label)', () => {
+    const input = {
+      ...BASE_FRONTMATTER,
+      discovery: [
+        { command: 'docker ps --format "{{.Names}}"', label: 'Running containers' },
+      ],
+    };
+    const result = SkillFrontmatterSchema.parse(input);
+    expect(result.discovery).toHaveLength(1);
+    expect(result.discovery[0].command).toBe('docker ps --format "{{.Names}}"');
+    expect(result.discovery[0].label).toBe('Running containers');
+  });
+
+  it('rejects discovery with empty command string', () => {
+    const input = {
+      ...BASE_FRONTMATTER,
+      discovery: [{ command: '', label: 'Some label' }],
+    };
+    expect(() => SkillFrontmatterSchema.parse(input)).toThrow();
+  });
+
+  it('rejects discovery with empty label string', () => {
+    const input = {
+      ...BASE_FRONTMATTER,
+      discovery: [{ command: 'docker ps', label: '' }],
+    };
+    expect(() => SkillFrontmatterSchema.parse(input)).toThrow();
+  });
+
+  it('parses multiple discovery entries correctly', () => {
+    const input = {
+      ...BASE_FRONTMATTER,
+      discovery: [
+        { command: 'docker ps --format "{{.Names}}"', label: 'Running containers' },
+        { command: 'docker network ls --format "{{.Name}}"', label: 'Docker networks' },
+        { command: 'docker system df', label: 'Docker system storage overview' },
+      ],
+    };
+    const result = SkillFrontmatterSchema.parse(input);
+    expect(result.discovery).toHaveLength(3);
+    expect(result.discovery[2].command).toBe('docker system df');
+    expect(result.discovery[2].label).toBe('Docker system storage overview');
   });
 });
