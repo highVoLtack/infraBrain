@@ -1,20 +1,8 @@
 import { z } from 'zod';
 import { ModelRoleSchema } from '../config/types.js';
+import { RewriteRuleSchema } from '../execution/dynamic-rewriter.js';
 
-/**
- * Schema for a single rewrite rule declared in skill frontmatter.
- * Defined inline until Plan 01 creates the canonical dynamic-rewriter module.
- */
-export const RewriteRuleSchema = z.object({
-  match: z.string(),
-  container: z.string().default('auto'),
-  user: z.string().optional(),
-  wrapper: z.string().optional(),
-  risk: z.enum(['read', 'write', 'destructive']).optional(),
-  strip_flags: z.array(z.string()).optional(),
-});
-
-export type RewriteRule = z.infer<typeof RewriteRuleSchema>;
+export type { RewriteRule } from '../execution/dynamic-rewriter.js';
 
 export const SkillFrontmatterSchema = z.object({
   name: z.string().min(1, 'Skill name is required'),
