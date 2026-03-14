@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: The Knowledge Layer
 status: completed
 stopped_at: Completed 12.2-02-PLAN.md
-last_updated: "2026-03-14T11:28:58.201Z"
+last_updated: "2026-03-14T11:36:59.474Z"
 last_activity: 2026-03-14 -- Plan 12.2-02 complete (runDiscovery refactored, DISCOVERY_COMMANDS removed)
 progress:
   total_phases: 3
