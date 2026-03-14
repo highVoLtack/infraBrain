@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: executing
-stopped_at: Completed 12.6-02-PLAN.md
-last_updated: "2026-03-14T17:57:07Z"
-last_activity: 2026-03-14 -- Plan 12.6-02 complete (self-healing wired into executor, fixKnownCommandErrors deleted, 556 tests)
+stopped_at: Completed 12.6-03-PLAN.md
+last_updated: "2026-03-14T19:10:00Z"
+last_activity: 2026-03-14 -- Phase 12.6 complete (self-healing executor fully wired + live verified, 574 tests)
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 19
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 12.6-self-healing-executor
-Plan: 02 of 3 complete
-Status: Executing
-Last activity: 2026-03-14 -- Plan 12.6-02 complete (self-healing wired into executor, fixKnownCommandErrors deleted, 556 tests)
+Plan: 03 of 3 complete
+Status: Phase Complete
+Last activity: 2026-03-14 -- Phase 12.6 complete (self-healing executor fully wired + live verified, 574 tests)
 
 ## Accumulated Context
 
@@ -251,12 +251,27 @@ Last activity: 2026-03-14 -- Plan 12.6-02 complete (self-healing wired into exec
 - ExecutionDeps extended with optional correctionModel, skill, rewriteRules, containers
 - 556 tests passing (4 new, 8 removed, 2 pre-existing nginx E2E failures)
 
+### From Phase 12.6-03
+- Debug route and execute route wire correctionModel, skill, rewriteRules, containers into ExecutionDeps
+- Integration test proves full self-healing pipeline (error -> LLM correction -> safety -> retry -> success)
+- Self-healing correction prompts enriched with skill context (tool names, risk levels, domain knowledge)
+- Dynamic error-driven progress detection: different stderr between attempts = forward progress signal
+- Permission Trap live DPEV: self-healer suggested -u 0, detected error-type change, adopted corrected command
+- Log Bloat Trap live DPEV: stripped -it flags, added -u 0, truncated logs, disk 100% -> 0%
+- Phase 12.6 complete: self-healing executor fully operational, zero regex command patches
+- 574 tests passing (568 + 6 new from enrichment)
+
 ## Decisions
 
 - [Phase 12.6-02]: Self-healing deps optional on ExecutionDeps for backwards compatibility
 - [Phase 12.6-02]: First attempt runs directly (no CircuitBreaker), self-healing on failure only
 - [Phase 12.6-02]: needsShell() applied to first attempt too (shell mode for piped commands)
 - [Phase 12.6-02]: fixKnownCommandErrors deleted entirely -- self-healing replaces it
+
+- [Phase 12.6-03]: correctionModel sourced from registry.get('default') for general-purpose syntax corrections
+- [Phase 12.6-03]: Both execute route and debug route wire self-healing deps (not just debug route)
+- [Phase 12.6-03]: Correction prompts enriched with skill context after live testing showed LLM needs domain awareness
+- [Phase 12.6-03]: Error-type change detection added -- different stderr between attempts = forward progress
 
 - [Phase 12.6-01]: Fresh correction prompt per attempt (no previous attempt history) per user decision
 - [Phase 12.6-01]: Fail-open verification: bad verification commands skip rather than block successful fixes
@@ -265,6 +280,6 @@ Last activity: 2026-03-14 -- Plan 12.6-02 complete (self-healing wired into exec
 
 ## Session Continuity
 
-Last session: 2026-03-14T17:57:07Z
-Stopped at: Completed 12.6-02-PLAN.md
-Next: Phase 12.6 Plan 03 (E2E integration testing -- self-healing in live scenarios)
+Last session: 2026-03-14T19:10:00Z
+Stopped at: Completed 12.6-03-PLAN.md (Phase 12.6 complete)
+Next: Next phase planning (v1.2 Knowledge Layer continuation or new priority)

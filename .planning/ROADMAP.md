@@ -212,12 +212,12 @@ Plans:
 
 **Goal:** Replace the band-aid regex command sanitizer with a self-healing execution loop. When a command fails, the executor captures stderr + exit code, feeds them back to the LLM with the original command, and lets the LLM generate a corrected command — like a human reading `--help`. Merges the best patterns from Superpowers (systematic-debugging 4-phase protocol, verification-before-completion evidence gates) and GSD (deviation auto-fix rules, checkpoint state, goal-backward verification) into InfraBrain's execution engine. This makes even weak local LLMs (7B) effective because the SYSTEM compensates for model limitations through error-driven self-correction.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 12.6-01-PLAN.md — Self-healer module (TDD): types, config, correction prompt builder, LLM response parser, self-healing loop with safety pipeline
-- [ ] 12.6-02-PLAN.md — Executor integration + fixKnownCommandErrors removal + regression tests
-- [ ] 12.6-03-PLAN.md — Debug route wiring + integration test + Permission Trap live verification
+- [x] 12.6-01-PLAN.md — Self-healer module (TDD): types, config, correction prompt builder, LLM response parser, self-healing loop with safety pipeline -- completed 2026-03-14
+- [x] 12.6-02-PLAN.md — Executor integration + fixKnownCommandErrors removal + regression tests -- completed 2026-03-14
+- [x] 12.6-03-PLAN.md — Debug route wiring + integration test + Permission Trap live verification -- completed 2026-03-14
 
 **Scope:**
 1. Self-healing retry loop in executor: on command failure → capture stderr/exit code → LLM generates corrected command → retry (max N attempts, budget-tracked)
@@ -252,7 +252,7 @@ Plans:
 | 12.3 | v1.2 | 2/2 | Complete | 2026-03-14 |
 | 12.4 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.5 | v1.2 | 3/3 | Complete | 2026-03-14 |
-| 12.6 | 2/3 | In Progress|  | — |
+| 12.6 | v1.2 | 3/3 | Complete | 2026-03-14 |
 
 ---
 *Roadmap created: 2026-03-07*
