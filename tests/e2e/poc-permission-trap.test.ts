@@ -41,78 +41,64 @@ import { assertDPEVSequence, createMockLLMProvider } from './helpers/index.js';
 const PROJECT_ROOT = join(import.meta.dirname, '..', '..');
 
 /**
- * POC: Linux Filesystem Permission Trap End-to-End Integration Test
+ * POC: Permission Trap Remix -- Agnosticism Proof End-to-End Test
+ *
+ * Uses vault-processor-99 container with /var/lib/internal/secrets path
+ * to prove the engine handles ANY container name and ANY path without
+ * code changes. Container name and data path are discovered dynamically.
  *
  * Tests the full DPEV (Diagnose-Plan-Execute-Verify) loop with:
- * - Real Docker commands against the permission-trap demo environment
- * - Mocked LLM responses with Diagnostic Ladder reasoning
+ * - Remix Docker environment (vault-processor-99, not permission-app)
+ * - Dynamic container name discovery (not hardcoded)
+ * - Dynamic data path discovery from container environment
+ * - Mocked LLM responses with permission-focused reasoning
  * - 4-step fix plan: inspect permissions -> chown -> restart -> verify recovery
  * - Full audit trail verification
- *
- * No DB-specific logic -- pure OS-level troubleshooting.
  */
-describe('POC: Linux Filesystem Permission Trap End-to-End', { timeout: 120_000 }, () => {
+describe('POC: Permission Trap Remix (Agnosticism Proof) End-to-End', { timeout: 120_000 }, () => {
   let app: Express;
   let tmpDir: string;
   let sessionDir: string;
   let store: WriteThrough;
   let testSessionId: string;
 
+  // Dynamically discovered values
+  let containerName: string;
+  let dataDir: string;
+
   // Shared state between sequential tests
   let debugSessionId: string;
   let debugFixPlan: FixPlan;
 
-  // Canned fix plan: permission ownership fix with chown + restart
-  const cannedFixPlan: FixPlan = {
-    summary: 'Fix directory ownership to match app user and restart',
-    complexity: 'simple',
-    steps: [
-      {
-        command: 'docker exec permission-app ls -ld /app/data',
-        description: 'Verify directory ownership and permissions',
-        risk: 'read',
-        rollback: 'N/A',
-      },
-      {
-        command: 'docker exec -u 0 permission-app chown 1000:1000 /app/data',
-        description: 'Change directory ownership to app user (UID 1000)',
-        risk: 'write',
-        rollback: 'docker exec -u 0 permission-app chown root:root /app/data',
-      },
-      {
-        command: 'docker restart permission-app',
-        description: 'Restart app to retry PID file write',
-        risk: 'write',
-        rollback: 'docker stop permission-app',
-      },
-      {
-        command: 'docker logs permission-app --tail 5',
-        description: 'Verify app started successfully after fix',
-        risk: 'read',
-        rollback: 'N/A',
-      },
-    ],
-  };
+  // Canned fix plan -- built dynamically in beforeAll after container discovery
+  let cannedFixPlan: FixPlan;
 
   beforeAll(() => {
-    // 1. Run reset script to start broken environment
-    execSync('bash demo/permission-trap/reset-permission-trap.sh', {
+    // 1. Run remix reset script to start broken environment
+    execSync('bash demo/permission-trap/reset-permission-trap-remix.sh', {
       cwd: PROJECT_ROOT,
       timeout: 60_000,
       stdio: 'pipe',
     });
 
-    // 2. Verify broken state: poll until container running AND logs show Permission denied
+    // 2. Discover container name dynamically from the remix compose
+    containerName = execSync(
+      'docker compose -f demo/permission-trap/docker-compose.remix.yml ps --format "{{.Names}}"',
+      { cwd: PROJECT_ROOT, timeout: 10_000, stdio: 'pipe' },
+    ).toString().trim();
+    expect(containerName).toBeTruthy();
+
+    // 3. Poll until container running AND logs show Permission denied
     let broken = false;
     for (let attempt = 0; attempt < 15; attempt++) {
       try {
         const status = execSync(
-          "docker inspect --format '{{.State.Status}}' permission-app",
+          `docker inspect --format '{{.State.Status}}' ${containerName}`,
           { timeout: 5_000, stdio: 'pipe' },
         ).toString().trim();
         const containerRunning = status === 'running';
 
-        const logs = execSync('docker logs permission-app 2>&1', {
+        const logs = execSync(`docker logs ${containerName} 2>&1`, {
           timeout: 5_000,
           stdio: 'pipe',
         }).toString();
@@ -129,14 +115,53 @@ describe('POC: Linux Filesystem Permission Trap End-to-End', { timeout: 120_000 
     }
     expect(broken).toBe(true);
 
-    // 3. Create temp directory for session storage
-    tmpDir = mkdtempSync(join(tmpdir(), 'infrabrain-e2e-permission-trap-'));
+    // 4. Discover data path dynamically from container environment
+    dataDir = execSync(
+      `docker exec ${containerName} printenv DATA_DIR`,
+      { timeout: 5_000, stdio: 'pipe' },
+    ).toString().trim();
+    expect(dataDir).toBeTruthy();
+
+    // 5. Build canned fix plan using discovered container name and data path
+    cannedFixPlan = {
+      summary: 'Fix directory ownership to match app user and restart',
+      complexity: 'simple',
+      steps: [
+        {
+          command: `docker exec ${containerName} ls -ld ${dataDir}`,
+          description: 'Verify directory ownership and permissions',
+          risk: 'read',
+          rollback: 'N/A',
+        },
+        {
+          command: `docker exec -u 0 ${containerName} chown 1000:1000 ${dataDir}`,
+          description: 'Change directory ownership to app user (UID 1000)',
+          risk: 'write',
+          rollback: `docker exec -u 0 ${containerName} chown root:root ${dataDir}`,
+        },
+        {
+          command: `docker restart ${containerName}`,
+          description: 'Restart app to retry PID file write',
+          risk: 'write',
+          rollback: `docker stop ${containerName}`,
+        },
+        {
+          command: `docker logs ${containerName} --tail 5`,
+          description: 'Verify app started successfully after fix',
+          risk: 'read',
+          rollback: 'N/A',
+        },
+      ],
+    };
+
+    // 6. Create temp directory for session storage
+    tmpDir = mkdtempSync(join(tmpdir(), 'infrabrain-e2e-permission-trap-remix-'));
     testSessionId = uuidv7();
     sessionDir = join(tmpDir, 'sessions', testSessionId);
     mkdirSync(sessionDir, { recursive: true });
     mkdirSync(join(tmpDir, 'locks'), { recursive: true });
 
-    // 4. Initialize SQLite + WriteThrough store
+    // 7. Initialize SQLite + WriteThrough store
     const db = initDatabase(join(tmpDir, 'infrabrain.db'));
     // Insert a session row so audit_log FK doesn't fail
     db.prepare('INSERT INTO sessions (id, state, updated_at) VALUES (?, ?, ?)').run(
@@ -146,21 +171,21 @@ describe('POC: Linux Filesystem Permission Trap End-to-End', { timeout: 120_000 
     );
     store = new WriteThrough(db);
 
-    // 5. Create mock LLM provider with permission-focused diagnostic reasoning
+    // 8. Create mock LLM provider with permission-focused diagnostic reasoning
     const mockProvider = createMockLLMProvider([
       'Diagnostic Ladder Investigation:',
       '',
-      'Step 0 - Container Discovery: Found permission-app container in running state. Logs show Permission Denied error.',
-      'Step 1 - Log Analysis: FATAL: Permission denied writing to /app/data/status.pid. App cannot write PID file.',
-      'Step 2 - Permission Inspection: ls -ld /app/data shows drwx------ root root. Directory is mode 700, owned by root:root.',
+      `Step 0 - Container Discovery: Found ${containerName} container in running state. Logs show Permission Denied error.`,
+      `Step 1 - Log Analysis: FATAL: Permission denied writing to ${dataDir}/status.pid. App cannot write PID file.`,
+      `Step 2 - Permission Inspection: ls -ld ${dataDir} shows drwx------ root root. Directory is mode 700, owned by root:root.`,
       'Step 3 - User Identity Check: id shows uid=1000. App runs as UID 1000 but directory owned by root with 700 permissions.',
-      'Step 4 - Correlation: Owner mismatch -- directory owned by root:root (mode 700 = rwx------), process runs as UID 1000. Non-root user cannot read, write, or enter the directory.',
+      `Step 4 - Correlation: Owner mismatch -- directory owned by root:root (mode 700 = rwx------), process runs as UID 1000. Non-root user cannot read, write, or enter the directory.`,
       '',
-      'Root Cause: /app/data directory owned by root:root with mode 700. App runs as UID 1000 and cannot access the directory.',
-      'Fix: chown 1000:1000 /app/data to transfer ownership to app user, then restart container.',
+      `Root Cause: ${dataDir} directory owned by root:root with mode 700. App runs as UID 1000 and cannot access the directory.`,
+      `Fix: chown 1000:1000 ${dataDir} to transfer ownership to app user, then restart container.`,
     ].join('\n'));
 
-    // 6. Set up mocks for skill selection and fix plan generation
+    // 9. Set up mocks for skill selection and fix plan generation
     const registry = new SkillRegistry();
     registry.populate(join(PROJECT_ROOT, 'skills'));
 
@@ -174,13 +199,13 @@ describe('POC: Linux Filesystem Permission Trap End-to-End', { timeout: 120_000 
 
     vi.mocked(generateFixPlan).mockResolvedValue(cannedFixPlan);
 
-    // 7. Create audit logger
+    // 10. Create audit logger
     const auditLogger = new AuditLogger(store, testSessionId, sessionDir);
 
-    // 8. Build config with defaults
+    // 11. Build config with defaults
     const config = InfraBrainConfigSchema.parse({});
 
-    // 9. Build server deps and create Express app
+    // 12. Build server deps and create Express app
     app = createServer({
       provider: mockProvider,
       auditLogger,
@@ -196,9 +221,9 @@ describe('POC: Linux Filesystem Permission Trap End-to-End', { timeout: 120_000 
   }, 120_000);
 
   afterAll(() => {
-    // Tear down Docker environment
+    // Tear down remix Docker environment
     try {
-      execSync('docker compose -f demo/permission-trap/docker-compose.yml down --remove-orphans', {
+      execSync('docker compose -f demo/permission-trap/docker-compose.remix.yml down --remove-orphans', {
         cwd: PROJECT_ROOT,
         timeout: 30_000,
         stdio: 'pipe',
@@ -218,27 +243,27 @@ describe('POC: Linux Filesystem Permission Trap End-to-End', { timeout: 120_000 
   it('broken environment shows permission denied and running container', () => {
     // Verify container is running (stays alive via sleep loop)
     const status = execSync(
-      "docker inspect --format '{{.State.Status}}' permission-app",
+      `docker inspect --format '{{.State.Status}}' ${containerName}`,
       { timeout: 10_000, stdio: 'pipe' },
     ).toString().trim();
     expect(status).toBe('running');
 
     // Verify logs contain Permission denied
-    const logs = execSync('docker logs permission-app 2>&1', {
+    const logs = execSync(`docker logs ${containerName} 2>&1`, {
       timeout: 10_000,
       stdio: 'pipe',
     }).toString();
     expect(logs).toContain('Permission denied');
 
     // Verify directory ownership is root
-    const lsOutput = execSync('docker exec permission-app ls -ld /app/data', {
+    const lsOutput = execSync(`docker exec ${containerName} ls -ld ${dataDir}`, {
       timeout: 10_000,
       stdio: 'pipe',
     }).toString();
     expect(lsOutput).toContain('root');
 
     // Verify user identity is UID 1000
-    const idOutput = execSync('docker exec permission-app id', {
+    const idOutput = execSync(`docker exec ${containerName} id`, {
       timeout: 10_000,
       stdio: 'pipe',
     }).toString();
@@ -248,7 +273,7 @@ describe('POC: Linux Filesystem Permission Trap End-to-End', { timeout: 120_000 
   it('diagnoses permission mismatch and generates fix plan', async () => {
     const res = await request(app)
       .post('/debug')
-      .send({ prompt: 'Container permission-app has Permission Denied errors writing to /app/data' });
+      .send({ prompt: `Container ${containerName} has Permission Denied errors writing to ${dataDir}` });
 
     expect(res.status).toBe(200);
     expect(res.body.diagnosis).toBeDefined();
@@ -286,7 +311,7 @@ describe('POC: Linux Filesystem Permission Trap End-to-End', { timeout: 120_000 
     // Poll logs for recovery signal (max 15 attempts, 2s apart)
     let recovered = false;
     for (let attempt = 0; attempt < 15; attempt++) {
-      const logs = execSync('docker logs permission-app --tail 20 2>&1', {
+      const logs = execSync(`docker logs ${containerName} --tail 20 2>&1`, {
         timeout: 10_000,
         stdio: 'pipe',
       }).toString();
@@ -299,7 +324,7 @@ describe('POC: Linux Filesystem Permission Trap End-to-End', { timeout: 120_000 
     expect(recovered).toBe(true);
 
     // Verify recovery: logs show PID written successfully
-    const logs = execSync('docker logs permission-app --tail 20 2>&1', {
+    const logs = execSync(`docker logs ${containerName} --tail 20 2>&1`, {
       timeout: 10_000,
       stdio: 'pipe',
     }).toString();
