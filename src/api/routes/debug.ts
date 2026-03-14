@@ -16,7 +16,7 @@ import { StructuredDiagnosisSchema, type StructuredDiagnosis } from '../../orche
 import { extractTarget } from '../../cli/approval.js';
 import { v7 as uuidv7 } from 'uuid';
 import { runCommand, parseCommand, findDbContainer } from '../../execution/runner.js';
-import { dynamicRewrite } from '../../execution/dynamic-rewriter.js';
+import { dynamicRewrite, toolsToRewriteRules } from '../../execution/dynamic-rewriter.js';
 import { encodeForLLM, measureSavings } from '../../llm/toon-encoder.js';
 import { parseLog } from '../../log-analysis/parsers/index.js';
 import { preFilterLogs, formatForLLM } from '../../log-analysis/filter.js';
@@ -394,7 +394,12 @@ export function createDebugRoute(
 
           // Extract containers and rewrite rules BEFORE diagnosis so both paths can use them
           const allContainers = extractContainerNames(discoveryRaw);
-          const rewriteRules = selection.skill.frontmatter.rewrite_rules ?? [];
+          // Derive rewrite rules: new map-format skills use toolsToRewriteRules(),
+          // legacy string[] skills fall back to explicit rewrite_rules
+          const tools = selection.skill.frontmatter.tools;
+          const rewriteRules = Array.isArray(tools)
+            ? (selection.skill.frontmatter.rewrite_rules ?? [])
+            : toolsToRewriteRules(tools);
 
           // For DB skills, prioritize the DB container at the front of the list
           const dbContainer = findDbContainer(allContainers);

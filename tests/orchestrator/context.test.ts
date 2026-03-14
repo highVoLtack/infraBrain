@@ -88,4 +88,38 @@ describe('buildMessages (TOON encoding)', () => {
     expect(result.system).toContain('You are the planning skill.');
     expect(result.system).toContain('MANDATORY EXECUTION PROTOCOL');
   });
+
+  it('injects YOUR TOOLS section for map-format tools', () => {
+    const skill: SkillFile = {
+      frontmatter: {
+        name: 'linux-expert',
+        description: 'Linux filesystem expert for troubleshooting',
+        triggers: ['permission', 'disk'],
+        tools: {
+          ls: { risk: 'read', container: 'auto' },
+          chown: { risk: 'write', user: '0', container: 'auto' },
+        },
+        priority: 0,
+      },
+      sections: { systemPrompt: 'You are the linux expert.' },
+      rawContent: '',
+      filePath: 'skills/linux-expert.md',
+    };
+
+    const result = buildMessages(skill, 'permission denied on /app/data');
+
+    expect(result.system).toContain('## YOUR TOOLS');
+    expect(result.system).toContain('`ls` (read)');
+    expect(result.system).toContain('`chown` (write) runs as uid 0');
+    expect(result.system).toContain('Do NOT use any tool not listed here');
+  });
+
+  it('does NOT inject tool list for legacy string[] tools (backward compat)', () => {
+    const skill = makeSkill('planning', 'Fix plan decomposition');
+    // makeSkill uses tools: [] (legacy format)
+
+    const result = buildMessages(skill, 'test');
+
+    expect(result.system).not.toContain('YOUR TOOLS');
+  });
 });

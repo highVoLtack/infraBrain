@@ -1,4 +1,5 @@
 import type { SkillFile } from '../skills/types.js';
+import type { ToolDeclaration } from '../skills/types.js';
 import { encodeForLLM, measureSavings } from '../llm/toon-encoder.js';
 
 const DEV_MODE = process.env.NODE_ENV !== 'production';
@@ -17,6 +18,31 @@ If you provide a Fix Plan with non-existent IDs or names, the system will halt a
 NEVER generate hypothetical examples, sample output, or "assume the following" language.
 Every value you reference (container names, IPs, PIDs, ports, file paths) MUST come from actual command output or the Discovery context provided to you.
 `.trim();
+
+/**
+ * Generate a tool list section from a tool map for LLM system prompt injection.
+ * Lists each tool with its risk level and optional user privilege info.
+ */
+export function generateToolList(tools: Record<string, ToolDeclaration>): string {
+  const entries = Object.entries(tools);
+  if (entries.length === 0) return '';
+
+  const lines = entries.map(([name, decl]) => {
+    let line = `- \`${name}\` (${decl.risk})`;
+    if (decl.user) {
+      line += ` runs as uid ${decl.user}`;
+    }
+    return line;
+  });
+
+  return [
+    '## YOUR TOOLS',
+    'You have access to EXACTLY these tools:',
+    ...lines,
+    '',
+    'Do NOT use any tool not listed here. If you need a tool not listed, state what you need and STOP.',
+  ].join('\n');
+}
 
 export interface SkillMessages {
   system: string;
@@ -57,7 +83,13 @@ export function buildMessages(skill: SkillFile, userInput: string): SkillMessage
     : 'No additional context available.';
 
   // Prepend mandatory execution protocol to skill's system prompt
-  const system = `${MANDATORY_EXECUTION_PROTOCOL}\n\n${skill.sections.systemPrompt}`;
+  let system = `${MANDATORY_EXECUTION_PROTOCOL}\n\n${skill.sections.systemPrompt}`;
+
+  // Auto-inject YOUR TOOLS section for new map-format skills
+  const tools = skill.frontmatter.tools;
+  if (!Array.isArray(tools) && Object.keys(tools).length > 0) {
+    system += `\n\n${generateToolList(tools)}`;
+  }
 
   return {
     system,
