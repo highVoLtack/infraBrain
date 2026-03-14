@@ -4,6 +4,7 @@ import type { LLMProvider } from '../../llm/types.js';
 import type { AuditLogger } from '../../audit/logger.js';
 import type { ValidationResult } from '../../safety/types.js';
 import type { SkillRegistry } from '../../skills/registry.js';
+import type { SkillFile } from '../../skills/types.js';
 import type { WriteThrough } from '../../state/store.js';
 import type { InfraBrainConfig } from '../../config/types.js';
 import { selectSkill } from '../../orchestrator/router.js';
@@ -126,72 +127,11 @@ export function preFilterIfLogHeavy(prompt: string): { filtered: string; wasFilt
 }
 
 /**
- * Discovery commands that the orchestrator runs automatically before LLM diagnosis.
- * These provide ground truth so the LLM doesn't hallucinate container/network names.
- */
-const DISCOVERY_COMMANDS: Record<string, { command: string; label: string }[]> = {
-  'nginx-troubleshoot': [
-    { command: 'docker ps --format "{{.Names}}"', label: 'Running containers' },
-    { command: 'docker network ls --format "{{.Name}}"', label: 'Docker networks' },
-  ],
-  'postgres-troubleshoot': [
-    { command: 'docker ps --format "{{.Names}}"', label: 'Running containers' },
-    {
-      command: 'docker network inspect postgres_pgnet --format "{{range .Containers}}{{.Name}}:{{.IPv4Address}} {{end}}"',
-      label: 'Container IP mapping',
-    },
-    {
-      command: 'docker exec postgres-demo psql -U postgres -t -c "SELECT count(*) AS active FROM pg_stat_activity"',
-      label: 'Active connection count',
-    },
-    {
-      command: 'docker exec postgres-demo psql -U postgres -t -c "SHOW max_connections"',
-      label: 'Max connections setting',
-    },
-    {
-      command: 'docker exec postgres-demo psql -U postgres -t -A -c "SELECT pid, state, client_addr, usename, query, state_change FROM pg_stat_activity WHERE state = \'idle\' ORDER BY state_change"',
-      label: 'Idle connections detail',
-    },
-  ],
-  'docker-storage': [
-    { command: 'docker ps --format "{{.Names}}"', label: 'Running containers' },
-    {
-      command: 'docker network inspect docker-storage_default --format "{{range .Containers}}{{.Name}}:{{.IPv4Address}} {{end}}"',
-      label: 'Container IP mapping',
-    },
-    {
-      command: 'docker exec storage-logger df -h /shared',
-      label: 'Shared volume capacity (logger view)',
-    },
-    {
-      command: 'docker exec storage-logger du -sh /shared/*',
-      label: 'Shared volume ownership breakdown',
-    },
-    {
-      command: 'docker system df',
-      label: 'Docker system storage overview',
-    },
-  ],
-  'linux-filesystem-troubleshoot': [
-    { command: 'docker ps -a --format "{{.Names}} {{.Status}}"', label: 'All containers with status' },
-    { command: 'docker logs permission-app --tail 50', label: 'App crash logs' },
-    {
-      command: 'docker exec permission-app ls -ld /app/data',
-      label: 'Target directory permissions',
-    },
-    {
-      command: 'docker exec permission-app id',
-      label: 'App user identity',
-    },
-  ],
-};
-
-/**
  * Run discovery commands and return TOON-encoded context string.
  * These are READ-only commands run before the LLM to prevent hallucination.
  */
-async function runDiscovery(skillName: string): Promise<{ context: string; raw: Record<string, string> }> {
-  const commands = DISCOVERY_COMMANDS[skillName];
+async function runDiscovery(skill: SkillFile): Promise<{ context: string; raw: Record<string, string> }> {
+  const commands = skill.frontmatter.discovery;
   if (!commands || commands.length === 0) return { context: '', raw: {} };
 
   const results: Record<string, string> = {};
@@ -419,7 +359,7 @@ export function createDebugRoute(
           }
 
           // Run discovery commands to get ground truth BEFORE LLM call
-          const { context: discoveryContext, raw: discoveryRaw } = await runDiscovery(selection.skill.frontmatter.name);
+          const { context: discoveryContext, raw: discoveryRaw } = await runDiscovery(selection.skill);
 
           if (discoveryContext) {
             auditLogger.logExecution('discovery_complete', {
