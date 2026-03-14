@@ -122,6 +122,12 @@ Plans:
 
 **Goal:** Complete the Agnostic Engine transition by making skills truly domain-generic: no hardcoded container names, no docker exec in prompts or examples. Skills describe WHAT to diagnose and fix using bare commands — the engine handles WHERE (container targeting) and HOW (privilege escalation, wrapping). The rewriter becomes docker-exec-aware to handle LLM outputs that still include docker exec as belt-and-suspenders.
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 12.3-01-PLAN.md — Docker-exec-aware rewriter (TDD: parseDockerExec + dynamicRewrite fix)
+- [ ] 12.3-02-PLAN.md — COMMAND-ONLY skill prompts + E2E regression verification
+
 **Scope:**
 1. Rewriter: Parse pre-wrapped `docker exec` commands, extract inner command, apply rewrite rules, reassemble with injected flags (-u 0)
 2. Skill prompts: All 4 skills refactored to COMMAND-ONLY mode — no docker exec in system prompts, examples use bare commands with `{container}` placeholder only in discovery
@@ -148,8 +154,8 @@ Plans:
 | 12 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.1 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.2 | v1.2 | 2/2 | Complete | 2026-03-14 |
-| 12.3 | v1.2 | 0/? | Not planned | — |
+| 12.3 | v1.2 | 0/2 | In progress | — |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-14 — Phase 12.3 inserted (Engine-Proof Rewriter)*
+*Last updated: 2026-03-14 — Phase 12.3 planned (2 plans in 2 waves)*
