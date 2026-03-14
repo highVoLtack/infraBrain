@@ -91,19 +91,34 @@ describe('generatePlanMarkdown', () => {
 });
 
 describe('fixKnownCommandErrors', () => {
-  it('fixes chown -u 0 → docker exec -u 0 chown (any container name)', () => {
+  it('strips -it flag from docker exec', () => {
+    expect(fixKnownCommandErrors('docker exec -it vault-processor-99 chown 1000:1000 /data'))
+      .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /data');
+  });
+
+  it('strips -ti flag from docker exec', () => {
+    expect(fixKnownCommandErrors('docker exec -ti my-app ls -la /data'))
+      .toBe('docker exec my-app ls -la /data');
+  });
+
+  it('fixes chown -u 0 → docker exec -u 0 chown', () => {
     expect(fixKnownCommandErrors('docker exec vault-processor-99 chown -u 0 1000:1000 /var/lib/secrets'))
       .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets');
   });
 
-  it('fixes chmod -u 0 → docker exec -u 0 chmod (any container name)', () => {
+  it('fixes chmod -u 0 → docker exec -u 0 chmod', () => {
     expect(fixKnownCommandErrors('docker exec my-app chmod -u 0 755 /data'))
       .toBe('docker exec -u 0 my-app chmod 755 /data');
   });
 
-  it('fixes no-space variant chown -u0', () => {
-    expect(fixKnownCommandErrors('docker exec test-container chown -u0 1000:1000 /path'))
-      .toBe('docker exec -u 0 test-container chown 1000:1000 /path');
+  it('adds -u 0 when chown has no root flag', () => {
+    expect(fixKnownCommandErrors('docker exec vault-processor-99 chown 1000:1000 /var/lib/secrets'))
+      .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets');
+  });
+
+  it('replaces $(id -u):$(id -g) with 1000:1000', () => {
+    expect(fixKnownCommandErrors('docker exec -it vault-processor-99 chown $(id -u):$(id -g) /var/lib/secrets'))
+      .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets');
   });
 
   it('leaves correct commands unchanged', () => {

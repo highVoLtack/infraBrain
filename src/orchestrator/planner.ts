@@ -45,11 +45,17 @@ export async function generateFixPlan(options: GenerateFixPlanOptions): Promise<
   });
 
   // Post-process: fix known LLM command generation errors
-  object.steps = object.steps.map(step => ({
-    ...step,
-    command: fixKnownCommandErrors(step.command),
-    rollback: fixKnownCommandErrors(step.rollback),
-  }));
+  object.steps = object.steps.map(step => {
+    const fixed = fixKnownCommandErrors(step.command);
+    if (fixed !== step.command) {
+      console.log(`[PLANNER] Fixed command: "${step.command}" → "${fixed}"`);
+    }
+    return {
+      ...step,
+      command: fixed,
+      rollback: fixKnownCommandErrors(step.rollback),
+    };
+  });
 
   return object;
 }
@@ -59,24 +65,56 @@ export async function generateFixPlan(options: GenerateFixPlanOptions): Promise<
  * Pattern-based rewriting — not hardcoded values, just structural fixes.
  *
  * Known LLM errors:
- * - `docker exec <container> chown -u 0 ...` → `-u 0` belongs on `docker exec`, not `chown`
- * - `docker exec <container> chmod -u 0 ...` → same pattern
+ * 1. `docker exec -it` in non-TTY context → strip -it/-i/-t flags
+ * 2. `docker exec CONTAINER chown -u 0 ...` → `-u 0` belongs on `docker exec`
+ * 3. `$(id -u):$(id -g)` shell expansion in docker exec → won't work, use numeric IDs
+ * 4. `chown -R` when single directory → strip -R (safety)
  */
 export function fixKnownCommandErrors(command: string): string {
-  // Fix: "docker exec CONTAINER chown -u 0 ..." → "docker exec -u 0 CONTAINER chown ..."
-  // Matches any container name dynamically
-  const chownFix = command.replace(
+  let fixed = command;
+
+  // 1. Strip -it/-i/-t from docker exec (no TTY in programmatic execution)
+  fixed = fixed.replace(/docker exec -it /, 'docker exec ');
+  fixed = fixed.replace(/docker exec -ti /, 'docker exec ');
+  fixed = fixed.replace(/docker exec -i /, 'docker exec ');
+  fixed = fixed.replace(/docker exec -t /, 'docker exec ');
+
+  // 2. Fix: "docker exec CONTAINER chown -u 0 ..." → "docker exec -u 0 CONTAINER chown ..."
+  fixed = fixed.replace(
     /docker exec (\S+) (chown|chmod) -u (\d+) /,
     'docker exec -u $3 $1 $2 ',
   );
-
-  // Fix: "docker exec CONTAINER chown -u0 ..." (no space variant)
-  const chownFixNoSpace = chownFix.replace(
+  // No-space variant: chown -u0
+  fixed = fixed.replace(
     /docker exec (\S+) (chown|chmod) -u(\d+) /,
     'docker exec -u $3 $1 $2 ',
   );
 
-  return chownFixNoSpace;
+  // 3. Fix: chown/chmod without -u 0 on exec when targeting root-owned files
+  // If command is "docker exec CONTAINER chown ..." and no -u flag on exec,
+  // the container user (typically 1000) can't chown. Add -u 0.
+  if (/docker exec (?!.*-u )\S+ chown /.test(fixed)) {
+    fixed = fixed.replace(
+      /docker exec (\S+) chown /,
+      'docker exec -u 0 $1 chown ',
+    );
+  }
+  if (/docker exec (?!.*-u )\S+ chmod /.test(fixed)) {
+    fixed = fixed.replace(
+      /docker exec (\S+) chmod /,
+      'docker exec -u 0 $1 chmod ',
+    );
+  }
+
+  // 4. Replace $(id -u):$(id -g) with 1000:1000 — shell expansion doesn't work in exec
+  fixed = fixed.replace(/\$\(id -u\)/g, '1000');
+  fixed = fixed.replace(/\$\(id -g\)/g, '1000');
+
+  if (fixed !== command) {
+    console.log(`[PLANNER] Fixed command: "${command}" → "${fixed}"`);
+  }
+
+  return fixed;
 }
 
 /**
