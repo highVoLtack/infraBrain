@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { generateFixPlan, generatePlanMarkdown, formatPlanTable } from '../../src/orchestrator/planner.js';
+import { generateFixPlan, generatePlanMarkdown, formatPlanTable, fixKnownCommandErrors } from '../../src/orchestrator/planner.js';
 import type { SkillFile } from '../../src/skills/types.js';
 import type { LanguageModel } from 'ai';
 import type { FixPlan } from '../../src/orchestrator/types.js';
@@ -87,6 +87,32 @@ describe('generatePlanMarkdown', () => {
     expect(md).toContain('read');
     expect(md).toContain('write');
     expect(md).toContain(samplePlan.summary);
+  });
+});
+
+describe('fixKnownCommandErrors', () => {
+  it('fixes chown -u 0 → docker exec -u 0 chown (any container name)', () => {
+    expect(fixKnownCommandErrors('docker exec vault-processor-99 chown -u 0 1000:1000 /var/lib/secrets'))
+      .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets');
+  });
+
+  it('fixes chmod -u 0 → docker exec -u 0 chmod (any container name)', () => {
+    expect(fixKnownCommandErrors('docker exec my-app chmod -u 0 755 /data'))
+      .toBe('docker exec -u 0 my-app chmod 755 /data');
+  });
+
+  it('fixes no-space variant chown -u0', () => {
+    expect(fixKnownCommandErrors('docker exec test-container chown -u0 1000:1000 /path'))
+      .toBe('docker exec -u 0 test-container chown 1000:1000 /path');
+  });
+
+  it('leaves correct commands unchanged', () => {
+    expect(fixKnownCommandErrors('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets'))
+      .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets');
+  });
+
+  it('leaves non-docker commands unchanged', () => {
+    expect(fixKnownCommandErrors('ls -la /var/log')).toBe('ls -la /var/log');
   });
 });
 

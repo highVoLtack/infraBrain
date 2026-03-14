@@ -44,7 +44,39 @@ export async function generateFixPlan(options: GenerateFixPlanOptions): Promise<
     messages: allMessages.map((m) => ({ role: m.role, content: m.content })),
   });
 
+  // Post-process: fix known LLM command generation errors
+  object.steps = object.steps.map(step => ({
+    ...step,
+    command: fixKnownCommandErrors(step.command),
+    rollback: fixKnownCommandErrors(step.rollback),
+  }));
+
   return object;
+}
+
+/**
+ * Fix known command syntax errors that local LLMs consistently produce.
+ * Pattern-based rewriting — not hardcoded values, just structural fixes.
+ *
+ * Known LLM errors:
+ * - `docker exec <container> chown -u 0 ...` → `-u 0` belongs on `docker exec`, not `chown`
+ * - `docker exec <container> chmod -u 0 ...` → same pattern
+ */
+export function fixKnownCommandErrors(command: string): string {
+  // Fix: "docker exec CONTAINER chown -u 0 ..." → "docker exec -u 0 CONTAINER chown ..."
+  // Matches any container name dynamically
+  const chownFix = command.replace(
+    /docker exec (\S+) (chown|chmod) -u (\d+) /,
+    'docker exec -u $3 $1 $2 ',
+  );
+
+  // Fix: "docker exec CONTAINER chown -u0 ..." (no space variant)
+  const chownFixNoSpace = chownFix.replace(
+    /docker exec (\S+) (chown|chmod) -u(\d+) /,
+    'docker exec -u $3 $1 $2 ',
+  );
+
+  return chownFixNoSpace;
 }
 
 /**
