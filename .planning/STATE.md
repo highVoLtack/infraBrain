@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: executing
-stopped_at: Completed 12.5-01-PLAN.md
-last_updated: "2026-03-14T14:21:38.363Z"
-last_activity: 2026-03-14 -- Plan 12.5-01 complete (schema extended with negative_triggers/when_not_to_use, enriched registry.list(), all 6 skills updated)
+stopped_at: Completed 12.5-02-PLAN.md
+last_updated: "2026-03-14T14:28:37.000Z"
+last_activity: 2026-03-14 -- Plan 12.5-02 complete (two-tier routing with preFilterSkills, ROUTING_CONSTITUTION, DPEV enforcement, 523 tests)
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 12.5-intelligent-routing-and-framework-merge
-Plan: 01 of 3 complete
+Plan: 02 of 3 complete
 Status: In Progress
-Last activity: 2026-03-14 -- Plan 12.5-01 complete (schema extended with negative_triggers/when_not_to_use, enriched registry.list(), all 6 skills updated)
+Last activity: 2026-03-14 -- Plan 12.5-02 complete (two-tier routing with preFilterSkills, ROUTING_CONSTITUTION, DPEV enforcement, 523 tests)
 
 ## Accumulated Context
 
@@ -147,6 +147,16 @@ Last activity: 2026-03-14 -- Plan 12.5-01 complete (schema extended with negativ
 - All 6 skills have negative_triggers and when_not_to_use in frontmatter
 - 512 tests passing, 2 pre-existing nginx E2E failures, 4 skipped
 
+### From Phase 12.5-02
+- preFilterSkills() Level 0 pre-filter: positive trigger match + negative trigger exclusion
+- Two-tier routing in selectSkill(): pre-filter narrows candidates, LLM resolves ambiguity
+- Single-candidate shortcut skips LLM call entirely (deterministic for clear prompts)
+- ROUTING_CONSTITUTION with Negative Selection protocol exported from context.ts
+- buildRoutingPrompt() accepts EnrichedSkillSummary[] with triggers/when_not_to_use/priority
+- enforceDPEVSequence() validates DPEV ordering at phase transitions in debug route
+- Debug route tracks completedPhases array (discovery -> diagnosis -> plan)
+- 523 tests passing, 2 pre-existing nginx E2E failures, 4 skipped
+
 ## Decisions
 
 - Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
@@ -191,8 +201,14 @@ Last activity: 2026-03-14 -- Plan 12.5-01 complete (schema extended with negativ
 - [Phase 12.5-01]: registry.list() return type is breaking change -- Plan 02 updates callers
 - [Phase 12.5]: negative_triggers and when_not_to_use use .default([]) for backwards compatibility
 
+- [Phase 12.5-02]: preFilterSkills returns ALL skills on empty result (safety net for unrecognized queries)
+- [Phase 12.5-02]: Single-candidate shortcut skips LLM entirely for deterministic routing
+- [Phase 12.5-02]: negative_triggers are Level 0 only -- never sent to LLM (when_not_to_use goes to LLM via routing prompt)
+- [Phase 12.5-02]: DPEV enforcement is additive -- validates at transitions but doesn't restructure handler
+- [Phase 12.5-02]: Discovery auto-completes after runDiscovery returns (whether commands exist or not)
+
 ## Session Continuity
 
-Last session: 2026-03-14T14:21:34.429Z
-Stopped at: Completed 12.5-01-PLAN.md
-Next: Plan 12.5-02 -- pre-filter logic using enriched skill summaries
+Last session: 2026-03-14T14:28:37.000Z
+Stopped at: Completed 12.5-02-PLAN.md
+Next: Plan 12.5-03 -- integration testing and wiring validation
