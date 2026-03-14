@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: active
-last_updated: "2026-03-14T08:15:36Z"
-last_activity: 2026-03-14 -- Phase 12 Plan 01 complete (permission trap demo)
+last_updated: "2026-03-14T08:16:52Z"
+last_activity: 2026-03-14 -- Phase 12 Plan 02 complete (diagnostic skill + safety rules)
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 12-linux-filesystem-permission-trap
-Plan: 01 complete, next 02
+Plan: 02 complete, next 03
 Status: Executing phase 12
-Last activity: 2026-03-14 — Plan 12-01 complete (permission trap demo environment)
+Last activity: 2026-03-14 — Plan 12-02 complete (diagnostic skill + safety rules)
 
 ## Accumulated Context
 
@@ -53,8 +53,19 @@ Last activity: 2026-03-14 — Plan 12-01 complete (permission trap demo environm
 - Container stays alive after PermissionError via sleep loop for docker exec diagnostics
 - Single-service compose, no ports/volumes -- all state inside container
 
+### From Phase 12-02
+- linux-filesystem-troubleshoot skill with 4-step Diagnostic Ladder (permission correlation)
+- 4 discovery commands registered for ground truth injection (docker ps -a, logs, ls -ld, id)
+- Safety rules: id/stat=READ, chown/chmod/docker-exec=WRITE
+- Preferred fix pattern: chown over chmod 777
+
+## Decisions
+
+- Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
+- Followed existing skill structure (docker-storage.md pattern) for consistency
+
 ## Session Continuity
 
 Last session: 2026-03-14
-Status: Phase 12 Plan 01 complete
-Next: Execute Plan 12-02 (diagnostic skill and discovery commands)
+Status: Phase 12 Plan 02 complete
+Next: Execute Plan 12-03 (E2E integration test)
