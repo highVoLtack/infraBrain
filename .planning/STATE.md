@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
-status: completed
-stopped_at: Completed 12.5-03-PLAN.md
-last_updated: "2026-03-14T14:45:18.638Z"
-last_activity: 2026-03-14 -- Plan 12.5-03 complete (agnosticism proof with vault-processor-99 remix, dynamic E2E test, 523 tests)
+status: executing
+stopped_at: Completed 12.6-01-PLAN.md
+last_updated: "2026-03-14T17:51:47.452Z"
+last_activity: 2026-03-14 -- Plan 12.6-01 complete (self-healing executor module with LLM correction loop, 22 tests, 560 total)
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 19
+  completed_plans: 17
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 
 ## Current Position
 
-Phase: 12.5-intelligent-routing-and-framework-merge
-Plan: 03 of 3 complete
-Status: Phase Complete
-Last activity: 2026-03-14 -- Plan 12.5-03 complete (agnosticism proof with vault-processor-99 remix, dynamic E2E test, 523 tests)
+Phase: 12.6-self-healing-executor
+Plan: 01 of 3 complete
+Status: Executing
+Last activity: 2026-03-14 -- Plan 12.6-01 complete (self-healing executor module with LLM correction loop, 22 tests, 560 total)
 
 ## Accumulated Context
 
@@ -231,8 +231,27 @@ Last activity: 2026-03-14 -- Plan 12.5-03 complete (agnosticism proof with vault
 - Next: Merge Superpowers + GSD patterns into self-healing executor architecture
 - 538 tests passing (2 pre-existing nginx E2E failures)
 
+### From Phase 12.6-01
+- selfHealStep() correction loop: on failure, asks LLM for corrected command, validates through full safety pipeline, retries up to 3 times
+- buildCorrectionPrompt: fresh each time (no previous attempts), includes stderr, exit code, step description, tools
+- extractCommandFromLLMResponse: strips markdown fences, prose prefixes, short lines
+- validateCorrectedCommand: enforceSkillAllowlist + validateCommand + dynamicRewrite pipeline
+- verifyEffect: for WRITE/DESTRUCTIVE-risk steps, LLM generates read-only verification command after exit 0
+- Fail-open verification: bad verification commands skip rather than block successful fixes
+- CorrectionAttempt, SelfHealResult, SelfHealContext types in execution/types.ts
+- selfHealing config section: maxAttempts=3, correctionTimeoutMs=15000
+- self_heal_attempt and self_heal_exhausted audit event types
+- 22 new tests, 560 total passing (2 pre-existing nginx E2E failures)
+
+## Decisions
+
+- [Phase 12.6-01]: Fresh correction prompt per attempt (no previous attempt history) per user decision
+- [Phase 12.6-01]: Fail-open verification: bad verification commands skip rather than block successful fixes
+- [Phase 12.6-01]: Effect verification only for WRITE and DESTRUCTIVE risk steps, not READ
+- [Phase 12.6-01]: Safety-blocked corrections count as attempts and deduct budget
+
 ## Session Continuity
 
-Last session: 2026-03-14T16:00:00Z
-Stopped at: Phase 12.5 verified + live testing complete, self-healing executor identified as next step
-Next: Self-healing executor phase using Superpowers/GSD patterns (local copies at superpowers-main/ and get-shit-done-main/)
+Last session: 2026-03-14T17:51:47.449Z
+Stopped at: Completed 12.6-01-PLAN.md
+Next: Phase 12.6 Plan 02 (executor integration -- wire selfHealStep into step execution loop)
