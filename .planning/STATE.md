@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: active
-last_updated: "2026-03-14T08:16:52Z"
-last_activity: 2026-03-14 -- Phase 12 Plan 02 complete (diagnostic skill + safety rules)
+last_updated: "2026-03-14T08:23:00Z"
+last_activity: 2026-03-14 -- Phase 12 Plan 03 complete (E2E integration test) -- Phase 12 COMPLETE
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 12-linux-filesystem-permission-trap
-Plan: 02 complete, next 03
-Status: Executing phase 12
-Last activity: 2026-03-14 — Plan 12-02 complete (diagnostic skill + safety rules)
+Plan: 03 complete -- Phase 12 COMPLETE (all 3 plans delivered)
+Status: Phase 12 complete
+Last activity: 2026-03-14 -- Plan 12-03 complete (E2E integration test)
 
 ## Accumulated Context
 
@@ -59,13 +59,21 @@ Last activity: 2026-03-14 — Plan 12-02 complete (diagnostic skill + safety rul
 - Safety rules: id/stat=READ, chown/chmod/docker-exec=WRITE
 - Preferred fix pattern: chown over chmod 777
 
+### From Phase 12-03
+- Full DPEV E2E test: 4 sequential tests covering broken state, diagnosis, fix execution, audit trail
+- Mocked LLM with Diagnostic Ladder reasoning for permission correlation
+- Fix uses chown 1000:1000 + restart (not chmod 777)
+- Recovery verified via log polling (container may exit after successful PID write)
+- No DB-specific logic -- pure OS-level troubleshooting proven
+
 ## Decisions
 
 - Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
 - Followed existing skill structure (docker-storage.md pattern) for consistency
+- Poll logs for recovery signal instead of docker exec after restart (container exits after success)
 
 ## Session Continuity
 
 Last session: 2026-03-14
-Status: Phase 12 Plan 02 complete
-Next: Execute Plan 12-03 (E2E integration test)
+Status: Phase 12 complete (all 3 plans delivered)
+Next: Next v1.2 phase (Qdrant + BGE-M3 knowledge layer)
