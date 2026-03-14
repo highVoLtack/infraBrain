@@ -68,9 +68,9 @@ Plans:
 **Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 12.1-01-PLAN.md — Dynamic rewriter pure function + Zod schema + TDD unit tests
-- [ ] 12.1-02-PLAN.md — Skill frontmatter schema extension + rewrite_rules migration for 3 skills
-- [ ] 12.1-03-PLAN.md — Wire dynamic rewriter into debug.ts, deprecate old rewriter, full suite green
+- [x] 12.1-01-PLAN.md — Dynamic rewriter pure function + Zod schema + TDD unit tests
+- [x] 12.1-02-PLAN.md — Skill frontmatter schema extension + rewrite_rules migration for 3 skills
+- [x] 12.1-03-PLAN.md — Wire dynamic rewriter into debug.ts, deprecate old rewriter, full suite green
 
 **Scope:**
 1. New `src/execution/dynamic-rewriter.ts` — reads rewrite rules from skill metadata, applies container wrapping + privilege escalation + command wrapping
@@ -90,6 +90,34 @@ Plans:
 **Dependencies:** Phase 12 (Permission Trap proved the need)
 **Requirements:** ENGN-03
 
+### Phase 12.2: Skill-Driven Discovery (INSERTED)
+
+**Goal:** Eliminate the hardcoded `DISCOVERY_COMMANDS` constant from debug.ts. Each skill declares its own discovery commands in frontmatter — the orchestrator reads them dynamically. Skills without discovery simply skip the discovery phase. This completes the Agnostic Engine transition: 100% of domain knowledge lives in Markdown skill files.
+
+**Plans:** 2 plans
+
+Plans:
+- [ ] 12.2-01-PLAN.md — Discovery schema + skill YAML migration (DiscoveryCommandSchema, 4 skills)
+- [ ] 12.2-02-PLAN.md — Orchestrator refactor + DISCOVERY_COMMANDS removal
+
+**Scope:**
+1. Add `discovery` field to `SkillFrontmatterSchema` — array of `{ command: string, label: string }`
+2. Refactor `runDiscovery` in debug.ts to read from `skill.frontmatter.discovery` instead of `DISCOVERY_COMMANDS`
+3. Migrate all 4 skills (nginx, postgres, docker-storage, linux-filesystem) — move discovery commands from debug.ts into skill YAML
+4. Remove `DISCOVERY_COMMANDS` constant entirely from debug.ts
+5. If a skill has no `discovery` section, orchestrator skips discovery (graceful fallback)
+6. All existing E2E tests must pass
+
+**Success criteria:**
+1. `DISCOVERY_COMMANDS` constant removed from debug.ts
+2. All 4 skills declare discovery commands in frontmatter
+3. Skills without discovery gracefully skip (no error)
+4. debug.ts loses ~100 lines of hardcoded domain knowledge
+5. Adding a new scenario requires zero TypeScript changes for discovery
+
+**Dependencies:** Phase 12.1 (Dynamic Rewriter pattern established)
+**Requirements:** ENGN-04
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
@@ -97,8 +125,9 @@ Plans:
 | 1-7 | v1.0 | 22/22 | Complete | 2026-03-12 |
 | 8-11 | v1.1 | 10/10 | Complete | 2026-03-13 |
 | 12 | v1.2 | 3/3 | Complete | 2026-03-14 |
-| 12.1 | 3/3 | Complete    | 2026-03-14 | — |
+| 12.1 | v1.2 | 3/3 | Complete | 2026-03-14 |
+| 12.2 | v1.2 | 0/2 | Planned | — |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-14 — Phase 12.1 planned (3 plans in 2 waves)*
+*Last updated: 2026-03-14 — Phase 12.2 planned (Skill-Driven Discovery)*
