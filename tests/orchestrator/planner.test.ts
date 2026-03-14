@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { generateFixPlan, generatePlanMarkdown, formatPlanTable, fixKnownCommandErrors } from '../../src/orchestrator/planner.js';
+import { generateFixPlan, generatePlanMarkdown, formatPlanTable } from '../../src/orchestrator/planner.js';
 import type { SkillFile } from '../../src/skills/types.js';
 import type { LanguageModel } from 'ai';
 import type { FixPlan } from '../../src/orchestrator/types.js';
@@ -90,49 +90,10 @@ describe('generatePlanMarkdown', () => {
   });
 });
 
-describe('fixKnownCommandErrors', () => {
-  it('strips -it flag from docker exec', () => {
-    expect(fixKnownCommandErrors('docker exec -it vault-processor-99 chown 1000:1000 /data'))
-      .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /data');
-  });
-
-  it('strips -ti flag from docker exec', () => {
-    expect(fixKnownCommandErrors('docker exec -ti my-app ls -la /data'))
-      .toBe('docker exec my-app ls -la /data');
-  });
-
-  it('fixes chown -u 0 → docker exec -u 0 chown', () => {
-    expect(fixKnownCommandErrors('docker exec vault-processor-99 chown -u 0 1000:1000 /var/lib/secrets'))
-      .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets');
-  });
-
-  it('fixes chmod -u 0 → docker exec -u 0 chmod', () => {
-    expect(fixKnownCommandErrors('docker exec my-app chmod -u 0 755 /data'))
-      .toBe('docker exec -u 0 my-app chmod 755 /data');
-  });
-
-  it('adds -u 0 when chown has no root flag', () => {
-    expect(fixKnownCommandErrors('docker exec vault-processor-99 chown 1000:1000 /var/lib/secrets'))
-      .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets');
-  });
-
-  it('replaces $(id -u):$(id -g) with 1000:1000', () => {
-    expect(fixKnownCommandErrors('docker exec -it vault-processor-99 chown $(id -u):$(id -g) /var/lib/secrets'))
-      .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets');
-  });
-
-  it('replaces $(docker exec CONTAINER id -u) nested shell expansion', () => {
-    expect(fixKnownCommandErrors('docker exec -u 0 vault-processor-99 chown $(docker exec vault-processor-99 id -u):$(docker exec vault-processor-99 id -g) /var/lib/internal/secrets/'))
-      .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/internal/secrets/');
-  });
-
-  it('leaves correct commands unchanged', () => {
-    expect(fixKnownCommandErrors('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets'))
-      .toBe('docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/secrets');
-  });
-
-  it('leaves non-docker commands unchanged', () => {
-    expect(fixKnownCommandErrors('ls -la /var/log')).toBe('ls -la /var/log');
+describe('fixKnownCommandErrors removal', () => {
+  it('fixKnownCommandErrors is not exported from planner', async () => {
+    const plannerExports = await import('../../src/orchestrator/planner.js');
+    expect((plannerExports as Record<string, unknown>).fixKnownCommandErrors).toBeUndefined();
   });
 });
 
