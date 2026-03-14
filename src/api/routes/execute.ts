@@ -3,11 +3,13 @@ import type { AuditLogger } from '../../audit/logger.js';
 import type { InfraBrainConfig } from '../../config/types.js';
 import type { RunResult } from '../../execution/types.js';
 import type { LLMProvider } from '../../llm/types.js';
+import type { SkillRegistry } from '../../skills/registry.js';
 import type { WriteThrough } from '../../state/store.js';
 import type { SessionState } from '../../state/types.js';
 import { FixPlanSchema } from '../../orchestrator/types.js';
 import { executePlan } from '../../execution/executor.js';
 import { runCommand, parseCommand } from '../../execution/runner.js';
+import { toolsToRewriteRules } from '../../execution/dynamic-rewriter.js';
 
 export interface ExecuteRouteDeps {
   auditLogger: AuditLogger;
@@ -16,6 +18,7 @@ export interface ExecuteRouteDeps {
   sessionDir: string;
   store?: WriteThrough;
   provider?: LLMProvider;
+  registry?: SkillRegistry;
 }
 
 /**
@@ -27,7 +30,7 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
 
   router.post('/', async (req, res, next) => {
     try {
-      const { sessionId, fixPlan, target, adminName } = req.body ?? {};
+      const { sessionId, fixPlan, target, adminName, skillName, containers: reqContainers } = req.body ?? {};
 
       // Validate input
       if (!sessionId || typeof sessionId !== 'string') {
@@ -79,6 +82,19 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
           }
         : undefined;
 
+      // Resolve self-healing deps: correctionModel, skill, rewriteRules, containers
+      // These enable the executor to self-heal command failures via LLM correction
+      const skill = skillName && deps.registry ? deps.registry.get(skillName) : undefined;
+      const correctionModel = deps.provider?.registry?.get?.('default') ?? undefined;
+      const containers: string[] = Array.isArray(reqContainers) ? reqContainers : [];
+      let rewriteRules: import('../../execution/dynamic-rewriter.js').RewriteRule[] = [];
+      if (skill) {
+        const tools = skill.frontmatter.tools;
+        rewriteRules = Array.isArray(tools)
+          ? (skill.frontmatter.rewrite_rules ?? [])
+          : toolsToRewriteRules(tools);
+      }
+
       // Execute the plan (auto-approve all in API mode since approval happened upstream)
       const result = await executePlan(planResult.data, target, {
         runner,
@@ -88,6 +104,13 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
         sessionId: deps.sessionId,
         sessionDir: deps.sessionDir,
         onBeforeStep,
+        // Self-healing deps (executor activates self-healing when correctionModel+skill present)
+        ...(correctionModel && skill ? {
+          correctionModel,
+          skill,
+          rewriteRules,
+          containers,
+        } : {}),
       });
 
       // Persist resume metadata on halt so /infra:resume can find this session

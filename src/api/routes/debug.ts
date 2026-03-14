@@ -603,7 +603,10 @@ export function createDebugRoute(
             ...(planMarkdown && { planMarkdown }),
             ...(planTable && { planTable }),
             ...(planTarget && { target: planTarget }),
-            ...(fixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName }' }),
+            // Self-healing context: skill name + containers for execute route to wire into executor
+            skillName: selection.skill.frontmatter.name,
+            ...(targetContainers.length > 0 && { containers: targetContainers }),
+            ...(fixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName, skillName, containers }' }),
             ...(incompleteSession && { incompleteSession }),
           });
           return;
