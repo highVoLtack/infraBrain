@@ -11,14 +11,14 @@ triggers:
   - diagnose
   - why
 tools:
-  - grep
-  - journalctl
-  - docker logs
-  - tail
-  - cat
-  - head
-  - zcat
-  - less
+  grep: { risk: read }
+  journalctl: { risk: read }
+  docker: { risk: read }
+  tail: { risk: read }
+  cat: { risk: read }
+  head: { risk: read }
+  zcat: { risk: read }
+  less: { risk: read }
 priority: 9
 ---
 

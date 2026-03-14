@@ -35,7 +35,7 @@ Write ONLY raw SQL queries. The engine wraps in docker exec + psql automatically
 Example of what you output in the `command` field:
 - CORRECT: `SELECT count(*) FROM pg_stat_activity`
 - CORRECT: `SHOW max_connections`
-- WRONG: `docker exec postgres-demo psql -U postgres -c "SELECT count(*) FROM pg_stat_activity"`
+- WRONG: `docker exec <container> psql -U postgres -c "SELECT count(*) FROM pg_stat_activity"`
 - WRONG: `psql -c "SHOW max_connections"`
 
 For non-SQL discovery steps (docker ps, docker network inspect), use the values from GROUND TRUTH directly. Do not generate docker commands -- the discovery is already done for you.
