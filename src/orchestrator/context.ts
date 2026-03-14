@@ -1,5 +1,6 @@
 import type { SkillFile } from '../skills/types.js';
 import type { ToolDeclaration } from '../skills/types.js';
+import type { EnrichedSkillSummary } from '../skills/registry.js';
 import { encodeForLLM, measureSavings } from '../llm/toon-encoder.js';
 
 const DEV_MODE = process.env.NODE_ENV !== 'production';
@@ -101,14 +102,38 @@ export function buildMessages(skill: SkillFile, userInput: string): SkillMessage
 }
 
 /**
+ * Routing constitution for LLM-based skill selection.
+ * Uses Negative Selection protocol: exclude first, then select.
+ */
+export const ROUTING_CONSTITUTION = `You are a skill router. Given a user query and available skills, select the most appropriate skill.
+
+ROUTING PROTOCOL (Negative Selection):
+1. First, EXCLUDE skills where the query matches any "When NOT to Use" reason
+2. Among remaining candidates, prefer skills with matching triggers
+3. Use priority as tie-breaker (higher = more specific domain expert)
+4. If unsure, prefer domain experts (priority 10) over utility skills (priority < 10)
+
+NEVER select a skill when the query clearly matches its "When NOT to Use" list.`;
+
+/**
  * Build a routing prompt listing all skill summaries for LLM-based selection.
+ * Accepts enriched summaries with triggers, when_not_to_use, and priority.
  * Skills array is TOON-encoded for token efficiency (uniform array = tabular format).
  */
 export function buildRoutingPrompt(
-  skills: Array<{ name: string; description: string }>,
+  skills: EnrichedSkillSummary[],
   userInput: string,
 ): string {
-  const skillList = encodeForLLM(skills, 'Available skills');
+  // Map to enriched objects including triggers, when_not_to_use, and priority
+  const enrichedSkills = skills.map(s => ({
+    name: s.name,
+    description: s.description,
+    triggers: s.triggers,
+    when_not_to_use: s.when_not_to_use,
+    priority: s.priority,
+  }));
+
+  const skillList = encodeForLLM(enrichedSkills, 'Available skills');
 
   return `User query: ${userInput}\n\n${skillList}`;
 }
