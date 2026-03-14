@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SkillFrontmatterSchema, DiscoveryCommandSchema } from '../../src/skills/types.js';
+import { SkillFrontmatterSchema, DiscoveryCommandSchema, ToolDeclarationSchema } from '../../src/skills/types.js';
 
 const BASE_FRONTMATTER = {
   name: 'test-skill',
@@ -64,6 +64,81 @@ describe('SkillFrontmatterSchema rewrite_rules', () => {
     expect(result.rewrite_rules[0].wrapper).toBeUndefined();
     expect(result.rewrite_rules[0].risk).toBeUndefined();
     expect(result.rewrite_rules[0].strip_flags).toBeUndefined();
+  });
+});
+
+describe('ToolDeclarationSchema', () => {
+  it('accepts declaration with only risk (required)', () => {
+    const result = ToolDeclarationSchema.safeParse({ risk: 'read' });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts declaration with risk and user', () => {
+    const result = ToolDeclarationSchema.safeParse({ risk: 'write', user: '0' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.user).toBe('0');
+    }
+  });
+
+  it('accepts declaration with risk, wrapper, and strip_flags', () => {
+    const result = ToolDeclarationSchema.safeParse({
+      risk: 'read',
+      wrapper: 'psql -U postgres -c "{cmd}"',
+      strip_flags: ['-h'],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.wrapper).toBe('psql -U postgres -c "{cmd}"');
+      expect(result.data.strip_flags).toEqual(['-h']);
+    }
+  });
+
+  it('defaults container to "auto"', () => {
+    const result = ToolDeclarationSchema.safeParse({ risk: 'read' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.container).toBe('auto');
+    }
+  });
+
+  it('rejects declaration without risk (required field)', () => {
+    const result = ToolDeclarationSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid risk value', () => {
+    const result = ToolDeclarationSchema.safeParse({ risk: 'critical' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('SkillFrontmatterSchema tools union', () => {
+  it('accepts legacy string[] format', () => {
+    const result = SkillFrontmatterSchema.parse({
+      ...BASE_FRONTMATTER,
+      tools: ['ls', 'chown'],
+    });
+    expect(result.tools).toEqual(['ls', 'chown']);
+  });
+
+  it('accepts new map format', () => {
+    const result = SkillFrontmatterSchema.parse({
+      ...BASE_FRONTMATTER,
+      tools: {
+        ls: { risk: 'read' },
+        chown: { risk: 'write', user: '0' },
+      },
+    });
+    expect(result.tools).toEqual({
+      ls: { risk: 'read', container: 'auto' },
+      chown: { risk: 'write', user: '0', container: 'auto' },
+    });
+  });
+
+  it('defaults tools to empty map {} when not provided', () => {
+    const result = SkillFrontmatterSchema.parse(BASE_FRONTMATTER);
+    expect(result.tools).toEqual({});
   });
 });
 

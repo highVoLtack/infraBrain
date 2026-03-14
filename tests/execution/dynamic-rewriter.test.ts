@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { dynamicRewrite, RewriteRuleSchema, type RewriteRule } from '../../src/execution/dynamic-rewriter.js';
+import { dynamicRewrite, RewriteRuleSchema, toolsToRewriteRules, type RewriteRule } from '../../src/execution/dynamic-rewriter.js';
+import type { ToolDeclaration } from '../../src/skills/types.js';
 
 describe('RewriteRuleSchema', () => {
   it('validates a correct rule with all fields', () => {
@@ -30,6 +31,58 @@ describe('RewriteRuleSchema', () => {
   it('rejects invalid risk value', () => {
     const result = RewriteRuleSchema.safeParse({ match: '^ls', risk: 'critical' });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('toolsToRewriteRules', () => {
+  it('converts empty tool map to empty rules array', () => {
+    expect(toolsToRewriteRules({})).toEqual([]);
+  });
+
+  it('converts simple tools to RewriteRule[] with correct match regexes', () => {
+    const tools: Record<string, ToolDeclaration> = {
+      ls: { risk: 'read', container: 'auto' },
+      chown: { risk: 'write', user: '0', container: 'auto' },
+    };
+    const rules = toolsToRewriteRules(tools);
+    expect(rules).toHaveLength(2);
+    expect(rules[0].match).toBe('^ls\\b');
+    expect(rules[0].risk).toBe('read');
+    expect(rules[1].match).toBe('^chown\\b');
+    expect(rules[1].user).toBe('0');
+    expect(rules[1].risk).toBe('write');
+  });
+
+  it('forwards wrapper and strip_flags correctly', () => {
+    const tools: Record<string, ToolDeclaration> = {
+      psql: {
+        risk: 'read',
+        wrapper: 'psql -U postgres -c "{cmd}"',
+        strip_flags: ['-h', '--host'],
+        container: 'auto',
+      },
+    };
+    const rules = toolsToRewriteRules(tools);
+    expect(rules).toHaveLength(1);
+    expect(rules[0].wrapper).toBe('psql -U postgres -c "{cmd}"');
+    expect(rules[0].strip_flags).toEqual(['-h', '--host']);
+  });
+
+  it('forwards container value from tool declaration', () => {
+    const tools: Record<string, ToolDeclaration> = {
+      ls: { risk: 'read', container: 'my-app' },
+    };
+    const rules = toolsToRewriteRules(tools);
+    expect(rules[0].container).toBe('my-app');
+  });
+
+  it('end-to-end: toolsToRewriteRules output works with dynamicRewrite', () => {
+    const tools: Record<string, ToolDeclaration> = {
+      chown: { risk: 'write', user: '0', container: 'auto' },
+    };
+    const rules = toolsToRewriteRules(tools);
+    const result = dynamicRewrite('chown 1000:1000 /data', rules, ['app']);
+    expect(result).toBe('docker exec -u 0 app chown 1000:1000 /data');
   });
 });
 
