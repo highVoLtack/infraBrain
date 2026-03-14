@@ -99,6 +99,43 @@ You are a test.
     expect(() => loadSkillFile(skillPath)).toThrow();
   });
 
+  it('loads a skill with map-format tools and returns tools as Record', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'skill-map-tools-'));
+    const skillPath = join(tmpDir, 'map-tools-skill.md');
+    writeFileSync(skillPath, `---
+name: map-tools-test
+description: "A skill using map-format tools"
+triggers:
+  - test
+tools:
+  ls:
+    risk: read
+  chown:
+    risk: write
+    user: "0"
+  psql:
+    risk: read
+    wrapper: 'psql -U postgres -c "{cmd}"'
+    strip_flags:
+      - "-h"
+---
+
+## System Prompt
+
+You are a test skill with map-format tools.
+`);
+    const skill = loadSkillFile(skillPath);
+    expect(Array.isArray(skill.frontmatter.tools)).toBe(false);
+    expect(typeof skill.frontmatter.tools).toBe('object');
+    const tools = skill.frontmatter.tools as Record<string, any>;
+    expect(tools['ls']).toBeDefined();
+    expect(tools['ls'].risk).toBe('read');
+    expect(tools['chown'].risk).toBe('write');
+    expect(tools['chown'].user).toBe('0');
+    expect(tools['psql'].wrapper).toBe('psql -U postgres -c "{cmd}"');
+    expect(tools['psql'].strip_flags).toEqual(['-h']);
+  });
+
   it('rejects a skill file missing required frontmatter field "name" with a clear error', () => {
     expect(() => loadSkillFile(MALFORMED_NO_NAME)).toThrow(/name/i);
   });
@@ -117,6 +154,27 @@ describe('loadSkillDirectory', () => {
     expect(result.errors.length).toBe(2);
     expect(result.errors.some(e => e.file.includes('malformed-no-name'))).toBe(true);
     expect(result.errors.some(e => e.file.includes('malformed-no-prompt'))).toBe(true);
+  });
+});
+
+describe('loadSkillDirectory (real skills)', () => {
+  const SKILLS_DIR = join(import.meta.dirname, '..', '..', 'skills');
+
+  it('loads all 6 universal expert skills from the real skills directory', () => {
+    const result = loadSkillDirectory(SKILLS_DIR);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.skills).toHaveLength(6);
+
+    const names = result.skills.map((s) => s.frontmatter.name).sort();
+    expect(names).toEqual([
+      'linux-expert',
+      'log-analysis',
+      'network-expert',
+      'planning',
+      'postgres-expert',
+      'verification',
+    ]);
   });
 });
 
