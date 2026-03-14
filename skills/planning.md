@@ -36,6 +36,39 @@ Output format for each step:
 - Rollback command
 - Expected outcome
 
+## COMMAND TEMPLATES (copy exactly, substitute values only)
+
+When generating fix plans, use these EXACT command templates. Only replace the ALL_CAPS values with discovered data.
+
+**Permission fix (chown inside container):**
+```
+docker exec -u 0 CONTAINER_NAME chown UID:GID PATH
+```
+Example: `docker exec -u 0 vault-processor-99 chown 1000:1000 /var/lib/internal/secrets`
+WARNING: The `-u 0` flag goes on `docker exec` (run as root), NEVER on `chown`.
+WRONG: `docker exec CONTAINER chown -u 0 ...`
+CORRECT: `docker exec -u 0 CONTAINER chown ...`
+
+**Check user ID inside container:**
+```
+docker exec CONTAINER_NAME id -u
+```
+
+**Check directory ownership:**
+```
+docker exec CONTAINER_NAME stat -c '%U:%G' PATH
+```
+
+**Verify write access:**
+```
+docker exec CONTAINER_NAME touch PATH/test-write
+```
+
+**Restart container:**
+```
+docker restart CONTAINER_NAME
+```
+
 ## Examples
 
 **Example 1: Nginx config syntax error**
