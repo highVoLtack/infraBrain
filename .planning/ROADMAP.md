@@ -177,6 +177,30 @@ Plans:
 **Dependencies:** Phase 12.3
 **Requirements:** ENGN-06
 
+### Phase 12.5: Intelligent Routing + Framework Merge (INSERTED)
+
+**Goal:** Fix the broken skill routing (triggers not used, log-analysis catches everything) and merge the best patterns from Superpowers (composable skills, trigger-based routing, CSO) and GSD (context engineering, verification gates, atomic execution) into InfraBrain's engine. The Permission Trap live test must finally pass end-to-end.
+
+**Scope:**
+1. **Trigger-based pre-filtering:** Before LLM routing, filter skills by trigger keyword match against user prompt. Only matched skills go to LLM for final selection.
+2. **Routing prompt enrichment:** Include triggers + "When NOT to Use" in the routing prompt, not just name + description.
+3. **log-analysis trigger narrowing:** Remove overly broad triggers ("error", "debug", "diagnose") that hijack other skills.
+4. **Superpowers CSO (Claude Search Optimization):** Skill descriptions optimized for LLM discovery — "Use when..." format, symptom keywords, error messages.
+5. **GSD context engineering:** Ensure discovery GROUND TRUTH flows correctly into LLM context, TOON-encoded for token efficiency.
+6. **Priority-based tie-breaking:** When multiple skills match, use `priority` field. Domain experts (10) beat utility skills (0).
+7. **Live Permission Trap test must pass:** linux-expert selected → discovery runs → LLM diagnoses → chown with -u 0 → fix applied.
+
+**Success criteria:**
+1. "permission error" prompt → `linux-expert` selected (not log-analysis)
+2. Trigger pre-filter reduces candidate skills to 2-3 max
+3. Discovery Ground Truth injected into LLM context
+4. Permission Trap live DPEV: chown applied with root escalation, app recovers
+5. All E2E tests pass
+6. Routing is deterministic for clear prompts, LLM-assisted for ambiguous ones
+
+**Dependencies:** Phase 12.4
+**Requirements:** ENGN-07
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
@@ -187,8 +211,9 @@ Plans:
 | 12.1 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.2 | v1.2 | 2/2 | Complete | 2026-03-14 |
 | 12.3 | v1.2 | 2/2 | Complete | 2026-03-14 |
-| 12.4 | 3/3 | Complete    | 2026-03-14 | — |
+| 12.4 | v1.2 | 3/3 | Complete | 2026-03-14 |
+| 12.5 | v1.2 | 0/? | Not planned | — |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-14 — Phase 12.4 Plan 01 complete (engine type foundation)*
+*Last updated: 2026-03-14 — Phase 12.5 inserted (Intelligent Routing + Framework Merge)*
