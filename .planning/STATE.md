@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: Active
-stopped_at: Completed 12.3-01-PLAN.md
-last_updated: "2026-03-14T12:07:29.164Z"
-last_activity: 2026-03-14 -- Plan 12.3-01 complete (docker-exec-aware rewriting with parseDockerExec)
+stopped_at: Completed 12.3-02-PLAN.md
+last_updated: "2026-03-14T12:12:06Z"
+last_activity: 2026-03-14 -- Plan 12.3-02 complete (COMMAND-ONLY mode skills + E2E validation)
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 12.3-engine-proof-rewriter
-Plan: 01 of 2 complete
-Status: Active
-Last activity: 2026-03-14 -- Plan 12.3-01 complete (docker-exec-aware rewriting with parseDockerExec)
+Plan: 02 of 2 complete
+Status: Phase Complete
+Last activity: 2026-03-14 -- Plan 12.3-02 complete (COMMAND-ONLY mode skills + E2E validation)
 
 ## Accumulated Context
 
@@ -106,6 +106,13 @@ Last activity: 2026-03-14 -- Plan 12.3-01 complete (docker-exec-aware rewriting 
 - Belt-and-suspenders -it stripping in rewriter (complements validator.ts sanitizeDockerExec)
 - 29 unit tests (21 existing + 8 new docker-exec-aware), 488 full suite passing
 
+### From Phase 12.3-02
+- COMMAND-ONLY MODE sections added to linux-filesystem-troubleshoot.md and docker-storage.md
+- Skill examples updated to bare commands -- engine handles docker exec wrapping
+- Three-skill-mode taxonomy established: SQL-ONLY (postgres), COMMAND-ONLY (linux-fs, docker-storage), as-is (nginx)
+- E2E validation confirms docker-exec-aware rewriter handles canned fix plans correctly (no changes needed)
+- Phase 12.3 complete -- engine-first architecture fully proven across all skill types
+
 ## Decisions
 
 - Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
@@ -125,9 +132,12 @@ Last activity: 2026-03-14 -- Plan 12.3-01 complete (docker-exec-aware rewriting 
 - [Phase 12.3-01]: parseDockerExec not exported -- internal helper, not public API
 - [Phase 12.3-01]: User injection prepended to flag list for consistent docker exec formatting
 - [Phase 12.3]: Token-walk parser over regex for docker exec flag parsing
+- [Phase 12.3-02]: Discovery frontmatter commands kept as-is -- engine-executed, not LLM-generated
+- [Phase 12.3-02]: Infrastructure commands (docker restart/logs/ps) left in skill text -- not inside-container commands
+- [Phase 12.3-02]: No E2E test changes needed -- docker exec parser handles existing canned fix plans correctly
 
 ## Session Continuity
 
-Last session: 2026-03-14T12:07:29.104Z
-Stopped at: Completed 12.3-01-PLAN.md
-Next: Plan 12.3-02 (skill prompt COMMAND-ONLY updates + E2E validation)
+Last session: 2026-03-14T12:12:06Z
+Stopped at: Completed 12.3-02-PLAN.md
+Next: Phase 12.3 complete. Next phase TBD.

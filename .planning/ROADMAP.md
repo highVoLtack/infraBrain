@@ -122,7 +122,7 @@ Plans:
 
 **Goal:** Complete the Agnostic Engine transition by making skills truly domain-generic: no hardcoded container names, no docker exec in prompts or examples. Skills describe WHAT to diagnose and fix using bare commands — the engine handles WHERE (container targeting) and HOW (privilege escalation, wrapping). The rewriter becomes docker-exec-aware to handle LLM outputs that still include docker exec as belt-and-suspenders.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 12.3-01-PLAN.md — Docker-exec-aware rewriter (TDD: parseDockerExec + dynamicRewrite fix)
@@ -154,7 +154,7 @@ Plans:
 | 12 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.1 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.2 | v1.2 | 2/2 | Complete | 2026-03-14 |
-| 12.3 | 1/2 | In Progress|  | — |
+| 12.3 | 2/2 | Complete   | 2026-03-14 | — |
 
 ---
 *Roadmap created: 2026-03-07*
