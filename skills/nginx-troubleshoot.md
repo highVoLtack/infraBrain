@@ -16,6 +16,11 @@ tools:
   - grep
   - ss
 priority: 10
+discovery:
+  - command: 'docker ps --format "{{.Names}}"'
+    label: 'Running containers'
+  - command: 'docker network ls --format "{{.Name}}"'
+    label: 'Docker networks'
 ---
 
 ## System Prompt

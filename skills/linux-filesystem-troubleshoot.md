@@ -28,6 +28,15 @@ rewrite_rules:
   - match: '^(ls|id|stat|cat|whoami)\b'
     container: auto
     risk: read
+discovery:
+  - command: 'docker ps -a --format "{{.Names}} {{.Status}}"'
+    label: 'All containers with status'
+  - command: 'docker logs permission-app --tail 50'
+    label: 'App crash logs'
+  - command: 'docker exec permission-app ls -ld /app/data'
+    label: 'Target directory permissions'
+  - command: 'docker exec permission-app id'
+    label: 'App user identity'
 ---
 
 ## System Prompt
