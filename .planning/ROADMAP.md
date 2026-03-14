@@ -45,7 +45,7 @@
 Plans:
 - [x] 12-01-PLAN.md — Docker permission trap demo environment (compose, app, reset script) -- completed 2026-03-14
 - [x] 12-02-PLAN.md — Diagnostic skill, discovery commands, and safety rule updates -- completed 2026-03-14
-- [ ] 12-03-PLAN.md — Full DPEV loop E2E test
+- [x] 12-03-PLAN.md — Full DPEV loop E2E test -- completed 2026-03-14
 
 **Scope:**
 1. Scenario setup: `demo/permission-trap/` with Docker Compose — Python app writing to `/app/data/status.pid`, directory owned by root:root with 700 permissions, app runs as UID 1000 → crashes with Permission Denied
@@ -61,14 +61,44 @@ Plans:
 **Dependencies:** Phases 1-11 (Engine-First architecture, DPEV loop, sub-agent execution)
 **Requirements:** SCEN-07
 
+### Phase 12.1: Dynamic Command Rewriter (INSERTED)
+
+**Goal:** Replace the hardcoded SQL Rewriter with a universal, skill-driven command rewriting engine. Each skill declares rewrite rules (container targeting, privilege escalation, command wrapping) in its frontmatter — the engine applies them dynamically. No new TypeScript code needed per scenario.
+
+**Plans:** 3 plans
+
+Plans:
+- [ ] 12.1-01-PLAN.md — Dynamic rewriter pure function + Zod schema + TDD unit tests
+- [ ] 12.1-02-PLAN.md — Skill frontmatter schema extension + rewrite_rules migration for 3 skills
+- [ ] 12.1-03-PLAN.md — Wire dynamic rewriter into debug.ts, deprecate old rewriter, full suite green
+
+**Scope:**
+1. New `src/execution/dynamic-rewriter.ts` — reads rewrite rules from skill metadata, applies container wrapping + privilege escalation + command wrapping
+2. Migrate existing SQL Rewriter logic into postgres-troubleshoot.md `rewrite_rules` frontmatter
+3. Add `rewrite_rules` to linux-filesystem-troubleshoot.md (container auto-detect, `-u 0` for chown/chmod)
+4. Add `rewrite_rules` to docker-storage.md
+5. Update runner.ts to call dynamic rewriter instead of hardcoded `rewriteForContainer()`
+6. All existing E2E tests must pass (backwards-compatible)
+7. Re-test Permission Trap with dynamic rewriter (live DPEV)
+
+**Success criteria:**
+1. Skills declare rewrite rules in frontmatter — engine applies them without scenario-specific code
+2. All 3 existing scenarios (Nginx, Postgres, Docker Storage, Permission Trap) work with dynamic rewriter
+3. `rewriteForContainer()` and `stripHostFlag()` removed or deprecated — logic lives in skill metadata
+4. Adding a new scenario requires zero TypeScript changes to the rewriter
+
+**Dependencies:** Phase 12 (Permission Trap proved the need)
+**Requirements:** ENGN-03
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
 | 1-7 | v1.0 | 22/22 | Complete | 2026-03-12 |
 | 8-11 | v1.1 | 10/10 | Complete | 2026-03-13 |
-| 12 | 3/3 | Complete    | 2026-03-14 | — |
+| 12 | v1.2 | 3/3 | Complete | 2026-03-14 |
+| 12.1 | v1.2 | 0/3 | Planned | — |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-14 — Plan 12-02 complete (diagnostic skill + safety rules)*
+*Last updated: 2026-03-14 — Phase 12.1 planned (3 plans in 2 waves)*
