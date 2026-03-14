@@ -219,8 +219,20 @@ Last activity: 2026-03-14 -- Plan 12.5-03 complete (agnosticism proof with vault
 - [Phase 12.5-03]: Container name discovered via docker compose ps, data path via docker exec printenv
 - [Phase 12.5-03]: Canned fix plan built inside beforeAll after dynamic discovery (not at module scope)
 
+### Post-Phase 12.5 Live Testing (2026-03-14)
+- GROUND TRUTH injection into planner: discoveryContext passed through to fix plan LLM prompt
+- Shell mode discovery: runDiscovery uses needsShell() + runShellCommand() for complex commands
+- Error-only log filtering: discovery greps for error/fatal/denied/fail only (2966 → 176 tokens)
+- Agnostic discovery E2E test: random container name + random path, 6 tests proving zero hardcoded values
+- Planning skill routed to strategic model (llama3.3:70b) for better command generation
+- Docker command sanitizer (fixKnownCommandErrors): strips -it, fixes -u placement, replaces $(id -u/g)
+- CRITICAL FINDING: Local LLMs (7B-70B) ALL generate wrong chown/docker exec syntax -- different variant each run
+- DECISION: Self-healing executor needed (error → LLM correction → retry) instead of regex band-aids
+- Next: Merge Superpowers + GSD patterns into self-healing executor architecture
+- 538 tests passing (2 pre-existing nginx E2E failures)
+
 ## Session Continuity
 
-Last session: 2026-03-14T14:39:38Z
-Stopped at: Completed 12.5-03-PLAN.md
-Next: Phase 12.5 complete -- all 3 plans delivered
+Last session: 2026-03-14T16:00:00Z
+Stopped at: Phase 12.5 verified + live testing complete, self-healing executor identified as next step
+Next: Self-healing executor phase using Superpowers/GSD patterns (local copies at superpowers-main/ and get-shit-done-main/)
