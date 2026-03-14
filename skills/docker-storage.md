@@ -16,6 +16,13 @@ tools:
   - truncate
 preferred_model: default
 priority: 10
+rewrite_rules:
+  - match: '^truncate\b'
+    container: auto
+    risk: write
+  - match: '^(df|du)\b'
+    container: auto
+    risk: read
 ---
 
 ## System Prompt

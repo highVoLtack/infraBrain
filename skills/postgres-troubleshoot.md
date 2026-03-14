@@ -13,6 +13,16 @@ tools:
   - psql
 preferred_model: forensic
 priority: 10
+rewrite_rules:
+  - match: '^(SELECT|SHOW|INSERT|UPDATE|DELETE|WITH|EXPLAIN)\b'
+    container: auto
+    wrapper: 'psql -U postgres -c "{cmd}"'
+    strip_flags: ["-h", "--host"]
+    risk: read
+  - match: '^psql\b'
+    container: auto
+    strip_flags: ["-h", "--host"]
+    risk: read
 ---
 
 ## System Prompt

@@ -20,6 +20,14 @@ tools:
   - whoami
 preferred_model: default
 priority: 10
+rewrite_rules:
+  - match: '^(chown|chmod)\b'
+    container: auto
+    user: "0"
+    risk: write
+  - match: '^(ls|id|stat|cat|whoami)\b'
+    container: auto
+    risk: read
 ---
 
 ## System Prompt
