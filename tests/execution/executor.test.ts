@@ -23,6 +23,11 @@ vi.mock('../../src/execution/rollback.js', () => ({
   rollbackStep: vi.fn().mockResolvedValue({ success: true }),
 }));
 
+// Mock self-healer
+vi.mock('../../src/execution/self-healer.js', () => ({
+  selfHealStep: vi.fn(),
+}));
+
 // Mock chalk to avoid ANSI in test assertions
 vi.mock('chalk', () => {
   const handler: ProxyHandler<object> = {
@@ -41,6 +46,10 @@ vi.mock('chalk', () => {
 import { acquireLock, releaseLock, promptLockOverride } from '../../src/locks/manager.js';
 import { captureSnapshot } from '../../src/execution/snapshot.js';
 import { rollbackStep } from '../../src/execution/rollback.js';
+import { selfHealStep } from '../../src/execution/self-healer.js';
+import type { SelfHealResult } from '../../src/execution/types.js';
+import type { LanguageModel } from 'ai';
+import type { SkillFile } from '../../src/skills/types.js';
 
 function makeDeps(overrides: Partial<ExecutionDeps> = {}): ExecutionDeps {
   return {
@@ -318,6 +327,174 @@ describe('executePlan', () => {
     expect(alertLogs.length).toBeGreaterThan(0);
 
     consoleSpy.mockRestore();
+  });
+
+  describe('self-healing integration', () => {
+    const mockModel = {} as LanguageModel;
+    const mockSkill: SkillFile = {
+      frontmatter: {
+        name: 'linux-expert',
+        description: 'Linux expert skill for testing',
+        triggers: ['linux'],
+        tools: {},
+        priority: 0,
+      },
+      sections: { systemPrompt: 'test' },
+      rawContent: '',
+      filePath: 'skills/linux-expert.md',
+    };
+
+    function makeSelfHealDeps(overrides: Partial<ExecutionDeps> = {}): ExecutionDeps {
+      return makeDeps({
+        correctionModel: mockModel,
+        skill: mockSkill,
+        rewriteRules: [],
+        containers: ['test-container'],
+        ...overrides,
+      });
+    }
+
+    it('uses self-healing when command fails and correctionModel+skill are in deps', async () => {
+      const failResult: RunResult = { stdout: '', stderr: 'permission denied', exitCode: 1 };
+      const successResult: RunResult = { stdout: 'ok', stderr: '', exitCode: 0 };
+
+      const deps = makeSelfHealDeps({
+        runner: {
+          run: vi.fn<() => Promise<RunResult>>().mockResolvedValue(failResult),
+        },
+      });
+
+      const healResult: SelfHealResult = {
+        status: 'success',
+        finalResult: successResult,
+        attempts: [{
+          originalCommand: 'docker exec test chown 1000:1000 /data',
+          correctedCommand: 'docker exec -u 0 test chown 1000:1000 /data',
+          error: { stderr: 'permission denied', exitCode: 1 },
+          outcome: 'success',
+        }],
+        commandUsed: 'docker exec -u 0 test chown 1000:1000 /data',
+      };
+
+      vi.mocked(selfHealStep).mockResolvedValue(healResult);
+
+      const plan: FixPlan = {
+        summary: 'Fix permissions',
+        steps: [
+          { command: 'docker exec test chown 1000:1000 /data', description: 'Fix ownership', rollback: '', risk: 'write' },
+        ],
+        complexity: 'simple',
+      };
+
+      const result = await executePlan(plan, 'test-target', deps);
+
+      expect(result.status).toBe('completed');
+      expect(result.stepResults[0].status).toBe('success');
+      expect(selfHealStep).toHaveBeenCalledOnce();
+    });
+
+    it('falls back to CircuitBreaker when no correctionModel in deps', async () => {
+      const deps = makeDeps({
+        runner: {
+          run: vi.fn<() => Promise<RunResult>>().mockResolvedValue({ stdout: '', stderr: 'fail', exitCode: 1 }),
+        },
+      });
+      // No correctionModel, no skill -- should use CircuitBreaker
+
+      const plan: FixPlan = {
+        summary: 'Failing plan',
+        steps: [
+          { command: 'docker restart nginx', description: 'Restart', rollback: 'docker start nginx', risk: 'write' },
+        ],
+        complexity: 'simple',
+      };
+
+      const result = await executePlan(plan, 'nginx', deps);
+
+      expect(result.status).toBe('halted');
+      expect(result.reason).toBe('circuit_breaker');
+      expect(selfHealStep).not.toHaveBeenCalled();
+    });
+
+    it('halts with self_heal_exhausted when self-healing fails all attempts', async () => {
+      const failResult: RunResult = { stdout: '', stderr: 'command not found', exitCode: 127 };
+
+      const deps = makeSelfHealDeps({
+        runner: {
+          run: vi.fn<() => Promise<RunResult>>().mockResolvedValue(failResult),
+        },
+      });
+
+      const healResult: SelfHealResult = {
+        status: 'exhausted',
+        attempts: [
+          { originalCommand: 'bad-cmd', correctedCommand: 'also-bad', error: { stderr: 'not found', exitCode: 127 }, outcome: 'failed' },
+          { originalCommand: 'bad-cmd', correctedCommand: 'still-bad', error: { stderr: 'not found', exitCode: 127 }, outcome: 'failed' },
+          { originalCommand: 'bad-cmd', correctedCommand: 'nope', error: { stderr: 'not found', exitCode: 127 }, outcome: 'failed' },
+        ],
+        commandUsed: 'bad-cmd',
+      };
+
+      vi.mocked(selfHealStep).mockResolvedValue(healResult);
+
+      const plan: FixPlan = {
+        summary: 'Bad plan',
+        steps: [
+          { command: 'bad-cmd', description: 'Bad command', rollback: '', risk: 'write' },
+        ],
+        complexity: 'simple',
+      };
+
+      const result = await executePlan(plan, 'test-target', deps);
+
+      expect(result.status).toBe('halted');
+      expect(result.reason).toBe('self_heal_exhausted');
+      expect(result.stepResults[0].status).toBe('failed');
+      expect(result.stepResults[0].retries).toBe(3);
+      expect(rollbackStep).toHaveBeenCalled();
+    });
+
+    it('rolling context receives corrected command after self-healing success', async () => {
+      const failResult: RunResult = { stdout: '', stderr: 'error', exitCode: 1 };
+      const successResult: RunResult = { stdout: 'fixed output', stderr: '', exitCode: 0 };
+
+      const deps = makeSelfHealDeps({
+        runner: {
+          run: vi.fn<() => Promise<RunResult>>()
+            .mockResolvedValueOnce(failResult)  // First attempt fails
+            .mockResolvedValue({ stdout: 'ok', stderr: '', exitCode: 0 }),  // Success after heal
+        },
+      });
+
+      const correctedCmd = 'docker exec -u 0 test chown 1000:1000 /data';
+      vi.mocked(selfHealStep).mockResolvedValue({
+        status: 'success',
+        finalResult: successResult,
+        attempts: [{
+          originalCommand: 'docker exec test chown 1000:1000 /data',
+          correctedCommand: correctedCmd,
+          error: { stderr: 'error', exitCode: 1 },
+          outcome: 'success',
+        }],
+        commandUsed: correctedCmd,
+      });
+
+      const plan: FixPlan = {
+        summary: 'Fix plan',
+        steps: [
+          { command: 'docker exec test chown 1000:1000 /data', description: 'Fix ownership', rollback: '', risk: 'write' },
+          { command: 'docker ps', description: 'Check status', rollback: '', risk: 'read' },
+        ],
+        complexity: 'simple',
+      };
+
+      const result = await executePlan(plan, 'test-target', deps);
+
+      expect(result.status).toBe('completed');
+      // Rolling context should contain the corrected command, not the original
+      expect(result.rollingContext).toContain(correctedCmd);
+      expect(result.rollingContext).not.toContain('docker exec test chown');
+    });
   });
 
   describe('lock audit events', () => {

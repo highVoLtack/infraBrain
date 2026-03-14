@@ -46,6 +46,11 @@ export interface ExecutionDeps {
   sessionId: string;
   sessionDir: string;
   onBeforeStep?: (stepIndex: number, rollingContext: string) => Promise<void>;
+  // Self-healing deps (optional -- callers without these fall back to CircuitBreaker)
+  correctionModel?: import('ai').LanguageModel;
+  skill?: import('../skills/types.js').SkillFile;
+  rewriteRules?: import('../execution/dynamic-rewriter.js').RewriteRule[];
+  containers?: string[];
 }
 
 export interface CorrectionAttempt {

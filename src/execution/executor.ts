@@ -7,7 +7,9 @@ import { DamageBudget } from './damage-budget.js';
 import { RollingContext } from './context-builder.js';
 import { captureSnapshot } from './snapshot.js';
 import { rollbackStep } from './rollback.js';
-import { parseCommand, needsShell } from './runner.js';
+import { parseCommand, needsShell, runShellCommand } from './runner.js';
+import { selfHealStep } from './self-healer.js';
+import type { SelfHealContext } from './types.js';
 import { acquireLock, releaseLock, promptLockOverride } from '../locks/manager.js';
 
 /**
@@ -159,58 +161,143 @@ export async function executePlan(
         console.log(chalk.yellow(`WARNING: Command uses shell mode: ${step.command}`));
       }
 
-      // e. Execute via circuit breaker
-      const { executable, args } = parseCommand(step.command);
-      const cbResult = await breaker.execute(
-        i,
-        () => deps.runner.run(executable, args, {
+      // e. Execute command (first attempt)
+      let firstResult;
+      if (needsShell(step.command)) {
+        firstResult = await runShellCommand(step.command, {
           timeout: deps.config.execution.commandTimeoutMs,
           maxBuffer: deps.config.execution.maxBufferBytes,
-        }),
-        budget,
-        step.risk,
-      );
-
-      if (cbResult.status === 'circuit_open') {
-        // Rollback failing step
-        await rollbackStep(step, snapshot, {
-          runner: deps.runner,
-          auditLogger: deps.auditLogger,
-          config: deps.config,
         });
-
-        deps.auditLogger.logExecution('circuit_breaker_triggered', {
-          stepIndex: i,
-          command: step.command,
-          maxRetries: deps.config.circuitBreaker.maxRetries,
+      } else {
+        const { executable, args } = parseCommand(step.command);
+        firstResult = await deps.runner.run(executable, args, {
+          timeout: deps.config.execution.commandTimeoutMs,
+          maxBuffer: deps.config.execution.maxBufferBytes,
         });
-
-        console.log(chalk.red.bold(`CIRCUIT BREAKER: Step ${i} failed after ${deps.config.circuitBreaker.maxRetries} retries. Plan halted.`));
-
-        stepResults.push({
-          stepIndex: i,
-          status: 'failed',
-          runResult: cbResult.result,
-          retries: deps.config.circuitBreaker.maxRetries,
-          damageCost: 0,
-        });
-
-        return {
-          status: 'halted',
-          reason: 'circuit_breaker',
-          stoppedAt: i,
-          stepResults,
-          rollingContext: context.getContext() || undefined,
-        };
       }
 
-      // f. Success: deduct from budget and log
+      // f. Handle result
+      let finalResult = firstResult;
+      let commandUsed = step.command;
+      const hasSelfHealingDeps = deps.correctionModel && deps.skill;
+
+      if (firstResult.exitCode !== 0 && hasSelfHealingDeps) {
+        // Self-healing path: LLM-corrected retries
+        const healContext: SelfHealContext = {
+          maxAttempts: deps.config.selfHealing?.maxAttempts ?? 3,
+          budget,
+          model: deps.correctionModel!,
+          skill: deps.skill!,
+          runner: deps.runner,
+          rewriteRules: deps.rewriteRules ?? [],
+          containers: deps.containers ?? [],
+          config: deps.config,
+          auditLogger: deps.auditLogger,
+          stepDescription: step.description,
+          toolList: '',
+          containerContext: (deps.containers ?? []).length > 0
+            ? `Containers: ${(deps.containers ?? []).join(', ')}`
+            : 'No containers discovered',
+          stepRisk: step.risk,
+        };
+
+        const healResult = await selfHealStep(step, firstResult, healContext);
+
+        if (healResult.status === 'success') {
+          finalResult = healResult.finalResult!;
+          commandUsed = healResult.commandUsed;
+        } else {
+          // Self-healing exhausted or budget exceeded -- rollback and halt
+          await rollbackStep(step, snapshot, {
+            runner: deps.runner,
+            auditLogger: deps.auditLogger,
+            config: deps.config,
+          });
+
+          const haltReason = healResult.status === 'budget_exceeded'
+            ? 'self_heal_budget_exceeded'
+            : 'self_heal_exhausted';
+
+          deps.auditLogger.logExecution('self_heal_exhausted', {
+            stepIndex: i,
+            command: step.command,
+            attempts: healResult.attempts.length,
+            attemptHistory: healResult.attempts,
+          });
+
+          console.log(chalk.red.bold(`SELF-HEALING ${healResult.status.toUpperCase()}: Step ${i} failed after ${healResult.attempts.length} correction attempts. Plan halted.`));
+
+          stepResults.push({
+            stepIndex: i,
+            status: 'failed',
+            runResult: healResult.finalResult ?? firstResult,
+            retries: healResult.attempts.length,
+            damageCost: 0,
+          });
+
+          return {
+            status: 'halted',
+            reason: haltReason,
+            stoppedAt: i,
+            stepResults,
+            rollingContext: context.getContext() || undefined,
+          };
+        }
+      } else if (firstResult.exitCode !== 0) {
+        // Fallback: CircuitBreaker path (no self-healing deps)
+        const { executable, args } = parseCommand(step.command);
+        const cbResult = await breaker.execute(
+          i,
+          () => deps.runner.run(executable, args, {
+            timeout: deps.config.execution.commandTimeoutMs,
+            maxBuffer: deps.config.execution.maxBufferBytes,
+          }),
+          budget,
+          step.risk,
+        );
+
+        if (cbResult.status === 'circuit_open') {
+          await rollbackStep(step, snapshot, {
+            runner: deps.runner,
+            auditLogger: deps.auditLogger,
+            config: deps.config,
+          });
+
+          deps.auditLogger.logExecution('circuit_breaker_triggered', {
+            stepIndex: i,
+            command: step.command,
+            maxRetries: deps.config.circuitBreaker.maxRetries,
+          });
+
+          console.log(chalk.red.bold(`CIRCUIT BREAKER: Step ${i} failed after ${deps.config.circuitBreaker.maxRetries} retries. Plan halted.`));
+
+          stepResults.push({
+            stepIndex: i,
+            status: 'failed',
+            runResult: cbResult.result,
+            retries: deps.config.circuitBreaker.maxRetries,
+            damageCost: 0,
+          });
+
+          return {
+            status: 'halted',
+            reason: 'circuit_breaker',
+            stoppedAt: i,
+            stepResults,
+            rollingContext: context.getContext() || undefined,
+          };
+        }
+
+        finalResult = cbResult.result!;
+      }
+
+      // g. Success: deduct from budget and log
       budget.deduct(cost);
 
       deps.auditLogger.logExecution('step_complete', {
         stepIndex: i,
-        command: step.command,
-        exitCode: cbResult.result!.exitCode,
+        command: commandUsed,
+        exitCode: finalResult.exitCode,
       });
 
       console.log(chalk.dim(`Budget: ${budget.spent}/${budget.total} used`));
@@ -218,15 +305,16 @@ export async function executePlan(
       stepResults.push({
         stepIndex: i,
         status: 'success',
-        runResult: cbResult.result,
+        runResult: finalResult,
         retries: 0,
         damageCost: cost,
       });
 
-      // g. Add result to rolling context
-      if (cbResult.result) {
-        context.addStepResult(i, step, cbResult.result);
-      }
+      // h. Add result to rolling context (use actual command, not original)
+      const contextStep = commandUsed !== step.command
+        ? { ...step, command: commandUsed }
+        : step;
+      context.addStepResult(i, contextStep, finalResult);
     }
 
     // 5. Log execution complete
