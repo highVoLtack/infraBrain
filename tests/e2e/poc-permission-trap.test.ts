@@ -164,12 +164,12 @@ describe('POC: Linux Filesystem Permission Trap End-to-End', { timeout: 120_000 
     const registry = new SkillRegistry();
     registry.populate(join(PROJECT_ROOT, 'skills'));
 
-    const linuxFilesystemSkill = registry.get('linux-filesystem-troubleshoot');
-    if (!linuxFilesystemSkill) throw new Error('linux-filesystem-troubleshoot skill not found in skills/ directory');
+    const linuxExpertSkill = registry.get('linux-expert');
+    if (!linuxExpertSkill) throw new Error('linux-expert skill not found in skills/ directory');
 
     vi.mocked(selectSkill).mockResolvedValue({
-      skill: linuxFilesystemSkill,
-      reasoning: 'Permission denied error in container -- using linux-filesystem-troubleshoot skill',
+      skill: linuxExpertSkill,
+      reasoning: 'Permission denied error in container -- using linux-expert skill',
     });
 
     vi.mocked(generateFixPlan).mockResolvedValue(cannedFixPlan);
@@ -255,7 +255,7 @@ describe('POC: Linux Filesystem Permission Trap End-to-End', { timeout: 120_000 
     expect(res.body.diagnosis.toLowerCase()).toMatch(/permission|ownership|mismatch/);
     expect(res.body.fixPlan).toBeDefined();
     expect(res.body.fixPlan.steps.length).toBeGreaterThanOrEqual(3);
-    expect(res.body.skillMessage).toContain('linux-filesystem-troubleshoot');
+    expect(res.body.skillMessage).toContain('linux-expert');
     expect(res.body.sessionId).toBeDefined();
 
     // Store for sequential test consumption

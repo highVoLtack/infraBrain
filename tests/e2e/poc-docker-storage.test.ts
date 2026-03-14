@@ -171,12 +171,12 @@ describe('POC: Docker Storage Failure End-to-End', { timeout: 120_000 }, () => {
     const registry = new SkillRegistry();
     registry.populate(join(PROJECT_ROOT, 'skills'));
 
-    const dockerStorageSkill = registry.get('docker-storage');
-    if (!dockerStorageSkill) throw new Error('docker-storage skill not found in skills/ directory');
+    const linuxExpertSkill = registry.get('linux-expert');
+    if (!linuxExpertSkill) throw new Error('linux-expert skill not found in skills/ directory');
 
     vi.mocked(selectSkill).mockResolvedValue({
-      skill: dockerStorageSkill,
-      reasoning: 'Docker storage volume full with Redis crash -- using docker-storage skill',
+      skill: linuxExpertSkill,
+      reasoning: 'Docker storage volume full with Redis crash -- using linux-expert skill',
     });
 
     vi.mocked(generateFixPlan).mockResolvedValue(cannedFixPlan);
@@ -248,7 +248,7 @@ describe('POC: Docker Storage Failure End-to-End', { timeout: 120_000 }, () => {
     expect(res.body.diagnosis.toLowerCase()).toMatch(/bloat|storage|full/);
     expect(res.body.fixPlan).toBeDefined();
     expect(res.body.fixPlan.steps.length).toBeGreaterThanOrEqual(3);
-    expect(res.body.skillMessage).toContain('docker-storage');
+    expect(res.body.skillMessage).toContain('linux-expert');
     expect(res.body.sessionId).toBeDefined();
 
     // Store for sequential test consumption

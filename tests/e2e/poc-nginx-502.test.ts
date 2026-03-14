@@ -139,12 +139,12 @@ describe('POC: Nginx 502 End-to-End', { timeout: 120_000 }, () => {
     const registry = new SkillRegistry();
     registry.populate(join(PROJECT_ROOT, 'skills'));
 
-    const nginxSkill = registry.get('nginx-troubleshoot');
-    if (!nginxSkill) throw new Error('nginx-troubleshoot skill not found in skills/ directory');
+    const networkExpertSkill = registry.get('network-expert');
+    if (!networkExpertSkill) throw new Error('network-expert skill not found in skills/ directory');
 
     vi.mocked(selectSkill).mockResolvedValue({
-      skill: nginxSkill,
-      reasoning: 'Nginx 502 issue detected -- using nginx-troubleshoot skill',
+      skill: networkExpertSkill,
+      reasoning: 'Nginx 502 issue detected -- using network-expert skill',
     });
 
     vi.mocked(generateFixPlan).mockResolvedValue(cannedFixPlan);
@@ -208,7 +208,7 @@ describe('POC: Nginx 502 End-to-End', { timeout: 120_000 }, () => {
     expect(res.body.diagnosis).toContain('network');
     expect(res.body.fixPlan).toBeDefined();
     expect(res.body.fixPlan.steps.length).toBeGreaterThanOrEqual(1);
-    expect(res.body.skillMessage).toContain('nginx-troubleshoot');
+    expect(res.body.skillMessage).toContain('network-expert');
     expect(res.body.sessionId).toBeDefined();
 
     // Store for sequential test consumption

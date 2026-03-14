@@ -148,12 +148,12 @@ describe('POC: Postgres Connection Leak End-to-End', { timeout: 120_000 }, () =>
     const registry = new SkillRegistry();
     registry.populate(join(PROJECT_ROOT, 'skills'));
 
-    const postgresSkill = registry.get('postgres-troubleshoot');
-    if (!postgresSkill) throw new Error('postgres-troubleshoot skill not found in skills/ directory');
+    const postgresExpertSkill = registry.get('postgres-expert');
+    if (!postgresExpertSkill) throw new Error('postgres-expert skill not found in skills/ directory');
 
     vi.mocked(selectSkill).mockResolvedValue({
-      skill: postgresSkill,
-      reasoning: 'Postgres connection limit issue detected -- using postgres-troubleshoot skill',
+      skill: postgresExpertSkill,
+      reasoning: 'Postgres connection limit issue detected -- using postgres-expert skill',
     });
 
     vi.mocked(generateFixPlan).mockResolvedValue(cannedFixPlan);
@@ -223,7 +223,7 @@ describe('POC: Postgres Connection Leak End-to-End', { timeout: 120_000 }, () =>
     expect(res.body.diagnosis.toLowerCase()).toMatch(/leak|idle/);
     expect(res.body.fixPlan).toBeDefined();
     expect(res.body.fixPlan.steps.length).toBeGreaterThanOrEqual(2);
-    expect(res.body.skillMessage).toContain('postgres-troubleshoot');
+    expect(res.body.skillMessage).toContain('postgres-expert');
     expect(res.body.sessionId).toBeDefined();
 
     // Store for sequential test consumption
