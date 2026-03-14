@@ -514,6 +514,7 @@ export function createDebugRoute(
                 skill: planningSkill,
                 userInput: prompt,
                 diagnosis: enrichedDiagnosis,
+                discoveryContext: discoveryContext || undefined,
                 registry: provider.registry,
               });
 

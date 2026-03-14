@@ -11,6 +11,7 @@ export interface GenerateFixPlanOptions {
   skill: SkillFile;
   userInput: string;
   diagnosis: string;
+  discoveryContext?: string;
   registry?: ModelRegistry;
 }
 
@@ -18,17 +19,22 @@ export interface GenerateFixPlanOptions {
  * Generate a structured fix plan via LLM using the planning skill's context.
  */
 export async function generateFixPlan(options: GenerateFixPlanOptions): Promise<FixPlan> {
-  const { skill, userInput, diagnosis, registry } = options;
+  const { skill, userInput, diagnosis, discoveryContext, registry } = options;
   // Use preferred_model from the skill if registry is available, otherwise fall back to provided model
   const preferredRole = skill.frontmatter.preferred_model;
   const model = (preferredRole && registry) ? registry.get(preferredRole) : options.model;
 
   const { system, messages } = buildMessages(skill, userInput);
 
+  // Build diagnosis message with GROUND TRUTH injection
+  const groundTruth = discoveryContext
+    ? `\n\n--- GROUND TRUTH (from live discovery) ---\n${discoveryContext}\n--- END GROUND TRUTH ---\n\nCRITICAL: Every container name, file path, user ID, and port in your fix plan MUST come from the GROUND TRUTH or diagnosis above. Do NOT use placeholders like <container>, /path/to/..., or <user>. If a value is missing, your first step MUST be a read command to discover it.`
+    : '';
+
   // Append diagnosis context to the conversation
   const allMessages = [
     ...messages,
-    { role: 'user' as const, content: `Diagnosis:\n${diagnosis}\n\nGenerate a structured fix plan with discrete steps.` },
+    { role: 'user' as const, content: `Diagnosis:\n${diagnosis}${groundTruth}\n\nGenerate a structured fix plan with discrete steps. Use ONLY real values from the diagnosis and ground truth above.` },
   ];
 
   const { object } = await generateObject({
