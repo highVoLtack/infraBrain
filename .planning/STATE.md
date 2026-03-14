@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
-status: in-progress
-stopped_at: Completed 12.2-01-PLAN.md
-last_updated: "2026-03-14T11:24:25.871Z"
-last_activity: 2026-03-14 -- Plan 12.2-01 complete (discovery schema + YAML migration)
+status: completed
+stopped_at: Completed 12.2-02-PLAN.md
+last_updated: "2026-03-14T11:28:58.201Z"
+last_activity: 2026-03-14 -- Plan 12.2-02 complete (runDiscovery refactored, DISCOVERY_COMMANDS removed)
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 12.2-skill-driven-discovery
-Plan: 01 of 2 complete
-Status: In Progress
-Last activity: 2026-03-14 -- Plan 12.2-01 complete (discovery schema + YAML migration)
+Plan: 02 of 2 complete
+Status: Complete
+Last activity: 2026-03-14 -- Plan 12.2-02 complete (runDiscovery refactored, DISCOVERY_COMMANDS removed)
 
 ## Accumulated Context
 
@@ -93,6 +93,12 @@ Last activity: 2026-03-14 -- Plan 12.2-01 complete (discovery schema + YAML migr
 - 16 discovery commands migrated from hardcoded DISCOVERY_COMMANDS into 4 skill YAML files
 - YAML single-quoted strings handle Go template syntax ({{.Names}}) and embedded SQL quotes ('idle')
 
+### From Phase 12.2-02
+- DISCOVERY_COMMANDS constant fully removed from debug.ts (61 lines of hardcoded domain knowledge deleted)
+- runDiscovery refactored to take SkillFile argument, reads from skill.frontmatter.discovery
+- debug.ts is now a 100% Agnostic Engine -- zero hardcoded domain knowledge remains
+- 477 tests passing, all E2E scenarios work with skill-driven discovery
+
 ## Decisions
 
 - Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
@@ -107,9 +113,10 @@ Last activity: 2026-03-14 -- Plan 12.2-01 complete (discovery schema + YAML migr
 - Kept findDbContainer in debug.ts for DB container prioritization (not deprecated)
 - [Phase 12.2]: YAML single-quoted strings for Go template syntax and embedded quotes in discovery commands
 - [Phase 12.2]: Discovery commands declared in skill YAML frontmatter, not hardcoded in TypeScript
+- [Phase 12.2-02]: SkillFile import added for typed runDiscovery signature instead of string-based lookup
 
 ## Session Continuity
 
-Last session: 2026-03-14T11:24:25.869Z
-Stopped at: Completed 12.2-01-PLAN.md
-Next: Next milestone phase (Knowledge Layer / Qdrant integration)
+Last session: 2026-03-14T11:28:58.198Z
+Stopped at: Completed 12.2-02-PLAN.md
+Next: Phase 12.2 complete -- next milestone phase (Knowledge Layer / Qdrant integration)

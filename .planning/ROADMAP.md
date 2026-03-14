@@ -94,7 +94,7 @@ Plans:
 
 **Goal:** Eliminate the hardcoded `DISCOVERY_COMMANDS` constant from debug.ts. Each skill declares its own discovery commands in frontmatter — the orchestrator reads them dynamically. Skills without discovery simply skip the discovery phase. This completes the Agnostic Engine transition: 100% of domain knowledge lives in Markdown skill files.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 12.2-01-PLAN.md — Discovery schema + skill YAML migration (DiscoveryCommandSchema, 4 skills)
@@ -126,7 +126,7 @@ Plans:
 | 8-11 | v1.1 | 10/10 | Complete | 2026-03-13 |
 | 12 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.1 | v1.2 | 3/3 | Complete | 2026-03-14 |
-| 12.2 | 1/2 | In Progress|  | — |
+| 12.2 | 2/2 | Complete   | 2026-03-14 | — |
 
 ---
 *Roadmap created: 2026-03-07*
