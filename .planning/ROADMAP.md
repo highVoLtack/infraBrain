@@ -145,6 +145,31 @@ Plans:
 **Dependencies:** Phase 12.2
 **Requirements:** ENGN-05
 
+### Phase 12.4: Agnostic Skill Redesign (INSERTED)
+
+**Goal:** Replace scenario-specific scripted skills with universal expert skills. Merge `tools[]` + `rewrite_rules[]` + safety rules into a single `tools: { name: { risk, user, wrapper } }` map. Replace Diagnostic Ladders with Domain Knowledge sections. Remove all hardcoded container names. Make the LLM reason instead of follow scripts. The Permission Trap live test must pass end-to-end.
+
+**Scope:**
+1. New `ToolDeclarationSchema` — `{ risk, user?, wrapper?, strip_flags?, container? }`
+2. `toolsToRewriteRules()` adapter — converts tool map to rewrite rules
+3. Auto-generated tool list injection into LLM system prompt
+4. Consolidate 4 scenario skills into 2-3 universal experts: `linux-expert`, `postgres-expert`, `network-expert`
+5. Domain Knowledge sections replace Diagnostic Ladders
+6. Generic discovery — no hardcoded container names
+7. Update allowlist.ts for new format
+8. All E2E tests + Permission Trap live DPEV pass
+
+**Success criteria:**
+1. Skills have zero hardcoded container names
+2. `tools:` map = single source for allowlist + rewrite + risk
+3. LLM reasons from domain knowledge, not scripts
+4. Permission Trap live test succeeds
+5. All E2E tests pass
+6. New scenario = only a `.md` file, zero TypeScript
+
+**Dependencies:** Phase 12.3
+**Requirements:** ENGN-06
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
@@ -154,8 +179,9 @@ Plans:
 | 12 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.1 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.2 | v1.2 | 2/2 | Complete | 2026-03-14 |
-| 12.3 | 2/2 | Complete   | 2026-03-14 | — |
+| 12.3 | v1.2 | 2/2 | Complete | 2026-03-14 |
+| 12.4 | v1.2 | 0/? | Not planned | — |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-14 — Phase 12.3 planned (2 plans in 2 waves)*
+*Last updated: 2026-03-14 — Phase 12.4 inserted (Agnostic Skill Redesign)*
