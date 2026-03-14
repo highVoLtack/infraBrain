@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: active
-last_updated: "2026-03-13T18:30:00.000Z"
-last_activity: 2026-03-13 -- Milestone v1.2 started, defining requirements
+last_updated: "2026-03-14T08:15:36Z"
+last_activity: 2026-03-14 -- Phase 12 Plan 01 complete (permission trap demo)
 progress:
-  total_phases: 0
+  total_phases: 1
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-13 — Milestone v1.2 started
+Phase: 12-linux-filesystem-permission-trap
+Plan: 01 complete, next 02
+Status: Executing phase 12
+Last activity: 2026-03-14 — Plan 12-01 complete (permission trap demo environment)
 
 ## Accumulated Context
 
@@ -44,8 +44,17 @@ Last activity: 2026-03-13 — Milestone v1.2 started
 - Safety system: circuit breaker, damage budget, HITL approval, rollback
 - Ollama provider abstraction with pluggable model support
 
+### Roadmap Evolution
+
+- Phase 12 inserted as first v1.2 phase: Linux Filesystem Permission Trap Scenario (URGENT) — prove OS-level troubleshooting without DB logic
+
+### From Phase 12-01
+- Permission trap demo: demo/permission-trap/ with compose, Dockerfile, app.py, reset script
+- Container stays alive after PermissionError via sleep loop for docker exec diagnostics
+- Single-service compose, no ports/volumes -- all state inside container
+
 ## Session Continuity
 
-Last session: 2026-03-13
-Status: Milestone v1.2 started, paused during requirements definition
-Next: Continue with research decision → requirements → roadmap
+Last session: 2026-03-14
+Status: Phase 12 Plan 01 complete
+Next: Execute Plan 12-02 (diagnostic skill and discovery commands)

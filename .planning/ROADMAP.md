@@ -43,7 +43,7 @@
 **Plans:** 3 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — Docker permission trap demo environment (compose, app, reset script)
+- [x] 12-01-PLAN.md — Docker permission trap demo environment (compose, app, reset script) -- completed 2026-03-14
 - [ ] 12-02-PLAN.md — Diagnostic skill, discovery commands, and safety rule updates
 - [ ] 12-03-PLAN.md — Full DPEV loop E2E test
 
@@ -67,7 +67,7 @@ Plans:
 |-------|-----------|-------|--------|-----------|
 | 1-7 | v1.0 | 22/22 | Complete | 2026-03-12 |
 | 8-11 | v1.1 | 10/10 | Complete | 2026-03-13 |
-| 12 | v1.2 | 0/3 | Planned | — |
+| 12 | v1.2 | 1/3 | In Progress | — |
 
 ---
 *Roadmap created: 2026-03-07*
