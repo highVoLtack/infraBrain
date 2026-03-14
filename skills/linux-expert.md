@@ -48,6 +48,8 @@ discovery:
     label: 'Container Inventory'
   - command: 'docker stats --no-stream'
     label: 'Resource Usage'
+  - command: 'for c in $(docker ps -q --last 5); do echo "=== $(docker inspect --format "{{.Name}}" $c) ==="; docker logs --tail 20 $c 2>&1; done'
+    label: 'Recent Container Logs'
 ---
 
 ## System Prompt
