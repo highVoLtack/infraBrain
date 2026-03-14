@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: Active
-stopped_at: Completed 12.4-01-PLAN.md
-last_updated: "2026-03-14T12:33:07Z"
-last_activity: 2026-03-14 -- Plan 12.4-01 complete (ToolDeclarationSchema + toolsToRewriteRules + engine wiring)
+stopped_at: Completed 12.4-02-PLAN.md
+last_updated: "2026-03-14T12:41:02.548Z"
+last_activity: 2026-03-14 -- Plan 12.4-02 complete (3 universal expert skills, old skills deleted, log-analysis updated)
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 12.4-agnostic-skill-redesign
-Plan: 01 of 3 complete
+Plan: 02 of 3 complete
 Status: Active
-Last activity: 2026-03-14 -- Plan 12.4-01 complete (ToolDeclarationSchema + toolsToRewriteRules + engine wiring)
+Last activity: 2026-03-14 -- Plan 12.4-02 complete (3 universal expert skills, old skills deleted, log-analysis updated)
 
 ## Accumulated Context
 
@@ -123,6 +123,15 @@ Last activity: 2026-03-14 -- Plan 12.4-01 complete (ToolDeclarationSchema + tool
 - Removed unused version and author fields from SkillFrontmatterSchema
 - 489 tests passing, zero regressions
 
+### From Phase 12.4-02
+- 3 universal expert skills: linux-expert (permissions+disk+OOM), postgres-expert (connections+deadlocks+slow queries), network-expert (HTTP+proxy+Docker networking)
+- Domain Knowledge sections replace Diagnostic Ladders -- LLM reasons from knowledge, not scripted steps
+- All skills use map-format tools with risk classification, no hardcoded container names
+- Generic discovery commands only (docker ps -a, docker stats --no-stream)
+- 4 old scenario-specific skills deleted: linux-filesystem-troubleshoot, docker-storage, postgres-troubleshoot, nginx-troubleshoot
+- log-analysis.md converted to map-format tools
+- 6 total skills: linux-expert, postgres-expert, network-expert, log-analysis, planning, verification
+
 ## Decisions
 
 - Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
@@ -152,8 +161,14 @@ Last activity: 2026-03-14 -- Plan 12.4-01 complete (ToolDeclarationSchema + tool
 - [Phase 12.4-01]: generateToolList injected only for map-format skills, not legacy string[]
 - [Phase 12.4-01]: Removed unused version and author fields from SkillFrontmatterSchema
 
+- [Phase 12.4-02]: linux-expert merges filesystem permissions + disk pressure + OOM into single universal skill
+- [Phase 12.4-02]: Discovery commands are generic only -- LLM gathers evidence using tools guided by domain knowledge
+- [Phase 12.4-02]: Old skills deleted (not deprecated) to avoid registry confusion
+- [Phase 12.4-02]: log-analysis.md tool "docker logs" changed to "docker" key in map format
+- [Phase 12.4]: Universal expert skills replace scenario-specific skills: linux-expert merges permissions+disk+OOM, Domain Knowledge over Diagnostic Ladders
+
 ## Session Continuity
 
-Last session: 2026-03-14T12:33:07Z
-Stopped at: Completed 12.4-01-PLAN.md
-Next: Plan 12.4-02 (skill migration to unified tool map format)
+Last session: 2026-03-14T12:40:58.294Z
+Stopped at: Completed 12.4-02-PLAN.md
+Next: Plan 12.4-03 (cleanup -- remove rewrite_rules field and legacy string[] code paths)

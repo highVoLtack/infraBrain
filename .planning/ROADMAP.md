@@ -149,7 +149,7 @@ Plans:
 
 **Goal:** Replace scenario-specific scripted skills with universal expert skills. Merge `tools[]` + `rewrite_rules[]` + safety rules into a single `tools: { name: { risk, user, wrapper } }` map. Replace Diagnostic Ladders with Domain Knowledge sections. Remove all hardcoded container names. Make the LLM reason instead of follow scripts. The Permission Trap live test must pass end-to-end.
 
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
 - [x] 12.4-01-PLAN.md — ToolDeclarationSchema + toolsToRewriteRules() adapter + engine wiring -- completed 2026-03-14
@@ -187,7 +187,7 @@ Plans:
 | 12.1 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.2 | v1.2 | 2/2 | Complete | 2026-03-14 |
 | 12.3 | v1.2 | 2/2 | Complete | 2026-03-14 |
-| 12.4 | v1.2 | 1/3 | Active | — |
+| 12.4 | 2/3 | In Progress|  | — |
 
 ---
 *Roadmap created: 2026-03-07*
