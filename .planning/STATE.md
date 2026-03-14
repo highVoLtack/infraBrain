@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: Active
-stopped_at: Completed 12.3-02-PLAN.md
-last_updated: "2026-03-14T12:12:06Z"
-last_activity: 2026-03-14 -- Plan 12.3-02 complete (COMMAND-ONLY mode skills + E2E validation)
+stopped_at: Completed 12.4-01-PLAN.md
+last_updated: "2026-03-14T12:33:07Z"
+last_activity: 2026-03-14 -- Plan 12.4-01 complete (ToolDeclarationSchema + toolsToRewriteRules + engine wiring)
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 13
+  completed_plans: 11
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 
 ## Current Position
 
-Phase: 12.3-engine-proof-rewriter
-Plan: 02 of 2 complete
-Status: Phase Complete
-Last activity: 2026-03-14 -- Plan 12.3-02 complete (COMMAND-ONLY mode skills + E2E validation)
+Phase: 12.4-agnostic-skill-redesign
+Plan: 01 of 3 complete
+Status: Active
+Last activity: 2026-03-14 -- Plan 12.4-01 complete (ToolDeclarationSchema + toolsToRewriteRules + engine wiring)
 
 ## Accumulated Context
 
@@ -113,6 +113,16 @@ Last activity: 2026-03-14 -- Plan 12.3-02 complete (COMMAND-ONLY mode skills + E
 - E2E validation confirms docker-exec-aware rewriter handles canned fix plans correctly (no changes needed)
 - Phase 12.3 complete -- engine-first architecture fully proven across all skill types
 
+### From Phase 12.4-01
+- ToolDeclarationSchema: risk (required), user, wrapper, strip_flags, container (default 'auto')
+- SkillFrontmatterSchema tools field: z.union([string[], Record<string, ToolDeclaration>]).default({})
+- toolsToRewriteRules() adapter converts unified tool map to RewriteRule[] for dynamicRewrite()
+- allowlist.ts uses Array.isArray() to detect format, Object.keys() for map tools
+- debug.ts derives rewrite rules from tool map for new-format skills, falls back to rewrite_rules for legacy
+- context.ts generateToolList() auto-injects YOUR TOOLS section into system prompt for map-format skills
+- Removed unused version and author fields from SkillFrontmatterSchema
+- 489 tests passing, zero regressions
+
 ## Decisions
 
 - Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
@@ -136,8 +146,14 @@ Last activity: 2026-03-14 -- Plan 12.3-02 complete (COMMAND-ONLY mode skills + E
 - [Phase 12.3-02]: Infrastructure commands (docker restart/logs/ps) left in skill text -- not inside-container commands
 - [Phase 12.3-02]: No E2E test changes needed -- docker exec parser handles existing canned fix plans correctly
 
+- [Phase 12.4-01]: ToolDeclarationSchema requires risk field -- tools must declare their risk level
+- [Phase 12.4-01]: Default tools to {} (empty map) not [] -- new-format-first design
+- [Phase 12.4-01]: z.union([string[], Record]) with .default({}) for backward-compat migration
+- [Phase 12.4-01]: generateToolList injected only for map-format skills, not legacy string[]
+- [Phase 12.4-01]: Removed unused version and author fields from SkillFrontmatterSchema
+
 ## Session Continuity
 
-Last session: 2026-03-14T12:12:06Z
-Stopped at: Completed 12.3-02-PLAN.md
-Next: Phase 12.3 complete. Next phase TBD.
+Last session: 2026-03-14T12:33:07Z
+Stopped at: Completed 12.4-01-PLAN.md
+Next: Plan 12.4-02 (skill migration to unified tool map format)
