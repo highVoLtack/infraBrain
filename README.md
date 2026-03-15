@@ -75,10 +75,14 @@ src/
 ### Prerequisites
 
 - Node.js 22+
-- Ollama running locally or remotely (RunPod, on-premise GPU cluster) with models configured in `.infrabrain/config.json`. The `modelMap` defines three roles:
+- Ollama running locally or remotely (RunPod, on-premise GPU cluster) with models configured in `.infrabrain/config.json`. The `modelMap` defines seven roles:
   - `default`: `qwen3.5:35b-a3b` — Technical Lead (MoE, 3B active, fast)
-  - `strategic`: `qwen3.5:122b-a10b` — Strategic Diagnostician (MoE, 10B active, deep reasoning)
-  - `forensic`: `deepseek-r1:32b` — Forensic Specialist (chain-of-thought reasoning)
+  - `triage`: `qwen3.5:9b` — Skill routing (lightweight, fast)
+  - `strategic`: `qwen3.5:122b-a10b` — Fix planning + self-heal corrections (MoE, 10B active, deep reasoning)
+  - `forensic`: `qwen3.5:35b-a3b` — Deep chain-of-thought debugging
+  - `worker`: `glm-4.7-flash` — Background tasks
+  - `vision`: `qwen3.5:122b-a10b` — Visual analysis
+  - `embedding`: `bge-m3` — RAG vector embeddings (future)
 - Model-agnostic: any Ollama-compatible model works. Customers can use their own GPU cluster or connect cloud APIs.
 
 ### Configure
@@ -87,6 +91,60 @@ src/
 cp config.example.json .infrabrain/config.json
 # Edit .infrabrain/config.json with your Ollama URL and model names
 ```
+
+### RunPod GPU Setup (SSH Tunnel)
+
+When running Ollama on a RunPod GPU pod, use an SSH tunnel instead of the Cloudflare proxy to avoid the 100-second timeout limit on large model inference.
+
+**1. First-time setup: Add your SSH key to RunPod**
+
+```bash
+# Generate a key if you don't have one
+ssh-keygen -t ed25519 -C "your-email@example.com"
+
+# Copy your public key
+cat ~/.ssh/id_ed25519.pub
+# Paste this into RunPod → Account Settings → SSH Public Keys
+```
+
+**2. Every pod start: Enable SSH on the pod**
+
+RunPod pods don't persist SSH config across restarts. Run these in the **Web Terminal** each time:
+
+```bash
+mkdir -p ~/.ssh /run/sshd
+echo 'YOUR_PUBLIC_KEY_HERE' > ~/.ssh/authorized_keys
+chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys
+which sshd && /usr/sbin/sshd || (apt-get update && apt-get install -y openssh-server && mkdir -p /run/sshd && /usr/sbin/sshd)
+```
+
+**3. Open the SSH tunnel from your machine**
+
+```bash
+# Use the "SSH over exposed TCP" connection info from RunPod
+# Format: ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519
+# Add -L to forward Ollama's port (use 11435 if local Ollama occupies 11434)
+ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+    -L 11435:localhost:11434 \
+    root@<RUNPOD_IP> -p <RUNPOD_PORT> \
+    -i ~/.ssh/id_ed25519 -N -f
+```
+
+**4. Update config to use the tunnel**
+
+```json
+{
+  "ollamaBaseUrl": "http://localhost:11435"
+}
+```
+
+**Fallback:** If SSH is not available, use the Cloudflare proxy URL directly:
+```json
+{
+  "ollamaBaseUrl": "https://YOUR-POD-ID-11434.proxy.runpod.net"
+}
+```
+Note: The proxy has a ~100s timeout. Small models (9B, 35B) work fine. Large models (122B) may timeout on first inference.
 
 ### Install
 

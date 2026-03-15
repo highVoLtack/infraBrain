@@ -75,39 +75,12 @@ export function extractSkillDomainKnowledge(skill: SkillFile): string {
 
 /**
  * Infer correction hints from stderr patterns.
- * These are agnostic transformation rules: "if error says X, try Y instead".
- * Helps the LLM avoid repeating the same mistake.
+ * DEPRECATED: Kept as no-op. The LLM should reason from the error itself,
+ * not from scripted hints. Scripting solutions is the anti-pattern we eliminated
+ * with the self-healing executor.
  */
-export function inferCorrectionHints(stderr: string): string | null {
-  const lower = stderr.toLowerCase();
-  const hints: string[] = [];
-
-  // "already exists" → use ALTER/UPDATE instead of CREATE/INSERT
-  if (lower.includes('already exists')) {
-    hints.push('- The resource already exists. Use ALTER/UPDATE/MODIFY instead of CREATE/INSERT/ADD.');
-  }
-  // Permission denied → privilege escalation
-  if (lower.includes('permission denied') || lower.includes('operation not permitted')) {
-    hints.push('- Permission denied. Try running with elevated privileges (e.g. -u 0 on docker exec, sudo, or as a different user).');
-  }
-  // No such file or directory → check parent, use different path
-  if (lower.includes('no such file') || lower.includes('not found')) {
-    hints.push('- Path does not exist. Check the parent directory, or the resource may not have been created yet.');
-  }
-  // Connection refused / unreachable → network isolation
-  if (lower.includes('connection refused') || lower.includes('name or service not known') || lower.includes('unreachable')) {
-    hints.push('- Connection failed. The target may be on a different Docker network. Use `docker network connect` to bridge networks.');
-  }
-  // TTY error → remove -it flags
-  if (lower.includes('not a tty') || lower.includes('input device is not a tty')) {
-    hints.push('- TTY error. Remove -it or -t flags from docker exec. Use -i only, or neither.');
-  }
-  // Syntax / command not found
-  if (lower.includes('command not found') || lower.includes('syntax error')) {
-    hints.push('- Command not found or syntax error. Check the command exists in the container and the syntax is correct.');
-  }
-
-  return hints.length > 0 ? hints.join('\n') : null;
+export function inferCorrectionHints(_stderr: string): string | null {
+  return null;
 }
 
 /**
@@ -524,10 +497,18 @@ export async function selfHealStep(
     .slice(-3)
     .map(a => a.error.stderr.split('\n')[0].slice(0, 120));
 
+  // Suggest escalation to the next tier: worker → strategic → forensic
+  const escalationMap: Record<string, string> = {
+    'worker': 'strategic',
+    'default': 'strategic',
+    'strategic': 'forensic',
+  };
+  const suggestedRole = escalationMap[context.modelRole] ?? 'strategic';
+
   const escalation = {
     reason: `Self-healing exhausted after ${attempts.length} attempts. The current model could not resolve this step.`,
     modelUsed: context.modelId,
-    suggestedRole: 'strategic',
+    suggestedRole,
     lastErrors,
     attemptCount: attempts.length,
   };

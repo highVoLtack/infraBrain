@@ -66,6 +66,7 @@ function makeContext(overrides: Partial<SelfHealContext> = {}): SelfHealContext 
     budget: new DamageBudget(10),
     model: { specificationVersion: 'v2' } as any,
     modelId: 'test-model',
+    modelRole: 'worker',
     skill: makeLinuxSkill(),
     runner: {
       run: vi.fn().mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 }),
@@ -272,6 +273,7 @@ describe('Self-Healer Integration', () => {
       budget: new DamageBudget(config.damageBudget.maxPoints),
       model: { specificationVersion: 'v2' } as any,
       modelId: 'test-model',
+    modelRole: 'worker',
       skill,
       runner: { run: vi.fn().mockResolvedValue({ stdout: 'ok', stderr: '', exitCode: 0 }) },
       rewriteRules,

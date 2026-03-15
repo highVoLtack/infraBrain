@@ -13,6 +13,8 @@ import type { SelfHealContext } from './types.js';
 import { acquireLock, releaseLock, promptLockOverride } from '../locks/manager.js';
 import { sanitizeDockerExec } from '../safety/validator.js';
 
+const DEV_MODE = process.env.NODE_ENV !== 'production';
+
 /**
  * Execute a fix plan with full safety pipeline:
  * lock acquire -> for each step (budget check -> snapshot -> approval -> execute -> budget deduct -> context update) -> lock release
@@ -208,6 +210,7 @@ export async function executePlan(
           budget,
           model: deps.correctionModel!,
           modelId: (deps.correctionModel as any)?.modelId ?? 'unknown',
+          modelRole: deps.correctionModelRole ?? 'worker',
           skill: deps.skill!,
           runner: deps.runner,
           rewriteRules: deps.rewriteRules ?? [],
@@ -222,7 +225,11 @@ export async function executePlan(
           rollingContext: context.getContext() || undefined,
         };
 
+        const healModelId = (deps.correctionModel as any)?.modelId ?? 'unknown';
+        if (DEV_MODE) console.log(`[SELF-HEAL] Step ${i} failed, calling ${healModelId} for correction (max ${healContext.maxAttempts} attempts)...`);
+        const healStart = Date.now();
         const healResult = await selfHealStep(step, firstResult, healContext);
+        if (DEV_MODE) console.log(`[SELF-HEAL] ${healResult.status} in ${((Date.now() - healStart) / 1000).toFixed(1)}s — ${healResult.attempts.length} attempts`);
 
         if (healResult.status === 'success') {
           finalResult = healResult.finalResult!;

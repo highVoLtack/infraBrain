@@ -43,6 +43,7 @@ function makeContext(overrides: Partial<SelfHealContext> = {}): SelfHealContext 
     budget: new DamageBudget(10),
     model: { specificationVersion: 'v1' } as any,
     modelId: 'test-model',
+    modelRole: 'worker',
     skill: makeSkill(),
     runner: {
       run: vi.fn().mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 }),
@@ -173,7 +174,7 @@ describe('buildCorrectionPrompt', () => {
     expect(prompt).toContain('whoami');
   });
 
-  it('mentions privilege escalation hint for permission errors', () => {
+  it('includes stderr in correction prompt so LLM can reason from error', () => {
     const prompt = buildCorrectionPrompt({
       originalCommand: 'stat /app/data/status.pid',
       stderr: 'Permission denied',
@@ -183,8 +184,9 @@ describe('buildCorrectionPrompt', () => {
       containerContext: 'Container: permission-app',
     });
 
-    expect(prompt).toContain('elevated privileges');
-    expect(prompt).toContain('-u 0');
+    expect(prompt).toContain('Permission denied');
+    expect(prompt).toContain('stat /app/data/status.pid');
+    expect(prompt).toContain('Exit code: 1');
   });
 });
 
@@ -608,36 +610,12 @@ describe('errorTypeChanged', () => {
 });
 
 describe('inferCorrectionHints', () => {
-  it('suggests ALTER for "already exists" errors', () => {
-    const hints = inferCorrectionHints('ERROR: role "svcuser" already exists');
-    expect(hints).toContain('ALTER');
-    expect(hints).toContain('already exists');
-  });
-
-  it('suggests privilege escalation for permission denied', () => {
-    const hints = inferCorrectionHints('Permission denied writing to /app/data');
-    expect(hints).toContain('elevated privileges');
-    expect(hints).toContain('-u 0');
-  });
-
-  it('suggests network connect for connection refused', () => {
-    const hints = inferCorrectionHints('Error -2 connecting to kv-cache-01:6379. Name or service not known.');
-    expect(hints).toContain('docker network connect');
-  });
-
-  it('suggests removing -it for TTY errors', () => {
-    const hints = inferCorrectionHints('the input device is not a TTY');
-    expect(hints).toContain('-it');
-  });
-
-  it('returns null for unknown errors', () => {
-    const hints = inferCorrectionHints('some random error nobody has seen');
-    expect(hints).toBeNull();
-  });
-
-  it('returns multiple hints for multi-pattern errors', () => {
-    const hints = inferCorrectionHints('Permission denied: No such file or directory');
-    expect(hints).toContain('elevated privileges');
-    expect(hints).toContain('parent directory');
+  it('returns null for all errors — LLM reasons from stderr, not scripted hints', () => {
+    expect(inferCorrectionHints('ERROR: role "svcuser" already exists')).toBeNull();
+    expect(inferCorrectionHints('Permission denied writing to /app/data')).toBeNull();
+    expect(inferCorrectionHints('Error -2 connecting to kv-cache-01:6379. Name or service not known.')).toBeNull();
+    expect(inferCorrectionHints('the input device is not a TTY')).toBeNull();
+    expect(inferCorrectionHints('some random error nobody has seen')).toBeNull();
+    expect(inferCorrectionHints('Permission denied: No such file or directory')).toBeNull();
   });
 });

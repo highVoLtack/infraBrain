@@ -342,12 +342,17 @@ export function createDebugRoute(
       // Skill selection (if registry available and has skills)
       if (registry && registry.list().length > 0) {
         try {
+          const triageModel = provider.registry?.get?.('triage') ?? provider.model;
+          const triageModelId = (triageModel as any)?.modelId ?? 'unknown';
+          if (DEV_MODE) console.log(`[TRIAGE] Selecting skill via ${triageModelId}...`);
+          const triageStart = Date.now();
           const selection = await selectSkill({
-            model: provider.registry.get('triage'),
+            model: triageModel,
             userInput: prompt,
             registry,
             skillOverride: skillOverride as string | undefined,
           });
+          if (DEV_MODE) console.log(`[TRIAGE] Selected "${selection.skill.frontmatter.name}" in ${((Date.now() - triageStart) / 1000).toFixed(1)}s`);
 
           skillMessage = `Using skill: ${selection.skill.frontmatter.name} -- ${selection.reasoning}`;
           auditLogger.logSkillSelection(
@@ -376,7 +381,10 @@ export function createDebugRoute(
           }
 
           // Run discovery commands to get ground truth BEFORE LLM call
+          if (DEV_MODE) console.log(`[DISCOVERY] Running ${selection.skill.frontmatter.discovery?.length ?? 0} discovery commands...`);
+          const discoveryStart = Date.now();
           const { context: discoveryContext, raw: discoveryRaw } = await runDiscovery(selection.skill);
+          if (DEV_MODE) console.log(`[DISCOVERY] Complete in ${((Date.now() - discoveryStart) / 1000).toFixed(1)}s`);
 
           // DPEV: discovery phase complete (auto-complete if no discovery commands)
           completedPhases.push('discovery');
@@ -439,6 +447,9 @@ export function createDebugRoute(
           if (discoveryContext && preferredRole) {
             try {
               const targetModel = provider.registry.get(preferredRole);
+              const diagModelId = (targetModel as any)?.modelId ?? preferredRole;
+              if (DEV_MODE) console.log(`[DIAGNOSIS] Calling ${diagModelId} (structured object)...`);
+              const diagStart = Date.now();
               const { object } = await generateObject({
                 model: targetModel,
                 schema: StructuredDiagnosisSchema,
@@ -454,8 +465,10 @@ export function createDebugRoute(
               }
               structuredDiagnosis = object;
               diagnosis = flattenDiagnosis(object);
+              if (DEV_MODE) console.log(`[DIAGNOSIS] Complete in ${((Date.now() - diagStart) / 1000).toFixed(1)}s — root cause: ${object.rootCause.slice(0, 80)}`);
             } catch (structuredErr) {
               // Fallback to free-text if structured generation fails
+              if (DEV_MODE) console.log(`[DIAGNOSIS] Structured failed after ${((Date.now() - diagStart) / 1000).toFixed(1)}s, falling back to free-text...`);
               auditLogger.logError(`Structured diagnosis failed, falling back to free-text: ${(structuredErr as Error).message}`);
               diagnosis = await provider.generateCommand(preFilteredPrompt, systemPrompt, preferredRole);
             }
@@ -466,12 +479,15 @@ export function createDebugRoute(
           // Sanity checker: scan diagnosis for hallucination patterns
           const violations = checkForHallucinations(diagnosis);
           if (violations.length > 0) {
+            if (DEV_MODE) console.log(`[SANITY] Hallucination detected: ${violations.join('; ')} — retrying with grounding penalty...`);
             auditLogger.logError(`Sanity check failed (attempt 1): ${violations.join('; ')}`);
 
             // Retry once with strict grounding penalty
+            const sanityStart = Date.now();
             const retryPrompt = preFilteredPrompt + STRICT_GROUNDING_PENALTY;
             const retryDiagnosis = await provider.generateCommand(retryPrompt, systemPrompt, preferredRole);
             const retryViolations = checkForHallucinations(retryDiagnosis);
+            if (DEV_MODE) console.log(`[SANITY] Retry complete in ${((Date.now() - sanityStart) / 1000).toFixed(1)}s — ${retryViolations.length > 0 ? 'STILL FAILED' : 'passed'}`);
 
             if (retryViolations.length > 0) {
               // Both attempts failed — return 422
@@ -496,9 +512,14 @@ export function createDebugRoute(
 
           // Always attempt fix plan generation from any skill's diagnosis
           const planningSkill = registry.get('planning');
-          console.log(`[DEBUG] planningSkill found: ${!!planningSkill}, preferred_model: ${planningSkill?.frontmatter?.preferred_model}`);
           if (planningSkill) {
             try {
+              const planModelId = planningSkill.frontmatter.preferred_model
+                ? (provider.registry?.get?.(planningSkill.frontmatter.preferred_model) as any)?.modelId ?? planningSkill.frontmatter.preferred_model
+                : (provider.model as any)?.modelId ?? 'default';
+              if (DEV_MODE) console.log(`[PLANNING] Generating fix plan via ${planModelId}...`);
+              const planStart = Date.now();
+
               // Include discovery context in the diagnosis passed to planner
               const enrichedDiagnosis = discoveryContext
                 ? `${diagnosis}\n\n${discoveryContext}`
@@ -529,9 +550,9 @@ export function createDebugRoute(
 
               planMarkdown = generatePlanMarkdown(fixPlan);
               planTable = formatPlanTable(fixPlan);
-              console.log(`[DEBUG] generateFixPlan succeeded, steps: ${fixPlan.steps.map(s => s.command).join(' | ')}`);
+              if (DEV_MODE) console.log(`[PLANNING] Complete in ${((Date.now() - planStart) / 1000).toFixed(1)}s — ${fixPlan.steps.length} steps`);
             } catch (planErr) {
-              console.log(`[DEBUG] generateFixPlan FAILED: ${(planErr as Error).message}`);
+              if (DEV_MODE) console.log(`[PLANNING] FAILED after ${((Date.now() - planStart) / 1000).toFixed(1)}s: ${(planErr as Error).message}`);
               auditLogger.logError(`Fix plan generation failed: ${(planErr as Error).message}`);
             }
           }

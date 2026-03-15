@@ -85,7 +85,8 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
       // Resolve self-healing deps: correctionModel, skill, rewriteRules, containers
       // These enable the executor to self-heal command failures via LLM correction
       const skill = skillName && deps.registry ? deps.registry.get(skillName) : undefined;
-      // Self-healer uses strategic model for intelligent corrections (fallback to default)
+      // Self-healer uses strategic model for corrections — needs reasoning ability
+      // to understand errors and generate alternative commands (worker models lack this)
       const correctionModel = deps.provider?.registry?.get?.('strategic')
         ?? deps.provider?.registry?.get?.('default')
         ?? undefined;
@@ -114,6 +115,7 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
         // Self-healing deps (executor activates self-healing when correctionModel+skill present)
         ...(correctionModel && skill ? {
           correctionModel,
+          correctionModelRole: 'strategic',
           skill,
           rewriteRules,
           containers,

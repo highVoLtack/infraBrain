@@ -5,6 +5,14 @@ import chalk from 'chalk';
 import type { LockFile, LockResult, LockStatus } from './types.js';
 
 /**
+ * Sanitize a target string for use as a lock filename.
+ * Replaces path separators, colons, and other unsafe chars with underscores.
+ */
+function sanitizeLockTarget(target: string): string {
+  return target.replace(/[/\\:?*"<>|=]/g, '_').replace(/_+/g, '_').slice(0, 200);
+}
+
+/**
  * Acquire a lock on a target. Uses writeFileSync with { flag: 'wx' }
  * for atomic create to prevent race conditions.
  */
@@ -22,7 +30,7 @@ export function acquireLock(
   // Ensure lock directory exists
   fs.mkdirSync(lockDir, { recursive: true });
 
-  const lockPath = path.join(lockDir, `${target}.lock`);
+  const lockPath = path.join(lockDir, `${sanitizeLockTarget(target)}.lock`);
   const lockData: LockFile = {
     target,
     sessionId: meta.sessionId,
@@ -59,7 +67,7 @@ export function acquireLock(
  * Release a lock on a target. Idempotent -- no error if lock does not exist.
  */
 export function releaseLock(target: string, lockDir: string): void {
-  const lockPath = path.join(lockDir, `${target}.lock`);
+  const lockPath = path.join(lockDir, `${sanitizeLockTarget(target)}.lock`);
   try {
     fs.unlinkSync(lockPath);
   } catch (err: unknown) {
@@ -74,7 +82,7 @@ export function releaseLock(target: string, lockDir: string): void {
  * Check if a lock exists for a target. Returns the lock data or null.
  */
 export function checkLock(target: string, lockDir: string): LockStatus {
-  const lockPath = path.join(lockDir, `${target}.lock`);
+  const lockPath = path.join(lockDir, `${sanitizeLockTarget(target)}.lock`);
   try {
     const data = fs.readFileSync(lockPath, 'utf-8');
     return JSON.parse(data) as LockFile;
