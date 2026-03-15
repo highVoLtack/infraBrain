@@ -240,6 +240,39 @@ Plans:
 **Dependencies:** Phase 12.5
 **Requirements:** ENGN-08
 
+### Phase 13: Execution Hardening (from multi-fault learnings)
+
+**Goal:** Fix the real-world gaps exposed by the 5-fault multi-fault demo. The engine diagnosed and fixed 4/5 faults fully autonomous — Phase 13 closes the remaining gaps so the next multi-fault test achieves 5/5 with zero manual intervention.
+
+**Plans:** TBD (estimate 2-3 plans)
+
+**Scope:**
+1. **Post-restart persistence verification** — after a fix + container restart, verify the fix persists. The Redis `sed` without `-i` bug: LLM changed runtime config but not the file, so restart reverted the fix. Add a verification step after restarts that re-checks the original symptom.
+2. **Sanity checker tuning** — `<original-image>` false positive cost 47s extra LLM call. Review hallucination patterns, remove over-aggressive ones, add structured diagnosis exemptions.
+3. **7-role model routing validation** — triage takes 13s with 122B (target: <3s). Validate that triage works with smaller models when multi-GPU is available. Document recommended model assignments per role.
+
+**Success criteria:**
+1. `sed -i` vs `sed` gap: self-healer detects when a restart reverts a fix and retries with persistent approach
+2. Sanity checker: zero false positives on valid structured diagnosis output
+3. Multi-fault demo: 5/5 faults fixed, zero manual intervention, total time under 10 minutes
+4. Dev logging shows every DPEV phase with model + timing (already shipped, needs E2E validation)
+
+**Dependencies:** Phase 12.6
+**Requirements:** ENGN-09
+
+## Planned: v1.3 Intelligence Platform
+
+**Goal:** Multi-model serving, model benchmarking per role, Qdrant vector search for declarative knowledge, and LoRA domain expertise — transforming InfraBrain from a single-model CLI tool into an intelligent platform.
+
+**Target features:**
+- vLLM multi-model serving (parallel models, no swapping overhead)
+- Model benchmarking framework: test each role (triage/default/strategic/forensic/worker) with different models, measure quality + latency
+- Qdrant + BGE-M3 for RAG-based diagnosis (vendor docs, runbooks, internal wikis)
+- LoRA production pipeline: domain Expert Packs (SAP, Cisco, VMware)
+- Optimal model assignment per role based on benchmark results
+
+**Depends on:** Phase 13 complete, multi-GPU hardware available
+
 ## Progress
 
 | Phase | Milestone | Plans | Status | Completed |
@@ -253,8 +286,9 @@ Plans:
 | 12.4 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.5 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.6 | v1.2 | 3/3 | Complete | 2026-03-14 |
-| 12.6 Demo | v1.2 | — | Validated 2026-03-15 | 5/5 faults fixed (4 autonomous, 1 semi-auto) |
+| 12.6 Demo | v1.2 | — | Validated | 2026-03-15 (5/5 faults, 4 autonomous) |
+| 13 | v1.2 | TBD | Planned | — |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-15 — Multi-fault demo validated: 5/5 faults fixed. Next: Phase 13 (Discovery Filter, Error Context, Multi-Skill Chaining, Qwen3 upgrade)*
+*Last updated: 2026-03-15 — Phase 13 planned (Execution Hardening), v1.3 Intelligence Platform scoped*
