@@ -4,8 +4,8 @@ milestone: v1.2
 milestone_name: The Knowledge Layer
 status: executing
 stopped_at: Completed 12.6-03-PLAN.md
-last_updated: "2026-03-15T02:30:00Z"
-last_activity: 2026-03-15 -- Multi-fault external test (3/5 faults fixed autonomously), model upgrade to Qwen3.5, self-healer improvements (error hints, strategic model for corrections, -it sanitization)
+last_updated: "2026-03-15T20:00:00Z"
+last_activity: 2026-03-15 -- Multi-fault demo COMPLETED: 5/5 faults fixed across 3 debug→execute cycles (4 autonomous, 1 semi-auto). 7-role model routing, self-healing escalation, dev-mode logging, lock sanitization.
 progress:
   total_phases: 7
   completed_phases: 7
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 
 Phase: 12.6-self-healing-executor
 Plan: 03 of 3 complete
-Status: Phase Complete
-Last activity: 2026-03-15 -- Multi-fault external test, model upgrade to Qwen3.5, self-healer improvements
+Status: Phase Complete — Multi-fault demo validated 2026-03-15
+Last activity: 2026-03-15 -- Multi-fault demo 5/5 faults fixed. 7-role routing, self-healing escalation, dev-mode logging shipped.
 
 ## Accumulated Context
 
@@ -278,8 +278,42 @@ Last activity: 2026-03-15 -- Multi-fault external test, model upgrade to Qwen3.5
 - [Phase 12.6-01]: Effect verification only for WRITE and DESTRUCTIVE risk steps, not READ
 - [Phase 12.6-01]: Safety-blocked corrections count as attempts and deduct budget
 
+### Post-Phase 12.6 Multi-Fault Demo (2026-03-15)
+
+**Result: 5/5 faults fixed across 3 debug→execute cycles**
+- Cycle 1: DB auth (CREATE/ALTER USER), network connect (dataplane), worker network
+- Cycle 2: Spool permissions (chown via alpine container — self-healer required 7 attempts)
+- Cycle 3: Redis bind 127.0.0.1→0.0.0.0 (CONFIG SET + sed -i config file)
+- 4/5 faults fully autonomous; Redis config fix needed manual `sed -i` assist (LLM wrote to stdout instead of in-place)
+
+**Code changes shipped this session:**
+- 7-role model routing: triage, default, strategic, forensic, worker, vision, embedding
+- Self-healing escalation: worker→strategic→forensic with EscalationAdvice in API response
+- Dev-mode logging: [TRIAGE], [DISCOVERY], [DIAGNOSIS], [PLANNING], [SANITY], [SELF-HEAL] with model+timing
+- Lock filename sanitization (URLs in target no longer crash)
+- Removed inferCorrectionHints (no scripted solutions — LLM reasons from stderr)
+- maxAttempts default 3→5
+- README: RunPod SSH tunnel guide, 7-role model documentation
+- config.example.json: connection modes, role descriptions
+
+**Key learnings:**
+1. Cloudflare proxy 100s timeout is #1 perf killer → SSH tunnel mandatory for 122B models
+2. Ollama model swapping: 60s+ per switch, only 1 model in VRAM at a time → need multi-GPU or single model
+3. `sed` without `-i`: LLM writes to stdout not in-place → need post-restart persistence verification
+4. GLM-4.7-Flash cannot reason about state changes ("already exists → ALTER") — too weak for self-heal corrections
+5. 122B works for everything but too slow for triage (13s vs <3s target)
+6. Sanity checker catches hallucinations but costs extra 47s when triggered
+7. SSH tunnel eliminates all timeout issues — diagnosis went from 300s+ to 42s total
+
+**Decisions:**
+- [2026-03-15]: 7-role routing replaces 3-role (triage/default/strategic/forensic/worker/vision/embedding)
+- [2026-03-15]: Self-healing escalates worker→strategic→forensic (not fixed to single model)
+- [2026-03-15]: inferCorrectionHints removed — scripted hints made LLM ignore real stderr context
+- [2026-03-15]: maxAttempts raised 3→5 — complex permission/network faults need more correction cycles
+- [2026-03-15]: Lock filename sanitization needed before URL-containing targets are used as filenames
+
 ## Session Continuity
 
-Last session: 2026-03-14T19:10:00Z
-Stopped at: Completed 12.6-03-PLAN.md (Phase 12.6 complete)
-Next: Next phase planning (v1.2 Knowledge Layer continuation or new priority)
+Last session: 2026-03-15T20:00:00Z
+Stopped at: Multi-fault demo complete (5/5 faults fixed), code changes committed
+Next: Phase 13 planning — Discovery Filter, Error Context Injection, Multi-Skill Chaining, Model Registry Update (Qwen3)

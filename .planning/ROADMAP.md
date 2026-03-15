@@ -253,7 +253,8 @@ Plans:
 | 12.4 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.5 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.6 | v1.2 | 3/3 | Complete | 2026-03-14 |
+| 12.6 Demo | v1.2 | — | Validated 2026-03-15 | 5/5 faults fixed (4 autonomous, 1 semi-auto) |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-14 — Phase 12.6 planned (3 plans, 2 waves)*
+*Last updated: 2026-03-15 — Multi-fault demo validated: 5/5 faults fixed. Next: Phase 13 (Discovery Filter, Error Context, Multi-Skill Chaining, Qwen3 upgrade)*
