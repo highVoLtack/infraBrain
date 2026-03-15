@@ -85,7 +85,10 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
       // Resolve self-healing deps: correctionModel, skill, rewriteRules, containers
       // These enable the executor to self-heal command failures via LLM correction
       const skill = skillName && deps.registry ? deps.registry.get(skillName) : undefined;
-      const correctionModel = deps.provider?.registry?.get?.('default') ?? undefined;
+      // Self-healer uses strategic model for intelligent corrections (fallback to default)
+      const correctionModel = deps.provider?.registry?.get?.('strategic')
+        ?? deps.provider?.registry?.get?.('default')
+        ?? undefined;
       const containers: string[] = Array.isArray(reqContainers) ? reqContainers : [];
       const discoveryContext: Record<string, string> | undefined =
         reqDiscoveryContext && typeof reqDiscoveryContext === 'object' && !Array.isArray(reqDiscoveryContext)
