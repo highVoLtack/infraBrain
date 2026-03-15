@@ -343,7 +343,7 @@ export function createDebugRoute(
       if (registry && registry.list().length > 0) {
         try {
           const selection = await selectSkill({
-            model: provider.model,
+            model: provider.registry.get('triage'),
             userInput: prompt,
             registry,
             skillOverride: skillOverride as string | undefined,

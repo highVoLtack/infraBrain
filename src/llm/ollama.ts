@@ -3,7 +3,7 @@ import type { LanguageModel } from 'ai';
 import type { ModelRole, ModelMap } from '../config/types.js';
 import type { ModelRegistry } from './types.js';
 
-const LLM_TIMEOUT_MS = 300_000; // 5 minutes — allows for slow RunPod proxy + large model inference
+const LLM_TIMEOUT_MS = 600_000; // 10 minutes — allows for slow RunPod proxy + large model inference
 
 function createOllamaProvider(baseURL: string) {
   return createOllama({
@@ -28,7 +28,7 @@ export function createModelRegistry(modelMap: ModelMap, baseURL: string): ModelR
   const provider = createOllamaProvider(baseURL);
   const models = new Map<ModelRole, { model: LanguageModel; modelId: string }>();
 
-  for (const role of ['default', 'strategic', 'forensic', 'worker', 'vision'] as ModelRole[]) {
+  for (const role of ['default', 'strategic', 'forensic', 'worker', 'vision', 'triage', 'embedding'] as ModelRole[]) {
     const modelId = modelMap[role];
     models.set(role, { model: provider(modelId), modelId });
   }

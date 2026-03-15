@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const ModelRoleSchema = z.enum(['default', 'strategic', 'forensic', 'worker', 'vision']);
+export const ModelRoleSchema = z.enum(['default', 'strategic', 'forensic', 'worker', 'vision', 'triage', 'embedding']);
 export type ModelRole = z.infer<typeof ModelRoleSchema>;
 
 export const ModelMapSchema = z.object({
@@ -9,6 +9,8 @@ export const ModelMapSchema = z.object({
   forensic: z.string().default('deepseek-r1:32b'),
   worker: z.string().default('qwen2.5-coder:7b'),
   vision: z.string().default('llama3.2-vision'),
+  triage: z.string().default('infrabrain'),
+  embedding: z.string().default('bge-m3'),
 });
 export type ModelMap = z.infer<typeof ModelMapSchema>;
 
@@ -21,6 +23,8 @@ export const InfraBrainConfigSchema = z.object({
     forensic: 'deepseek-r1:32b',
     worker: 'qwen2.5-coder:7b',
     vision: 'llama3.2-vision',
+    triage: 'infrabrain',
+    embedding: 'bge-m3',
   }),
   apiPort: z.number().default(3000),
   sessionDir: z.string().default('.infrabrain'),
@@ -45,9 +49,9 @@ export const InfraBrainConfigSchema = z.object({
     maxBufferBytes: z.number().default(1024 * 1024),
   }).default({ commandTimeoutMs: 30000, maxBufferBytes: 1024 * 1024 }),
   selfHealing: z.object({
-    maxAttempts: z.number().default(3),
+    maxAttempts: z.number().default(5),
     correctionTimeoutMs: z.number().default(15000),
-  }).default({ maxAttempts: 3, correctionTimeoutMs: 15000 }),
+  }).default({ maxAttempts: 5, correctionTimeoutMs: 15000 }),
 });
 
 export type InfraBrainConfig = z.infer<typeof InfraBrainConfigSchema>;

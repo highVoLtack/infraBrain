@@ -65,6 +65,7 @@ function makeContext(overrides: Partial<SelfHealContext> = {}): SelfHealContext 
     maxAttempts: 3,
     budget: new DamageBudget(10),
     model: { specificationVersion: 'v2' } as any,
+    modelId: 'test-model',
     skill: makeLinuxSkill(),
     runner: {
       run: vi.fn().mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 }),
@@ -267,9 +268,10 @@ describe('Self-Healer Integration', () => {
 
     // Verify the context can be constructed from ExecutionDeps fields
     const healContext: SelfHealContext = {
-      maxAttempts: config.selfHealing?.maxAttempts ?? 3,
+      maxAttempts: config.selfHealing?.maxAttempts ?? 5,
       budget: new DamageBudget(config.damageBudget.maxPoints),
       model: { specificationVersion: 'v2' } as any,
+      modelId: 'test-model',
       skill,
       runner: { run: vi.fn().mockResolvedValue({ stdout: 'ok', stderr: '', exitCode: 0 }) },
       rewriteRules,
@@ -283,7 +285,7 @@ describe('Self-Healer Integration', () => {
     };
 
     // Validate the context shape matches what selfHealStep expects
-    expect(healContext.maxAttempts).toBe(3);
+    expect(healContext.maxAttempts).toBe(5);
     expect(healContext.skill.frontmatter.name).toBe('linux-expert');
     expect(healContext.rewriteRules).toHaveLength(6);
     expect(healContext.containers).toEqual(['permission-trap-app-1']);

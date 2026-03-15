@@ -313,14 +313,16 @@ describe('LLM Provider', () => {
         { role: 'forensic' as const, modelId: 'deepseek-r1:32b' },
         { role: 'worker' as const, modelId: 'qwen2.5-coder:7b' },
         { role: 'vision' as const, modelId: 'llama3.2-vision' },
+        { role: 'triage' as const, modelId: 'qwen2.5-coder:7b' },
+        { role: 'embedding' as const, modelId: 'bge-m3' },
       ],
     };
 
     const provider = createProvider(mockModel, mockRegistry);
     const entries = provider.registry.entries();
 
-    expect(entries).toHaveLength(5);
-    expect(entries.map(e => e.role)).toEqual(['default', 'strategic', 'forensic', 'worker', 'vision']);
+    expect(entries).toHaveLength(7);
+    expect(entries.map(e => e.role)).toEqual(['default', 'strategic', 'forensic', 'worker', 'vision', 'triage', 'embedding']);
   });
 
   it('provider abstraction does not import ollama directly', async () => {
@@ -365,10 +367,10 @@ describe('Ollama Model Factory', () => {
     expect((model as any).modelId).toBe('infrabrain');
   });
 
-  it('createModelRegistry creates models for all five roles', async () => {
+  it('createModelRegistry creates models for all seven roles', async () => {
     const { createModelRegistry } = await import('../../src/llm/ollama.js');
     const registry = createModelRegistry(
-      { default: 'infrabrain', strategic: 'llama3.3:70b', forensic: 'deepseek-r1:32b', worker: 'qwen2.5-coder:7b', vision: 'llama3.2-vision' },
+      { default: 'infrabrain', strategic: 'llama3.3:70b', forensic: 'deepseek-r1:32b', worker: 'qwen2.5-coder:7b', vision: 'llama3.2-vision', triage: 'qwen2.5-coder:7b', embedding: 'bge-m3' },
       'http://localhost:11434',
     );
 
@@ -377,18 +379,20 @@ describe('Ollama Model Factory', () => {
     expect((registry.getDefault() as any).modelId).toBe('infrabrain');
 
     const entries = registry.entries();
-    expect(entries).toHaveLength(5);
+    expect(entries).toHaveLength(7);
     expect(entries.find(e => e.role === 'default')?.modelId).toBe('infrabrain');
     expect(entries.find(e => e.role === 'strategic')?.modelId).toBe('llama3.3:70b');
     expect(entries.find(e => e.role === 'forensic')?.modelId).toBe('deepseek-r1:32b');
     expect(entries.find(e => e.role === 'worker')?.modelId).toBe('qwen2.5-coder:7b');
     expect(entries.find(e => e.role === 'vision')?.modelId).toBe('llama3.2-vision');
+    expect(entries.find(e => e.role === 'triage')?.modelId).toBe('qwen2.5-coder:7b');
+    expect(entries.find(e => e.role === 'embedding')?.modelId).toBe('bge-m3');
   });
 
   it('createModelRegistry.get returns correct model per role', async () => {
     const { createModelRegistry } = await import('../../src/llm/ollama.js');
     const registry = createModelRegistry(
-      { default: 'infrabrain', strategic: 'llama3.3:70b', forensic: 'deepseek-r1:32b', worker: 'qwen2.5-coder:7b', vision: 'llama3.2-vision' },
+      { default: 'infrabrain', strategic: 'llama3.3:70b', forensic: 'deepseek-r1:32b', worker: 'qwen2.5-coder:7b', vision: 'llama3.2-vision', triage: 'qwen2.5-coder:7b', embedding: 'bge-m3' },
       'http://localhost:11434',
     );
 
@@ -397,5 +401,7 @@ describe('Ollama Model Factory', () => {
     expect((registry.get('forensic') as any).modelId).toBe('deepseek-r1:32b');
     expect((registry.get('worker') as any).modelId).toBe('qwen2.5-coder:7b');
     expect((registry.get('vision') as any).modelId).toBe('llama3.2-vision');
+    expect((registry.get('triage') as any).modelId).toBe('qwen2.5-coder:7b');
+    expect((registry.get('embedding') as any).modelId).toBe('bge-m3');
   });
 });

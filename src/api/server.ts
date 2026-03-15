@@ -100,10 +100,10 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
     start: (port: number) => {
       return new Promise<ServerInstance>((resolve) => {
         const server = app.listen(port, () => {
-          // 5 minute timeout for long LLM calls over RunPod proxy
-          server.timeout = 300_000;
-          server.keepAliveTimeout = 300_000;
-          server.headersTimeout = 310_000;
+          // 10 minute timeout for long LLM calls over RunPod proxy
+          server.timeout = 600_000;
+          server.keepAliveTimeout = 600_000;
+          server.headersTimeout = 610_000;
           resolve({ app, server });
         });
       });

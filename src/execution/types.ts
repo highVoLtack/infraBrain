@@ -23,6 +23,7 @@ export interface ExecutionResult {
   stoppedAt?: number;
   stepResults: StepResult[];
   rollingContext?: string;  // Accumulated context from completed steps
+  escalation?: EscalationAdvice;
 }
 
 export interface SnapshotRecord {
@@ -61,17 +62,27 @@ export interface CorrectionAttempt {
   outcome: 'success' | 'failed' | 'blocked_by_safety' | 'effect_unverified';
 }
 
+export interface EscalationAdvice {
+  reason: string;
+  modelUsed: string;
+  suggestedRole: string;
+  lastErrors: string[];
+  attemptCount: number;
+}
+
 export interface SelfHealResult {
   status: 'success' | 'exhausted' | 'budget_exceeded';
   finalResult?: RunResult;
   attempts: CorrectionAttempt[];
   commandUsed: string;
+  escalation?: EscalationAdvice;
 }
 
 export interface SelfHealContext {
   maxAttempts: number;
   budget: import('../execution/damage-budget.js').DamageBudget;
   model: import('ai').LanguageModel;
+  modelId: string;
   skill: import('../skills/types.js').SkillFile;
   runner: {
     run: (executable: string, args: string[], options: { timeout: number; maxBuffer?: number }) => Promise<RunResult>;

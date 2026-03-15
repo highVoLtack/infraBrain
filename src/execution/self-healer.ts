@@ -518,13 +518,27 @@ export async function selfHealStep(
     currentError = runResult;
   }
 
-  // Exhausted all attempts
+  // Exhausted all attempts — build escalation advice
+  const lastErrors = attempts
+    .filter(a => a.outcome === 'failed')
+    .slice(-3)
+    .map(a => a.error.stderr.split('\n')[0].slice(0, 120));
+
+  const escalation = {
+    reason: `Self-healing exhausted after ${attempts.length} attempts. The current model could not resolve this step.`,
+    modelUsed: context.modelId,
+    suggestedRole: 'strategic',
+    lastErrors,
+    attemptCount: attempts.length,
+  };
+
   context.auditLogger.logExecution('self_heal_exhausted', {
     originalCommand: step.command,
     finalCommand: workingCommand,
     attempts: attempts.length,
     attemptHistory: attempts,
+    escalation,
   });
 
-  return { status: 'exhausted', attempts, commandUsed: workingCommand };
+  return { status: 'exhausted', attempts, commandUsed: workingCommand, escalation };
 }

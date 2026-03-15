@@ -42,6 +42,7 @@ function makeContext(overrides: Partial<SelfHealContext> = {}): SelfHealContext 
     maxAttempts: 3,
     budget: new DamageBudget(10),
     model: { specificationVersion: 'v1' } as any,
+    modelId: 'test-model',
     skill: makeSkill(),
     runner: {
       run: vi.fn().mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 }),

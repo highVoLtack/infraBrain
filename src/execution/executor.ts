@@ -204,9 +204,10 @@ export async function executePlan(
         const containerContext = discoveryParts.join('\n');
 
         const healContext: SelfHealContext = {
-          maxAttempts: deps.config.selfHealing?.maxAttempts ?? 3,
+          maxAttempts: deps.config.selfHealing?.maxAttempts ?? 5,
           budget,
           model: deps.correctionModel!,
+          modelId: (deps.correctionModel as any)?.modelId ?? 'unknown',
           skill: deps.skill!,
           runner: deps.runner,
           rewriteRules: deps.rewriteRules ?? [],
@@ -243,9 +244,21 @@ export async function executePlan(
             command: step.command,
             attempts: healResult.attempts.length,
             attemptHistory: healResult.attempts,
+            escalation: healResult.escalation,
           });
 
           console.log(chalk.red.bold(`SELF-HEALING ${healResult.status.toUpperCase()}: Step ${i} failed after ${healResult.attempts.length} correction attempts. Plan halted.`));
+          if (healResult.escalation) {
+            console.log(chalk.yellow.bold(`\n⚡ ESCALATION NEEDED: ${healResult.escalation.reason}`));
+            console.log(chalk.yellow(`   Model used: ${healResult.escalation.modelUsed}`));
+            console.log(chalk.yellow(`   Suggestion: retry with "${healResult.escalation.suggestedRole}" model for better reasoning`));
+            if (healResult.escalation.lastErrors.length > 0) {
+              console.log(chalk.yellow(`   Last errors:`));
+              for (const err of healResult.escalation.lastErrors) {
+                console.log(chalk.yellow(`     - ${err}`));
+              }
+            }
+          }
 
           stepResults.push({
             stepIndex: i,
@@ -261,6 +274,7 @@ export async function executePlan(
             stoppedAt: i,
             stepResults,
             rollingContext: context.getContext() || undefined,
+            escalation: healResult.escalation,
           };
         }
       } else if (firstResult.exitCode !== 0) {
