@@ -1,0 +1,118 @@
+networks:
+  frontend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+  backend:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.31.0.0/24
+  dataplane:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.32.0.0/24
+
+volumes:
+  pg_data:
+    driver: local
+  redis_data:
+    driver: local
+  shared_spool:
+    driver: local
+
+services:
+
+  gateway:
+    build:
+      context: ./gateway
+    container_name: gw-edge-01
+    ports:
+      - "9000:80"
+    networks:
+      frontend:
+        ipv4_address: 172.30.0.10
+    depends_on:
+      appserver:
+        condition: service_started
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  appserver:
+    build:
+      context: ./appserver
+    container_name: app-core-01
+    networks:
+      frontend:
+        ipv4_address: 172.30.0.20
+      backend:
+        ipv4_address: 172.31.0.20
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DATABASE_URL: "postgresql://svcuser:s3cretpw@pg-store-01:5432/appdb"
+      REDIS_URL: "redis://kv-cache-01:6379/0"
+      WORKER_URL: "http://172.31.0.40:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 48M
+    restart: "no"
+
+  worker:
+    build:
+      context: ./worker
+    container_name: wk-proc-01
+    networks:
+      dataplane:
+        ipv4_address: 172.32.0.40
+    depends_on:
+      redis:
+        condition: service_started
+    environment:
+      REDIS_URL: "redis://kv-cache-01:6379/0"
+    volumes:
+      - shared_spool:/app/spool
+    restart: "no"
+
+  postgres:
+    build:
+      context: ./postgres
+    container_name: pg-store-01
+    networks:
+      backend:
+        ipv4_address: 172.31.0.30
+    environment:
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: "adminpw"
+      POSTGRES_DB: "appdb"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d appdb"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+    restart: "no"
+
+  redis:
+    build:
+      context: ./redis
+    container_name: kv-cache-01
+    networks:
+      dataplane:
+        ipv4_address: 172.32.0.50
+    volumes:
+      - redis_data:/data
+    restart: "no"

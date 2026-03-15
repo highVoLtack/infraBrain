@@ -1,0 +1,6 @@
+services:
+  log-bloat-app:
+    build: ./app
+    container_name: log-bloat-app
+    tmpfs:
+      - /app/logs:size=2m
