@@ -46,6 +46,8 @@ discovery:
     label: 'Service Config (env vars)'
   - command: 'for c in $(docker ps --format "{{.Names}}"); do echo "=== $c ==="; docker logs --tail 5 "$c" 2>&1 | grep -iE "error|fatal|denied|fail|refused|timeout|unreachable" || echo "(no errors)"; done'
     label: 'Container Error Logs'
+  - command: 'for c in $(docker ps --format "{{.Names}}"); do echo "=== $c ==="; docker exec "$c" find / -maxdepth 4 -name "*.conf" -o -name "*.cfg" -o -name "*.ini" 2>/dev/null | grep -vE "proc|sys|lib/python" | head -5; done'
+    label: 'Config File Locations'
 ---
 
 ## System Prompt
@@ -99,9 +101,9 @@ When multiple services fail simultaneously, the fix plan MUST address ALL faults
 4. Common patterns and their IN-PLACE fixes:
    - "password authentication failed" → `docker exec <db> psql -U <admin_user> -d <db> -c "ALTER USER <name> WITH PASSWORD '<pw>';"` — use ADMIN credentials from discovery env vars
    - "Name or service not known" → `docker network connect <network> <container>`
-   - "Connection timed out" to wrong subnet → `docker network connect <correct_network> <container>` — do NOT try to edit env vars or .env files inside containers (Docker env vars are immutable after start)
-   - Redis unreachable (bind 127.0.0.1) → `docker exec <redis> sh -c "sed -i 's/bind 127.0.0.1/bind 0.0.0.0/' /usr/local/etc/redis/redis.conf"` then `docker restart <redis>`
-   - Permission denied on dir → `docker exec -u 0 <container> chown <uid>:<gid> <path>`
+   - "Connection timed out" to wrong subnet IP → Connect the TARGET service to the network the caller expects: `docker network connect <callers_network> <target_container> --ip <expected_ip>`. Docker env vars are immutable — NEVER edit .env files or try to change env vars. Instead, bring the service TO the expected IP.
+   - Redis unreachable (bind 127.0.0.1) → Find config path from discovery, then: `docker exec <redis> sh -c "sed -i 's/bind 127.0.0.1/bind 0.0.0.0/' <config-path> && sed -i 's/protected-mode yes/protected-mode no/' <config-path>"` then `docker restart <redis>`. ALWAYS disable protected-mode when changing bind address.
+   - Permission denied on dir → Get uid with `docker exec <container> id -u`, then `docker exec -u 0 <container> chown <uid>:<gid> <path>`
 5. After all fixes: `docker restart <affected_containers>` then verify with curl
 
 ## COMMON MISTAKES

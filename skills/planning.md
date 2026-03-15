@@ -125,11 +125,13 @@ Problem: app returns 503. DB says "password authentication failed for user svcus
 Discovery: app on network_backend, cache on network_dataplane (different networks). DB admin user has password "adminpw". Redis bound to 127.0.0.1.
 
 Plan:
-1. `docker exec pg-store-01 psql -U admin -d appdb -c "ALTER USER svcuser WITH PASSWORD 's3cretpw';"` (write) -- Fix DB credentials to match app config. Rollback: `docker exec pg-store-01 psql -U admin -d appdb -c "ALTER USER svcuser WITH PASSWORD 'oldpw';"`
+1. `docker exec pg-store-01 psql -U admin -d appdb -c "ALTER USER svcuser WITH PASSWORD 's3cretpw';"` (write) -- Fix DB credentials. Rollback: `docker exec pg-store-01 psql -U admin -d appdb -c "ALTER USER svcuser WITH PASSWORD 'oldpw';"`
 2. `docker network connect network_dataplane app-core-01` (write) -- Bridge app to cache/worker network. Rollback: `docker network disconnect network_dataplane app-core-01`
-3. `docker exec kv-cache-01 sh -c "sed -i 's/bind 127.0.0.1/bind 0.0.0.0/' /usr/local/etc/redis/redis.conf"` (write) -- Allow remote Redis connections. Rollback: `docker exec kv-cache-01 sh -c "sed -i 's/bind 0.0.0.0/bind 127.0.0.1/' /usr/local/etc/redis/redis.conf"`
-4. `docker restart kv-cache-01` (write) -- Apply Redis config change. Rollback: N/A
-5. `docker restart app-core-01` (write) -- Restart app to pick up network changes. Rollback: N/A
-6. `curl -s http://localhost:9000` (read) -- Verify all services healthy. Rollback: N/A
+3. `docker exec -u 0 kv-cache-01 sh -c "sed -i 's/bind 127.0.0.1/bind 0.0.0.0/' /usr/local/etc/redis/redis.conf && sed -i 's/protected-mode yes/protected-mode no/' /usr/local/etc/redis/redis.conf"` (write) -- Fix Redis bind + disable protected-mode. Use config path from discovery.
+4. `docker restart kv-cache-01` (write) -- Apply Redis config. Rollback: N/A
+5. `docker network connect network_backend wk-proc-01 --ip 172.31.0.40` (write) -- Bring worker to expected IP instead of changing immutable env vars. Rollback: `docker network disconnect network_backend wk-proc-01`
+6. `docker exec -u 0 wk-proc-01 chown apprunner:apprunner /app/spool` (write) -- Fix spool permissions if needed. Rollback: N/A
+7. `docker restart app-core-01` (write) -- Restart app. Rollback: N/A
+8. `curl -s http://localhost:9000` (read) -- Verify all services healthy. Rollback: N/A
 
-Note: ALL faults fixed in one plan. No container recreation. Each fix is in-place.
+Note: ALL faults fixed in one plan. No container recreation. Config paths from discovery. Worker brought to expected IP via network connect.
