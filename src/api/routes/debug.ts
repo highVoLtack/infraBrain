@@ -356,8 +356,9 @@ export function createDebugRoute(
             !!skillOverride,
           );
 
-          // Routing enforcement: if skill declares a preferred_model, the registry MUST resolve it
-          // to a DIFFERENT model than default. No fallbacks allowed — fail hard with throw.
+          // Routing: if skill declares a preferred_model, resolve it from registry.
+          // Soft enforcement: if the resolved model matches default, log a warning but continue.
+          // This allows single-model setups to work while encouraging multi-model configs.
           const preferredRole = selection.skill.frontmatter.preferred_model;
           if (preferredRole && preferredRole !== 'default') {
             const resolvedModel = provider.registry.get(preferredRole);
@@ -365,25 +366,13 @@ export function createDebugRoute(
             const resolvedId = (resolvedModel as any).modelId ?? 'unknown';
             const defaultId = (defaultModel as any).modelId ?? 'unknown';
 
-            // Three-layer check: object identity, modelId comparison, and unknown sentinel
-            const sameObject = resolvedModel === defaultModel;
-            const sameId = resolvedId === defaultId;
-            const isUnknown = resolvedId === 'unknown';
+            const sameModel = resolvedModel === defaultModel || (resolvedId === defaultId && resolvedId !== 'unknown');
 
-            if (sameObject || (sameId && !isUnknown) || isUnknown) {
-              const msg = `ROUTING HALT: skill "${selection.skill.frontmatter.name}" requires role "${preferredRole}" (expected distinct model) but got "${resolvedId}" which matches default "${defaultId}". Configure modelMap.${preferredRole}.`;
-              auditLogger.logError(msg);
-              console.error(`[ROUTING] ${msg}`);
-              res.status(503).json({
-                error: msg,
-                hint: `Add "${preferredRole}" to your modelMap configuration. This skill cannot run on the default model.`,
-                debug: { preferredRole, resolvedId, defaultId, sameObject, sameId },
-              });
-              return;
+            if (sameModel) {
+              console.log(`[ROUTING] WARN: skill "${selection.skill.frontmatter.name}" prefers role "${preferredRole}" but it resolves to default model "${defaultId}". Continuing with default. Configure modelMap.${preferredRole} for optimal results.`);
+            } else {
+              console.log(`[ROUTING] Skill "${selection.skill.frontmatter.name}" routed to ${preferredRole} model: ${resolvedId} (default: ${defaultId})`);
             }
-
-            // Log successful routing for debugging
-            console.log(`[ROUTING] Skill "${selection.skill.frontmatter.name}" routed to ${preferredRole} model: ${resolvedId} (default: ${defaultId})`);
           }
 
           // Run discovery commands to get ground truth BEFORE LLM call
