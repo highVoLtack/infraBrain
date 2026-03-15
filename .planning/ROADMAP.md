@@ -257,6 +257,10 @@ Plans:
 3. Multi-fault demo: 5/5 faults fixed, zero manual intervention, total time under 10 minutes
 4. Dev logging shows every DPEV phase with model + timing (already shipped, needs E2E validation)
 
+**Research topics (may become Phase 13.1):**
+- **State Rollbacks** — when self-heal exhausts all attempts, restore pre-execution state (Docker commit snapshots, ZFS, or per-step rollback commands). Currently partial fixes are left in place on halt.
+- Existing `rollback` field on FixStep schema is rarely populated by LLM. Need infrastructure-level approach.
+
 **Dependencies:** Phase 12.6
 **Requirements:** ENGN-09
 
@@ -268,6 +272,8 @@ Plans:
 - vLLM multi-model serving (parallel models, no swapping overhead)
 - Model benchmarking framework: test each role (triage/default/strategic/forensic/worker) with different models, measure quality + latency
 - Qdrant + BGE-M3 for RAG-based diagnosis (vendor docs, runbooks, internal wikis)
+- **Fix Caching via Vector DB** — when the same error pattern has been solved before (e.g. "Redis bind 127.0.0.1"), retrieve the fix from Qdrant in 2s instead of 113s LLM reasoning. Pattern: `{error_signature + discovery_context}` → embed → similarity search → cached fix plan. This IS the Qdrant use case — for fixes, not just docs.
+- **Parallel Inference Pipeline** — while 122B reasons about diagnosis, 9B models pre-process logs, extract error patterns, check topology in parallel. Cuts diagnosis time in half. Requires vLLM multi-model serving.
 - LoRA production pipeline: domain Expert Packs (SAP, Cisco, VMware)
 - Optimal model assignment per role based on benchmark results
 
