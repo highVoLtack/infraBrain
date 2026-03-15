@@ -109,13 +109,27 @@ cat ~/.ssh/id_ed25519.pub
 
 **2. Every pod start: Enable SSH on the pod**
 
-RunPod pods don't persist SSH config across restarts. Run these in the **Web Terminal** each time:
+RunPod pods don't persist SSH config across restarts. Open the **Web Terminal** on the RunPod dashboard and run each command one by one:
 
 ```bash
 mkdir -p ~/.ssh /run/sshd
-echo 'YOUR_PUBLIC_KEY_HERE' > ~/.ssh/authorized_keys
+```
+
+```bash
+echo 'ssh-ed25519 AAAA... your-key-here' > ~/.ssh/authorized_keys
+```
+
+```bash
 chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys
+```
+
+```bash
 which sshd && /usr/sbin/sshd || (apt-get update && apt-get install -y openssh-server && mkdir -p /run/sshd && /usr/sbin/sshd)
+```
+
+Verify SSH is running:
+```bash
+ss -tlnp | grep 22
 ```
 
 **3. Open the SSH tunnel from your machine**
