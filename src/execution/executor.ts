@@ -11,6 +11,7 @@ import { parseCommand, needsShell, runShellCommand } from './runner.js';
 import { selfHealStep, buildToolListFromSkill, extractSkillDomainKnowledge } from './self-healer.js';
 import type { SelfHealContext } from './types.js';
 import { acquireLock, releaseLock, promptLockOverride } from '../locks/manager.js';
+import { sanitizeDockerExec } from '../safety/validator.js';
 
 /**
  * Execute a fix plan with full safety pipeline:
@@ -101,7 +102,9 @@ export async function executePlan(
         continue;
       }
 
-      const step = plan.steps[i];
+      const rawStep = plan.steps[i];
+      // Sanitize command before execution (strip -it/-t flags from docker exec)
+      const step = { ...rawStep, command: sanitizeDockerExec(rawStep.command) };
 
       // Inject rolling context for steps after step 0
       const currentContext = context.getContext();

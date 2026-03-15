@@ -25,9 +25,15 @@ IRON LAW: Every container name, file path, user ID, and port in your plan MUST c
 
 For user ID resolution: Use `id -u` instead of `whoami` inside containers (numeric UIDs always work, name resolution may not). For ownership changes: use `docker exec -u 0` to run as root inside the container.
 
+FORBIDDEN COMMANDS — NEVER use these in a plan:
+- `docker stop` + `docker rm` + `docker run` — NEVER recreate containers.
+- `CREATE USER` / `CREATE ROLE` — ALWAYS use `ALTER USER` instead. Users may already exist with wrong passwords.
+- `docker stop` followed by `docker start` is fine. `docker restart` is fine.
+- Instead of recreating: fix configs in-place (ALTER USER, sed, docker network connect), then `docker restart`.
+
 Each step must be a single shell command. For every step, provide a rollback command that undoes the change. Assess risk level (read/write/destructive) for each step.
 
-Keep plans to 3-5 steps: confirm state (read), apply fix (write), verify fix worked (read).
+Keep plans to 3-7 steps for multi-fault: confirm state (read), apply ALL fixes (write), verify (read).
 
 Output format for each step:
 - Step number
@@ -69,6 +75,24 @@ docker exec CONTAINER_NAME touch PATH/test-write
 docker restart CONTAINER_NAME
 ```
 
+**Fix database credentials (ALWAYS ALTER, NEVER CREATE):**
+```
+docker exec DB_CONTAINER psql -U ADMIN_USER -d DB_NAME -c "ALTER USER TARGET_USER WITH PASSWORD 'CORRECT_PASSWORD';"
+```
+CRITICAL: ALWAYS use ALTER USER, NEVER CREATE USER. The user likely already exists with wrong password. CREATE USER will fail with "role already exists".
+Note: Use the ADMIN credentials from env vars (POSTGRES_USER/POSTGRES_PASSWORD), not the failing user's credentials.
+
+**Connect container to missing Docker network:**
+```
+docker network connect NETWORK_NAME CONTAINER_NAME
+```
+
+**Fix Redis binding (allow remote connections):**
+```
+docker exec REDIS_CONTAINER sh -c "sed -i 's/bind 127.0.0.1/bind 0.0.0.0/' /usr/local/etc/redis/redis.conf"
+docker restart REDIS_CONTAINER
+```
+
 ## Examples
 
 **Example 1: Nginx config syntax error**
@@ -94,3 +118,18 @@ Plan:
 4. `docker exec vault-processor-99 touch /var/lib/internal/secrets/status.pid` (read) -- Verify write access restored. Rollback: N/A
 
 Note: Container name "vault-processor-99", path "/var/lib/internal/secrets", and uid "1000" all came from discovery. Never substitute these with placeholders.
+
+**Example 3: Multi-fault (DB auth + network isolation + Redis binding)**
+
+Problem: app returns 503. DB says "password authentication failed for user svcuser". Cache says "Name or service not known". Worker times out.
+Discovery: app on network_backend, cache on network_dataplane (different networks). DB admin user has password "adminpw". Redis bound to 127.0.0.1.
+
+Plan:
+1. `docker exec pg-store-01 psql -U admin -d appdb -c "ALTER USER svcuser WITH PASSWORD 's3cretpw';"` (write) -- Fix DB credentials to match app config. Rollback: `docker exec pg-store-01 psql -U admin -d appdb -c "ALTER USER svcuser WITH PASSWORD 'oldpw';"`
+2. `docker network connect network_dataplane app-core-01` (write) -- Bridge app to cache/worker network. Rollback: `docker network disconnect network_dataplane app-core-01`
+3. `docker exec kv-cache-01 sh -c "sed -i 's/bind 127.0.0.1/bind 0.0.0.0/' /usr/local/etc/redis/redis.conf"` (write) -- Allow remote Redis connections. Rollback: `docker exec kv-cache-01 sh -c "sed -i 's/bind 0.0.0.0/bind 127.0.0.1/' /usr/local/etc/redis/redis.conf"`
+4. `docker restart kv-cache-01` (write) -- Apply Redis config change. Rollback: N/A
+5. `docker restart app-core-01` (write) -- Restart app to pick up network changes. Rollback: N/A
+6. `curl -s http://localhost:9000` (read) -- Verify all services healthy. Rollback: N/A
+
+Note: ALL faults fixed in one plan. No container recreation. Each fix is in-place.
