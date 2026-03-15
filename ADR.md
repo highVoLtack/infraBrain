@@ -1,8 +1,8 @@
 # InfraBrain — Architecture Decision Records
 
 **Product:** InfraBrain — On-Premise AI IT Operations Platform
-**Version:** 1.0.0
-**Last Updated:** 2026-03-11
+**Version:** 1.2.0
+**Last Updated:** 2026-03-15
 **Classification:** Internal / Customer-Facing / Regulatory
 
 > InfraBrain diagnoses, plans, and fixes infrastructure problems using local LLMs.
@@ -25,6 +25,8 @@
 - [ADR-011: Iterative Discovery Engine](#adr-011-iterative-discovery-engine)
 - [ADR-012: Model-Agnostic Platform with Specialist Strategy](#adr-012-model-agnostic-platform-with-specialist-strategy)
 - [ADR-013: Multi-Model Registry with Domain-Expertise Routing](#adr-013-multi-model-registry-with-domain-expertise-routing)
+- [ADR-014: Self-Healing Executor with Error-Driven Correction](#adr-014-self-healing-executor-with-error-driven-correction)
+- [ADR-015: Model Upgrade Strategy — Qwen3.5 MoE Family](#adr-015-model-upgrade-strategy--qwen35-moe-family)
 
 ---
 
@@ -1124,5 +1126,78 @@ Skills declare `preferred_model` in YAML frontmatter to route to the appropriate
 
 ---
 
+---
+
+## ADR-014: Self-Healing Executor with Error-Driven Correction
+
+**Status:** Accepted
+**Date:** 2026-03-14
+
+**Context:**
+
+The CircuitBreaker retry mechanism blindly retried failed commands without understanding why they failed. A `chown` that fails with "Operation not permitted" will fail the same way on retry. Meanwhile, the `fixKnownCommandErrors` function used regex patterns to patch known command mistakes — a brittle band-aid that required code changes for every new failure pattern. Infrastructure commands fail for systematic reasons (wrong permissions, wrong paths, wrong credentials) that an LLM can diagnose from the error output.
+
+**Decision:**
+
+Replace blind retries with an LLM-corrected self-healing loop:
+
+1. **Error Analysis**: When a command fails, the self-healer feeds the error output (stderr, exit code) to the LLM along with the step description, skill domain knowledge, available tools with privilege info, discovery context, and rolling context from previous steps.
+2. **Error-Specific Correction Hints**: Agnostic pattern matching on stderr infers correction strategies — "already exists" suggests ALTER instead of CREATE, "Permission denied" suggests `-u 0`, "not a TTY" suggests removing `-it` flags.
+3. **Progress Detection**: If the error type changes between attempts (e.g. "Permission denied" → "No such file"), the correction made progress. The self-healer adopts the corrected command as new base and grants bonus attempts.
+4. **Correction History**: Previous failed attempts are included in the prompt so the LLM does not repeat the same mistake.
+5. **Safety Pipeline**: Every corrected command passes through the full safety pipeline (skill allowlist → global validator → dynamic rewriter) before execution. No bypass.
+6. **Strategic Model for Corrections**: The self-healer uses the strategic model (122B) for intelligent corrections rather than the default model, providing stronger reasoning for complex multi-fault scenarios.
+
+The `fixKnownCommandErrors` regex band-aid was deleted. The executor sanitizes `-it` flags from docker exec commands before execution.
+
+**Consequences:**
+
+- **Positive:** Self-healing is model-agnostic and skill-agnostic — works with any skill's domain knowledge.
+- **Positive:** Error-specific hints are derived from stderr patterns, not hardcoded for specific scenarios.
+- **Positive:** Progress detection prevents wasting attempts on stuck errors while allowing more attempts when making progress.
+- **Positive:** Tested with two independent scenarios (Permission Trap + Log Bloat) proving agnosticism.
+- **Negative:** Self-healing attempts cost damage budget points and LLM inference time. Each attempt requires a round-trip to the LLM.
+- **Negative:** The correction model's intelligence limits the quality of corrections. Weaker models may repeat mistakes despite hints.
+
+---
+
+## ADR-015: Model Upgrade Strategy — Qwen3.5 MoE Family
+
+**Status:** Accepted
+**Date:** 2026-03-15
+
+**Context:**
+
+The original model lineup (infrabrain-tech:7B default, llama3.3:70B strategic, deepseek-r1:32B forensic) proved insufficient for complex multi-fault infrastructure scenarios. The 7B model could not perform multi-domain diagnosis. The 70B model identified correct root causes but generated incorrect fix commands (CREATE USER instead of ALTER USER, container recreation instead of in-place fixes). Testing with a 5-service multi-fault Docker environment (DB auth + network isolation + Redis binding + permission errors + memory leak) exposed that model intelligence is a limiting factor alongside system design.
+
+Research in March 2026 revealed the Qwen3.5 MoE (Mixture of Experts) family as the optimal choice for local deployment:
+
+- **Qwen3.5-35B-A3B**: 35B total, 3B active per token. Surpasses Qwen3-235B-A22B in all benchmarks despite being 6.7x smaller. Runs on a single 24GB GPU.
+- **Qwen3.5-122B-A10B**: 122B total, 10B active. Scores 72.2 on BFCL-V4 (tool use/function calling), outperforming GPT-5 mini by 30%. Scores 76.5 on IFBench (instruction following), beating GPT-5.2.
+- Both support dual-mode (thinking + non-thinking) and 1M+ token context.
+
+**Decision:**
+
+Upgrade the model registry to Qwen3.5 MoE family:
+
+| Role | Old Model | New Model | Why |
+|------|-----------|-----------|-----|
+| Default (fast) | infrabrain-tech (Qwen2.5 Coder 7B) | qwen3.5:35b-a3b | MoE efficiency, 72B-equivalent performance at 3B active |
+| Strategic (diagnosis) | llama3.3:70b | qwen3.5:122b-a10b | Best-in-class tool use (72.2 BFCL-V4), instruction following |
+| Forensic (deep) | deepseek-r1:32b | deepseek-r1:32b (unchanged) | Still best for explicit chain-of-thought single-issue analysis |
+
+The platform remains model-agnostic — customers can use any Ollama-compatible model, cloud APIs (Claude, GPT), or their own fine-tuned models. The Qwen3.5 family is the recommended default for on-premise deployment.
+
+**Consequences:**
+
+- **Positive:** Multi-fault diagnosis accuracy dramatically improved — correct root causes identified for all 5 faults.
+- **Positive:** Tool use and instruction following scores translate directly to better fix plan generation.
+- **Positive:** MoE architecture means high intelligence with low active compute — fits customer GPU budgets.
+- **Positive:** Model-agnostic architecture means zero code changes for the upgrade — config.json only.
+- **Negative:** Larger models require more VRAM (122B needs ~81GB Q4) — RunPod or dedicated GPU cluster recommended for strategic model.
+- **Negative:** Inference latency higher than 7B default — acceptable tradeoff for correctness in complex scenarios.
+
+---
+
 *This document is maintained as part of the InfraBrain codebase and is version-controlled alongside the source code.*
-*Last reviewed: 2026-03-11*
+*Last reviewed: 2026-03-15*

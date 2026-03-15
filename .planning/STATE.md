@@ -4,8 +4,8 @@ milestone: v1.2
 milestone_name: The Knowledge Layer
 status: executing
 stopped_at: Completed 12.6-03-PLAN.md
-last_updated: "2026-03-14T19:10:00Z"
-last_activity: 2026-03-14 -- Phase 12.6 complete (self-healing executor fully wired + live verified, 574 tests)
+last_updated: "2026-03-15T02:30:00Z"
+last_activity: 2026-03-15 -- Multi-fault external test (3/5 faults fixed autonomously), model upgrade to Qwen3.5, self-healer improvements (error hints, strategic model for corrections, -it sanitization)
 progress:
   total_phases: 7
   completed_phases: 7
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 Phase: 12.6-self-healing-executor
 Plan: 03 of 3 complete
 Status: Phase Complete
-Last activity: 2026-03-14 -- Phase 12.6 complete (self-healing executor fully wired + live verified, 574 tests)
+Last activity: 2026-03-15 -- Multi-fault external test, model upgrade to Qwen3.5, self-healer improvements
 
 ## Accumulated Context
 
