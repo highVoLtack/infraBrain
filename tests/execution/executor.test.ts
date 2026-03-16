@@ -30,6 +30,13 @@ vi.mock('../../src/execution/self-healer.js', () => ({
   extractSkillDomainKnowledge: vi.fn().mockReturnValue(''),
 }));
 
+// Mock persistence verification
+vi.mock('../../src/execution/persistence-verification.js', () => ({
+  isConfigModification: vi.fn().mockReturnValue(false),
+  isRestartStep: vi.fn().mockReturnValue(false),
+  verifyPersistence: vi.fn().mockResolvedValue([]),
+}));
+
 // Mock chalk to avoid ANSI in test assertions
 vi.mock('chalk', () => {
   const handler: ProxyHandler<object> = {

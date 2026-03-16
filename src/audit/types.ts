@@ -29,7 +29,10 @@ export type AuditEventType =
   | 'context_injection'
   | 'verification'
   | 'self_heal_attempt'
-  | 'self_heal_exhausted';
+  | 'self_heal_exhausted'
+  | 'self_heal_progress'
+  | 'config_reverted_after_restart'
+  | 'persistence_fix_failed';
 
 export interface AuditEntry {
   timestamp: string;

@@ -9,6 +9,8 @@ import { captureSnapshot } from './snapshot.js';
 import { rollbackStep } from './rollback.js';
 import { parseCommand, needsShell, runShellCommand } from './runner.js';
 import { selfHealStep, buildToolListFromSkill, extractSkillDomainKnowledge } from './self-healer.js';
+import { isConfigModification, isRestartStep, verifyPersistence } from './persistence-verification.js';
+import type { ConfigModificationRecord } from './persistence-verification.js';
 import type { SelfHealContext } from './types.js';
 import { acquireLock, releaseLock, promptLockOverride } from '../locks/manager.js';
 import { sanitizeDockerExec } from '../safety/validator.js';
@@ -94,6 +96,7 @@ export async function executePlan(
     );
     const budget = new DamageBudget(deps.config.damageBudget.maxPoints);
     const context = new RollingContext(deps.config.tokenBudgets.diagnosis);
+    const configModifications: ConfigModificationRecord[] = [];
 
     // 4. Execute each step
     for (let i = 0; i < plan.steps.length; i++) {
@@ -342,6 +345,93 @@ export async function executePlan(
       });
 
       console.log(chalk.dim(`Budget: ${budget.spent}/${budget.total} used`));
+
+      // g2. Track config modifications for post-restart verification
+      if (isConfigModification(commandUsed)) {
+        configModifications.push({ stepIndex: i, command: commandUsed, stepDescription: step.description });
+      }
+
+      // g3. On restart step, verify tracked config modifications persisted
+      if (isRestartStep(commandUsed) && configModifications.length > 0 && hasSelfHealingDeps) {
+        const delayMs = deps.config.selfHealing?.restartVerificationDelayMs ?? 3000;
+        if (DEV_MODE) console.log(`[SELF-HEAL] Restart detected — verifying ${configModifications.length} config change(s) persist after ${delayMs}ms...`);
+
+        // Build healContext mirroring the self-healing path above
+        const toolList = buildToolListFromSkill(deps.skill!);
+        const domainKnowledge = extractSkillDomainKnowledge(deps.skill!);
+        const discoveryParts: string[] = [];
+        if (deps.discoveryContext && Object.keys(deps.discoveryContext).length > 0) {
+          for (const [label, value] of Object.entries(deps.discoveryContext)) {
+            discoveryParts.push(`${label}: ${value}`);
+          }
+        } else if ((deps.containers ?? []).length > 0) {
+          discoveryParts.push(`Containers: ${(deps.containers ?? []).join(', ')}`);
+        } else {
+          discoveryParts.push('No containers discovered');
+        }
+        const containerContext = discoveryParts.join('\n');
+
+        const healContext: SelfHealContext = {
+          maxAttempts: deps.config.selfHealing?.maxAttempts ?? 5,
+          budget,
+          model: deps.correctionModel!,
+          modelId: (deps.correctionModel as any)?.modelId ?? 'unknown',
+          modelRole: deps.correctionModelRole ?? 'worker',
+          skill: deps.skill!,
+          runner: deps.runner,
+          rewriteRules: deps.rewriteRules ?? [],
+          containers: deps.containers ?? [],
+          config: deps.config,
+          auditLogger: deps.auditLogger,
+          stepDescription: step.description,
+          toolList,
+          containerContext,
+          stepRisk: step.risk,
+          domainKnowledge: domainKnowledge || undefined,
+          rollingContext: context.getContext() || undefined,
+        };
+
+        const persistResults = await verifyPersistence(configModifications, healContext, delayMs);
+        const reverted = persistResults.filter(r => r.reverted);
+
+        if (reverted.length > 0) {
+          if (DEV_MODE) console.log(`[SELF-HEAL] ${reverted.length} config change(s) REVERTED after restart — re-executing through self-healer...`);
+
+          for (const rev of reverted) {
+            deps.auditLogger.logExecution('config_reverted_after_restart', {
+              stepIndex: rev.configMod.stepIndex,
+              command: rev.configMod.command,
+            });
+
+            // Re-execute the config modification step through self-healer
+            const reStep = {
+              ...plan.steps[rev.configMod.stepIndex],
+              command: rev.configMod.command,
+              description: `${rev.configMod.stepDescription} (RETRY: previous change reverted after container restart — use persistent approach e.g. sed -i, write to config file directly)`,
+            };
+            const reResult = await selfHealStep(
+              reStep,
+              { stdout: '', stderr: 'Config change reverted after container restart', exitCode: 1 },
+              healContext,
+            );
+
+            if (reResult.status !== 'success') {
+              // Log but don't halt — the original step already succeeded, this is a bonus verification
+              if (DEV_MODE) console.log(`[SELF-HEAL] Persistence fix FAILED for step ${rev.configMod.stepIndex} — fix may not survive restart`);
+              deps.auditLogger.logExecution('persistence_fix_failed', {
+                stepIndex: rev.configMod.stepIndex,
+                command: rev.configMod.command,
+                attempts: reResult.attempts.length,
+              });
+            } else {
+              if (DEV_MODE) console.log(`[SELF-HEAL] Persistence fix SUCCESS for step ${rev.configMod.stepIndex}`);
+            }
+          }
+
+          // Clear config modifications after handling
+          configModifications.length = 0;
+        }
+      }
 
       stepResults.push({
         stepIndex: i,
