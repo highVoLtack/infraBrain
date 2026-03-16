@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: executing
-stopped_at: Completed 13-02-PLAN.md
-last_updated: "2026-03-16T17:23:00Z"
-last_activity: 2026-03-16 -- Sanity checker tuned: Docker tag whitelist, structured diagnosis bypass, 7-role model routing docs.
+stopped_at: Completed 13-01-PLAN.md
+last_updated: "2026-03-16T17:24:07Z"
+last_activity: 2026-03-16 -- Post-restart persistence verification: heuristic config mod/restart detection, verifyPersistence orchestrator, executor wiring with self-healer retry.
 progress:
   total_phases: 7
   completed_phases: 7
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 13-execution-hardening
-Plan: 02 complete
+Plan: 01 and 02 complete
 Status: Executing Phase 13
-Last activity: 2026-03-16 -- Sanity checker tuned: Docker tag whitelist eliminates 47s false-positive penalty, structured diagnosis bypass, MODEL-ROUTING.md documentation.
+Last activity: 2026-03-16 -- Post-restart persistence verification: heuristic config mod/restart detection, verifyPersistence orchestrator, executor wiring with self-healer retry.
 
 ## Accumulated Context
 
@@ -312,6 +312,15 @@ Last activity: 2026-03-16 -- Sanity checker tuned: Docker tag whitelist eliminat
 - [2026-03-15]: maxAttempts raised 3→5 — complex permission/network faults need more correction cycles
 - [2026-03-15]: Lock filename sanitization needed before URL-containing targets are used as filenames
 
+### From Phase 13-01
+- persistence-verification.ts: isConfigModification (sed/tee/echo/CONFIG SET/ALTER SYSTEM), isRestartStep (docker restart/systemctl restart/reload)
+- verifyPersistence orchestrator: waits configurable delay, re-verifies each tracked config mod via verifyEffect, marks reverted changes
+- Executor wiring: tracks ConfigModificationRecord[] during step loop, triggers verification on restart step when self-healing deps present
+- Reverted config changes re-executed through selfHealStep with "persistent approach" hint in description
+- restartVerificationDelayMs config (default 3000ms) in selfHealing schema
+- config_reverted_after_restart, persistence_fix_failed, self_heal_progress audit event types added
+- 597 tests passing (20 new persistence-verification tests)
+
 ### From Phase 13-02
 - DOCKER_LEGITIMATE_TAGS whitelist: none, missing, local, original-image, no-value — eliminates 47s false-positive retry penalty
 - checkForHallucinations: angle-bracket pattern extracted into separate scan with Set-based whitelist lookup
@@ -319,8 +328,12 @@ Last activity: 2026-03-16 -- Sanity checker tuned: Docker tag whitelist eliminat
 - docs/MODEL-ROUTING.md: 7-role definitions, latency evidence from multi-fault demo, config example, escalation path
 - 597 tests passing (21 sanity checker tests, 10 new), 6 pre-existing E2E failures unchanged
 
+- [Phase 13-01]: Fail-open on verifyEffect skip -- config mod treated as persisted if LLM can't verify
+- [Phase 13-01]: Persistence fix non-blocking -- original step succeeded, retry is bonus verification
+- [Phase 13-01]: Config modifications cleared after handling to avoid re-checking on subsequent restarts
+
 ## Session Continuity
 
-Last session: 2026-03-16T17:23:00Z
-Stopped at: Completed 13-02-PLAN.md
+Last session: 2026-03-16T17:24:07Z
+Stopped at: Completed 13-01-PLAN.md
 Next: Continue Phase 13 execution

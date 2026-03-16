@@ -244,7 +244,7 @@ Plans:
 
 **Goal:** Fix the real-world gaps exposed by the 5-fault multi-fault demo. The engine diagnosed and fixed 4/5 faults fully autonomous — Phase 13 closes the remaining gaps so the next multi-fault test achieves 5/5 with zero manual intervention.
 
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 13-01-PLAN.md — Post-restart persistence verification (detect reverted config changes, self-heal retry)
@@ -297,7 +297,7 @@ Plans:
 | 12.5 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.6 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.6 Demo | v1.2 | — | Validated | 2026-03-15 (5/5 faults, 4 autonomous) |
-| 13 | 1/2 | In Progress|  | — |
+| 13 | 2/2 | Complete   | 2026-03-16 | — |
 
 ---
 *Roadmap created: 2026-03-07*
