@@ -244,7 +244,11 @@ Plans:
 
 **Goal:** Fix the real-world gaps exposed by the 5-fault multi-fault demo. The engine diagnosed and fixed 4/5 faults fully autonomous — Phase 13 closes the remaining gaps so the next multi-fault test achieves 5/5 with zero manual intervention.
 
-**Plans:** TBD (estimate 2-3 plans)
+**Plans:** 2 plans
+
+Plans:
+- [ ] 13-01-PLAN.md — Post-restart persistence verification (detect reverted config changes, self-heal retry)
+- [ ] 13-02-PLAN.md — Sanity checker tuning (structured diagnosis exemption, Docker tag whitelist) + model routing docs
 
 **Scope:**
 1. **Post-restart persistence verification** — after a fix + container restart, verify the fix persists. The Redis `sed` without `-i` bug: LLM changed runtime config but not the file, so restart reverted the fix. Add a verification step after restarts that re-checks the original symptom.
@@ -293,8 +297,8 @@ Plans:
 | 12.5 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.6 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.6 Demo | v1.2 | — | Validated | 2026-03-15 (5/5 faults, 4 autonomous) |
-| 13 | v1.2 | TBD | Planned | — |
+| 13 | v1.2 | 0/2 | In Progress | — |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-15 — Phase 13 planned (Execution Hardening), v1.3 Intelligence Platform scoped*
+*Last updated: 2026-03-16 — Phase 13 plans created (2 plans, 1 wave, both parallel)*
