@@ -50,11 +50,20 @@ export function enforceDPEVSequence(current: DPEVPhase, completed: DPEVPhase[]):
 const LOG_INDICATOR = /\b(ERROR|WARN|INFO|DEBUG|FATAL|CRITICAL)\b|\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/i;
 
 /**
+ * Docker-legitimate angle-bracket terms that should NOT trigger hallucination detection.
+ * These appear in real Docker output (docker images, docker history, docker inspect).
+ */
+const DOCKER_LEGITIMATE_TAGS = new Set([
+  'none', 'missing', 'local', 'original-image', 'no-value',
+]);
+
+/**
  * Patterns that indicate hallucinated/placeholder content in LLM output.
  * If any match, the output fails the sanity check.
+ * NOTE: Angle-bracket patterns are handled separately in checkForHallucinations
+ * to allow Docker-legitimate tags through.
  */
 const HALLUCINATION_PATTERNS = [
-  /<[a-z][a-z0-9_-]*>/i,           // <container-name>, <PID>, etc.
   /\[PID\]/i,                       // [PID] placeholder
   /\[IP\]/i,                        // [IP] placeholder
   /\bExample Output\b/i,            // "Example Output" header
@@ -79,9 +88,24 @@ RULES FOR THIS RETRY:
 /**
  * Sanity-check LLM output for hallucination patterns.
  * Returns list of violations found, empty if clean.
+ *
+ * Angle-bracket tags are checked separately: Docker-legitimate tags
+ * (e.g. <none>, <missing>) are whitelisted and do not trigger violations.
  */
 export function checkForHallucinations(text: string): string[] {
   const violations: string[] = [];
+
+  // Check angle-bracket tags with Docker whitelist
+  const angleBracketPattern = /<([a-z][a-z0-9_-]*)>/gi;
+  let abMatch;
+  while ((abMatch = angleBracketPattern.exec(text)) !== null) {
+    const tagContent = abMatch[1].toLowerCase();
+    if (!DOCKER_LEGITIMATE_TAGS.has(tagContent)) {
+      violations.push(`Found hallucination pattern: "${abMatch[0]}"`);
+    }
+  }
+
+  // Check remaining patterns (non-angle-bracket)
   for (const pattern of HALLUCINATION_PATTERNS) {
     const match = text.match(pattern);
     if (match) {
@@ -476,7 +500,8 @@ export function createDebugRoute(
             diagnosis = await provider.generateCommand(preFilteredPrompt, systemPrompt, preferredRole);
           }
 
-          // Sanity checker: scan diagnosis for hallucination patterns
+          // Sanity checker: only for free-text diagnosis (structured is Zod-validated)
+          if (!structuredDiagnosis) {
           const violations = checkForHallucinations(diagnosis);
           if (violations.length > 0) {
             if (DEV_MODE) console.log(`[SANITY] Hallucination detected: ${violations.join('; ')} — retrying with grounding penalty...`);
@@ -503,6 +528,7 @@ export function createDebugRoute(
             // Retry succeeded
             diagnosis = retryDiagnosis;
           }
+          } // end if (!structuredDiagnosis)
 
           // DPEV: diagnosis phase complete
           completedPhases.push('diagnosis');
