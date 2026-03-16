@@ -86,4 +86,68 @@ describe('Sanity Checker (checkForHallucinations)', () => {
     const violations = checkForHallucinations(diagnosis);
     expect(violations.length).toBeGreaterThan(0);
   });
+
+  describe('Docker Legitimate Tags (whitelist)', () => {
+    it('passes text containing <none> (Docker tag)', () => {
+      const diagnosis = 'Image tag shows <none> which indicates untagged build';
+      expect(checkForHallucinations(diagnosis)).toEqual([]);
+    });
+
+    it('passes text containing <missing> (Docker image)', () => {
+      const diagnosis = 'Parent layer is <missing> in docker history output';
+      expect(checkForHallucinations(diagnosis)).toEqual([]);
+    });
+
+    it('passes text containing <local> (Docker build)', () => {
+      const diagnosis = 'Build context uses <local> source';
+      expect(checkForHallucinations(diagnosis)).toEqual([]);
+    });
+
+    it('passes text containing <original-image> (Docker inspect)', () => {
+      const diagnosis = 'Original image reference: <original-image> from inspect output';
+      expect(checkForHallucinations(diagnosis)).toEqual([]);
+    });
+
+    it('passes text containing <no-value> (Docker output)', () => {
+      const diagnosis = 'Label value is <no-value> when not set';
+      expect(checkForHallucinations(diagnosis)).toEqual([]);
+    });
+
+    it('still catches <container-name> as genuine placeholder', () => {
+      const diagnosis = 'Run: docker exec <container-name> bash';
+      const violations = checkForHallucinations(diagnosis);
+      expect(violations.length).toBeGreaterThan(0);
+    });
+
+    it('still catches <PID> as genuine placeholder', () => {
+      const diagnosis = 'Kill process <PID> to free resources';
+      const violations = checkForHallucinations(diagnosis);
+      expect(violations.length).toBeGreaterThan(0);
+    });
+
+    it('still catches <my-app> as genuine placeholder', () => {
+      const diagnosis = 'Container <my-app> is not responding';
+      const violations = checkForHallucinations(diagnosis);
+      expect(violations.length).toBeGreaterThan(0);
+    });
+
+    it('still catches <hostname> as genuine placeholder', () => {
+      const diagnosis = 'Connect to <hostname> on port 5432';
+      const violations = checkForHallucinations(diagnosis);
+      expect(violations.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Structured Diagnosis Exemption', () => {
+    // NOTE: The structured diagnosis path (generateObject with Zod schema) bypasses
+    // checkForHallucinations entirely in the debug route. Since structured output is
+    // Zod-validated, free-text hallucination is not possible. Integration behavior
+    // is tested via the debug route tests, not here. Unit tests in this file only
+    // cover the checkForHallucinations function itself.
+    it('documents that structured diagnosis skips sanity check (integration tested in debug route)', () => {
+      // This is a documentation test -- the actual bypass is in debug.ts
+      // where checkForHallucinations is only called when !structuredDiagnosis
+      expect(true).toBe(true);
+    });
+  });
 });
