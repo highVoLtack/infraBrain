@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: executing
-stopped_at: Completed 12.6-03-PLAN.md
-last_updated: "2026-03-15T20:00:00Z"
-last_activity: 2026-03-15 -- Multi-fault demo COMPLETED: 5/5 faults fixed across 3 debug→execute cycles (4 autonomous, 1 semi-auto). 7-role model routing, self-healing escalation, dev-mode logging, lock sanitization.
+stopped_at: Completed 13-02-PLAN.md
+last_updated: "2026-03-16T17:23:00Z"
+last_activity: 2026-03-16 -- Sanity checker tuned: Docker tag whitelist, structured diagnosis bypass, 7-role model routing docs.
 progress:
   total_phases: 7
   completed_phases: 7
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 
 ## Current Position
 
-Phase: 12.6-self-healing-executor
-Plan: 03 of 3 complete
-Status: Phase Complete — Multi-fault demo validated 2026-03-15
-Last activity: 2026-03-15 -- Multi-fault demo 5/5 faults fixed. 7-role routing, self-healing escalation, dev-mode logging shipped.
+Phase: 13-execution-hardening
+Plan: 02 complete
+Status: Executing Phase 13
+Last activity: 2026-03-16 -- Sanity checker tuned: Docker tag whitelist eliminates 47s false-positive penalty, structured diagnosis bypass, MODEL-ROUTING.md documentation.
 
 ## Accumulated Context
 
@@ -312,9 +312,15 @@ Last activity: 2026-03-15 -- Multi-fault demo 5/5 faults fixed. 7-role routing, 
 - [2026-03-15]: maxAttempts raised 3→5 — complex permission/network faults need more correction cycles
 - [2026-03-15]: Lock filename sanitization needed before URL-containing targets are used as filenames
 
+### From Phase 13-02
+- DOCKER_LEGITIMATE_TAGS whitelist: none, missing, local, original-image, no-value — eliminates 47s false-positive retry penalty
+- checkForHallucinations: angle-bracket pattern extracted into separate scan with Set-based whitelist lookup
+- Structured diagnosis (generateObject + Zod) bypasses sanity checker entirely — only free-text runs hallucination check
+- docs/MODEL-ROUTING.md: 7-role definitions, latency evidence from multi-fault demo, config example, escalation path
+- 597 tests passing (21 sanity checker tests, 10 new), 6 pre-existing E2E failures unchanged
+
 ## Session Continuity
 
-Last session: 2026-03-15T16:56:00Z
-Stopped at: Multi-fault demo validated, Phase 13 + v1.3 scoped in roadmap, all pushed
-Resume file: .planning/phases/12.6-self-healing-executor/.continue-here.md
-Next: /gsd:plan-phase 13 (Execution Hardening: persistence verification, sanity tuning, state rollbacks)
+Last session: 2026-03-16T17:23:00Z
+Stopped at: Completed 13-02-PLAN.md
+Next: Continue Phase 13 execution
