@@ -82,9 +82,18 @@ interface ResumeResponse {
   session?: Record<string, unknown>;
 }
 
+interface BackendHealth {
+  baseUrl: string;
+  connected: boolean;
+  models?: string[];
+  error?: string;
+}
+
 interface HealthResponse {
   status: string;
-  ollama: 'connected' | 'disconnected';
+  backends?: BackendHealth[];
+  summary?: 'all_connected' | 'partial' | 'all_disconnected';
+  ollama?: 'connected' | 'disconnected';
   models?: Array<{ name: string }>;
   error?: string;
 }
@@ -260,16 +269,23 @@ export function registerCommands(config: CommandConfig): Command {
           return;
         }
 
-        if (data.ollama === 'connected') {
-          console.log(`Ollama: connected`);
-          if (data.models && data.models.length > 0) {
-            console.log('Models:');
-            for (const model of data.models) {
-              console.log(`  - ${model.name}`);
+        if (data.backends && data.backends.length > 0) {
+          for (const backend of data.backends) {
+            if (backend.connected) {
+              console.log(`Backend ${backend.baseUrl}: connected`);
+              if (backend.models && backend.models.length > 0) {
+                console.log('  Models:');
+                for (const model of backend.models) {
+                  console.log(`    - ${model}`);
+                }
+              }
+            } else {
+              console.log(formatError(`Backend ${backend.baseUrl}: disconnected${backend.error ? ` (${backend.error})` : ''}`));
             }
           }
+          console.log(`\nSummary: ${data.summary}`);
         } else {
-          console.log(formatError(data.error ?? 'Ollama not connected'));
+          console.log(formatError('No backends detected. Check your defaultBaseUrl config.'));
         }
       } catch (err) {
         if (jsonMode) {

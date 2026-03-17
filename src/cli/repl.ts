@@ -10,9 +10,19 @@ interface ReplConfig {
   program: Command;
 }
 
+interface BackendHealth {
+  baseUrl: string;
+  connected: boolean;
+  models?: string[];
+  error?: string;
+}
+
 interface HealthResponse {
   status: string;
-  ollama: 'connected' | 'disconnected';
+  backends: BackendHealth[];
+  summary: 'all_connected' | 'partial' | 'all_disconnected';
+  // Legacy fields (may not be present with new health route)
+  ollama?: 'connected' | 'disconnected';
   models?: Array<{ name: string }>;
   error?: string;
 }
@@ -39,13 +49,22 @@ export async function startRepl(config: ReplConfig): Promise<void> {
     const res = await fetch(`${config.apiBaseUrl}/health`);
     const data = await res.json() as HealthResponse;
 
-    if (data.ollama === 'connected') {
-      console.log(chalk.green('Ollama: connected'));
-      if (data.models && data.models.length > 0) {
-        console.log(chalk.gray(`Models: ${data.models.map(m => m.name).join(', ')}`));
+    if (data.backends && data.backends.length > 0) {
+      for (const backend of data.backends) {
+        if (backend.connected) {
+          console.log(chalk.green(`Backend ${backend.baseUrl}: connected`));
+          if (backend.models && backend.models.length > 0) {
+            console.log(chalk.gray(`  Models: ${backend.models.join(', ')}`));
+          }
+        } else {
+          console.log(chalk.yellow(`Backend ${backend.baseUrl}: disconnected${backend.error ? ` (${backend.error})` : ''}`));
+        }
       }
+    } else if (data.ollama === 'connected') {
+      // Legacy fallback
+      console.log(chalk.green('Backend: connected'));
     } else {
-      console.log(chalk.yellow(data.error ?? 'Ollama not detected. Run `ollama serve` first.'));
+      console.log(chalk.yellow('No backends detected. Check your defaultBaseUrl config.'));
     }
   } catch {
     console.log(chalk.yellow('Could not reach InfraBrain API. Is the server running?'));
