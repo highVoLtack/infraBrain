@@ -27,38 +27,43 @@ vi.mock('../../src/orchestrator/context.js', () => ({
 }));
 
 describe('GET /health', () => {
-  it('returns 200 with ollama: "connected" when Ollama is reachable', async () => {
-    // Mock global fetch to simulate Ollama responding
+  it('returns 200 with backend connected when backend is reachable', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ models: [{ name: 'llama3.3:70b' }] }),
+      json: async () => ({ data: [{ id: 'llama3.3:70b' }] }),
     });
     vi.stubGlobal('fetch', mockFetch);
 
+    const { InfraBrainConfigSchema } = await import('../../src/config/types.js');
+    const config = InfraBrainConfigSchema.parse({});
     const app = express();
-    app.use('/health', createHealthRoute('http://localhost:11434'));
+    app.use('/health', createHealthRoute(config));
 
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
-    expect(res.body.ollama).toBe('connected');
-    expect(res.body.models).toEqual([{ name: 'llama3.3:70b' }]);
+    expect(res.body.backends).toHaveLength(1);
+    expect(res.body.backends[0].connected).toBe(true);
+    expect(res.body.backends[0].models).toEqual(['llama3.3:70b']);
 
     vi.unstubAllGlobals();
   });
 
-  it('returns 200 with ollama: "disconnected" when Ollama is not reachable', async () => {
+  it('returns 200 with backend disconnected when backend is not reachable', async () => {
     const mockFetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
     vi.stubGlobal('fetch', mockFetch);
 
+    const { InfraBrainConfigSchema } = await import('../../src/config/types.js');
+    const config = InfraBrainConfigSchema.parse({});
     const app = express();
-    app.use('/health', createHealthRoute('http://localhost:11434'));
+    app.use('/health', createHealthRoute(config));
 
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
-    expect(res.body.ollama).toBe('disconnected');
-    expect(res.body.error).toContain('Ollama not detected');
+    expect(res.body.backends).toHaveLength(1);
+    expect(res.body.backends[0].connected).toBe(false);
+    expect(res.body.backends[0].error).toContain('ECONNREFUSED');
 
     vi.unstubAllGlobals();
   });

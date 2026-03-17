@@ -338,40 +338,28 @@ describe('LLM Provider', () => {
   });
 });
 
-describe('Ollama Model Factory', () => {
-  it('createOllamaModel returns a LanguageModel-compatible object', async () => {
-    // We mock ai-sdk-ollama since Ollama isn't running
-    vi.mock('ai-sdk-ollama', () => ({
-      createOllama: vi.fn(() => (modelName: string) => ({
-        specificationVersion: 'v2',
-        provider: 'ollama',
-        modelId: modelName,
-        doGenerate: vi.fn(),
-        doStream: vi.fn(),
-      })),
-    }));
-
-    const { createOllamaModel } = await import('../../src/llm/ollama.js');
-    const model = createOllamaModel('llama3.3:70b');
+describe('OpenAI-Compatible Model Factory', () => {
+  it('createCompatModel returns a LanguageModel-compatible object', async () => {
+    const { createCompatModel } = await import('../../src/llm/openai-compat.js');
+    const model = createCompatModel('llama3.3:70b', 'http://localhost:11434/v1');
 
     expect(model).toBeDefined();
-    expect((model as any).provider).toBe('ollama');
     expect((model as any).modelId).toBe('llama3.3:70b');
   });
 
-  it('createOllamaModel uses default model name when none provided', async () => {
-    const { createOllamaModel } = await import('../../src/llm/ollama.js');
-    const model = createOllamaModel();
+  it('createCompatModel uses default baseURL when none provided', async () => {
+    const { createCompatModel } = await import('../../src/llm/openai-compat.js');
+    const model = createCompatModel('infrabrain');
 
     expect(model).toBeDefined();
     expect((model as any).modelId).toBe('infrabrain');
   });
 
   it('createModelRegistry creates models for all seven roles', async () => {
-    const { createModelRegistry } = await import('../../src/llm/ollama.js');
+    const { createModelRegistry } = await import('../../src/llm/openai-compat.js');
     const registry = createModelRegistry(
       { default: 'infrabrain', strategic: 'llama3.3:70b', forensic: 'deepseek-r1:32b', worker: 'qwen2.5-coder:7b', vision: 'llama3.2-vision', triage: 'qwen2.5-coder:7b', embedding: 'bge-m3' },
-      'http://localhost:11434',
+      'http://localhost:11434/v1',
     );
 
     expect(registry).toBeDefined();
@@ -390,10 +378,10 @@ describe('Ollama Model Factory', () => {
   });
 
   it('createModelRegistry.get returns correct model per role', async () => {
-    const { createModelRegistry } = await import('../../src/llm/ollama.js');
+    const { createModelRegistry } = await import('../../src/llm/openai-compat.js');
     const registry = createModelRegistry(
       { default: 'infrabrain', strategic: 'llama3.3:70b', forensic: 'deepseek-r1:32b', worker: 'qwen2.5-coder:7b', vision: 'llama3.2-vision', triage: 'qwen2.5-coder:7b', embedding: 'bge-m3' },
-      'http://localhost:11434',
+      'http://localhost:11434/v1',
     );
 
     expect((registry.get('default') as any).modelId).toBe('infrabrain');

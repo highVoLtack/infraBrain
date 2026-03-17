@@ -7,12 +7,12 @@ import type { LockFile } from '../../locks/types.js';
 
 export interface StatusRouteDeps {
   store: WriteThrough;
-  ollamaBaseUrl: string;
+  defaultBaseUrl: string;
   lockDir: string;
   config: InfraBrainConfig;
 }
 
-interface OllamaHealth {
+interface BackendHealth {
   connected: boolean;
   modelName?: string;
   responseTimeMs?: number;
@@ -21,32 +21,32 @@ interface OllamaHealth {
 
 /**
  * Create the /status route.
- * Returns Ollama health, active plans, recent sessions, and active locks.
+ * Returns backend health, active plans, recent sessions, and active locks.
  */
 export function createStatusRoute(deps: StatusRouteDeps): Router {
   const router = Router();
 
   router.get('/', async (_req, res) => {
-    // Check Ollama health with 3-second timeout
-    let ollama: OllamaHealth;
+    // Check backend health with 3-second timeout via OpenAI /v1/models
+    let backend: BackendHealth;
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
       const start = Date.now();
-      const response = await fetch(`${deps.ollamaBaseUrl}/api/tags`, {
+      const response = await fetch(`${deps.defaultBaseUrl}/models`, {
         signal: controller.signal,
       });
       const elapsed = Date.now() - start;
       clearTimeout(timeout);
 
-      const data = (await response.json()) as { models: Array<{ name: string }> };
-      ollama = {
+      const data = (await response.json()) as { data: Array<{ id: string }> };
+      backend = {
         connected: true,
-        modelName: data.models?.[0]?.name,
+        modelName: data.data?.[0]?.id,
         responseTimeMs: elapsed,
       };
     } catch (err) {
-      ollama = {
+      backend = {
         connected: false,
         error: (err as Error).message,
       };
@@ -76,7 +76,7 @@ export function createStatusRoute(deps: StatusRouteDeps): Router {
       // Lock directory doesn't exist or isn't readable -- that's fine
     }
 
-    res.json({ ollama, activePlans, recentSessions, locks });
+    res.json({ backend, activePlans, recentSessions, locks });
   });
 
   return router;

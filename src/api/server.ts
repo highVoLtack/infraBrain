@@ -17,7 +17,7 @@ export interface ServerDeps {
   provider: LLMProvider;
   auditLogger: AuditLogger;
   validator: (command: string) => ValidationResult;
-  ollamaBaseUrl: string;
+  defaultBaseUrl: string;
   registry?: SkillRegistry;
   modelRegistry?: ModelRegistry;
   config?: InfraBrainConfig;
@@ -43,7 +43,7 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
   app.use(express.json());
 
   // Routes
-  app.use('/health', createHealthRoute(deps.ollamaBaseUrl, deps.modelRegistry));
+  app.use('/health', createHealthRoute(deps.config!, deps.modelRegistry));
   app.use('/debug', createDebugRoute(deps.provider, deps.auditLogger, deps.validator, deps.registry, {
     store: deps.store,
     config: deps.config,
@@ -54,7 +54,7 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
   if (deps.store && deps.config && deps.lockDir) {
     app.use('/status', createStatusRoute({
       store: deps.store,
-      ollamaBaseUrl: deps.ollamaBaseUrl,
+      defaultBaseUrl: deps.defaultBaseUrl,
       lockDir: deps.lockDir,
       config: deps.config,
     }));

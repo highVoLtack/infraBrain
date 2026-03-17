@@ -43,7 +43,7 @@ import { runCommand } from '../../src/execution/runner.js';
 
 function makeConfig(): InfraBrainConfig {
   return {
-    ollamaBaseUrl: 'http://localhost:11434',
+    defaultBaseUrl: 'http://localhost:11434/v1',
     modelName: 'llama3.3:70b',
     apiPort: 3000,
     sessionDir: '.infrabrain',

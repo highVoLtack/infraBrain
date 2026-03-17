@@ -71,7 +71,7 @@ function makeDeps(overrides: Partial<ExecutionDeps> = {}): ExecutionDeps {
       logExecution: vi.fn(),
     } as unknown as ExecutionDeps['auditLogger'],
     config: {
-      ollamaBaseUrl: 'http://localhost:11434',
+      defaultBaseUrl: 'http://localhost:11434/v1',
       modelName: 'llama3.3:70b',
       apiPort: 3000,
       sessionDir: '.infrabrain',

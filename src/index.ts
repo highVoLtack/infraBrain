@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import chalk from 'chalk';
 
 import { loadConfig } from './config/loader.js';
-import { createOllamaModel, createModelRegistry } from './llm/ollama.js';
+import { createCompatModel, createModelRegistry } from './llm/openai-compat.js';
 import { createProvider } from './llm/provider.js';
 import { initDatabase } from './state/db.js';
 import { createSession } from './state/session.js';
@@ -19,7 +19,7 @@ import { SkillRegistry } from './skills/registry.js';
 
 // Re-exports for library usage
 export { createProvider } from './llm/provider.js';
-export { createOllamaModel, createModelRegistry } from './llm/ollama.js';
+export { createCompatModel, createModelRegistry } from './llm/openai-compat.js';
 export type { LLMProvider, ModelRegistry, TokenUsage, TaskBudget } from './llm/types.js';
 export type { ModelRole, ModelMap } from './config/types.js';
 export { estimateTokens, checkBudget, trackUsage } from './llm/token-budget.js';
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   const config = loadConfig(baseDir);
 
   // Initialize LLM with multi-model registry
-  const modelRegistry = createModelRegistry(config.modelMap, config.ollamaBaseUrl);
+  const modelRegistry = createModelRegistry(config.modelMap, config.defaultBaseUrl);
   const model = modelRegistry.getDefault();
   const provider = createProvider(model, modelRegistry);
 
@@ -68,7 +68,7 @@ async function main(): Promise<void> {
     provider,
     auditLogger,
     validator: validateCommand,
-    ollamaBaseUrl: config.ollamaBaseUrl,
+    defaultBaseUrl: config.defaultBaseUrl,
     registry,
     modelRegistry,
     config,
@@ -113,7 +113,7 @@ main().catch((err) => {
 
   // Handle common startup errors with helpful messages
   if ((err as Error).message?.includes('ECONNREFUSED')) {
-    console.error(chalk.yellow('Hint: Is Ollama running? Try `ollama serve`'));
+    console.error(chalk.yellow('Hint: Is your LLM backend running? Check defaultBaseUrl in config.'));
   }
   if ((err as Error).message?.includes('EACCES') || (err as Error).message?.includes('EPERM')) {
     console.error(chalk.yellow('Hint: Check file permissions for .infrabrain/ directory'));

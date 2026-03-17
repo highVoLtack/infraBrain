@@ -29,7 +29,7 @@ describe('GET /status', () => {
 
     app = express();
     app.use(express.json());
-    app.use('/status', createStatusRoute({ store, ollamaBaseUrl: 'http://localhost:11434', lockDir, config }));
+    app.use('/status', createStatusRoute({ store, defaultBaseUrl: 'http://localhost:11434/v1', lockDir, config }));
   });
 
   afterEach(() => {
@@ -38,18 +38,18 @@ describe('GET /status', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns 200 with all four sections when Ollama is reachable', async () => {
+  it('returns 200 with all four sections when backend is reachable', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ models: [{ name: 'llama3.3:70b' }] }),
+      json: async () => ({ data: [{ id: 'llama3.3:70b' }] }),
     });
     vi.stubGlobal('fetch', mockFetch);
 
     const res = await request(app).get('/status');
 
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('ollama');
-    expect(res.body.ollama.connected).toBe(true);
+    expect(res.body).toHaveProperty('backend');
+    expect(res.body.backend.connected).toBe(true);
     expect(res.body).toHaveProperty('activePlans');
     expect(res.body).toHaveProperty('recentSessions');
     expect(res.body).toHaveProperty('locks');
@@ -58,29 +58,29 @@ describe('GET /status', () => {
     expect(Array.isArray(res.body.locks)).toBe(true);
   });
 
-  it('returns ollama disconnected when Ollama is unreachable', async () => {
+  it('returns backend disconnected when backend is unreachable', async () => {
     const mockFetch = vi.fn().mockRejectedValue(new Error('Connection refused'));
     vi.stubGlobal('fetch', mockFetch);
 
     const res = await request(app).get('/status');
 
     expect(res.status).toBe(200);
-    expect(res.body.ollama.connected).toBe(false);
-    expect(res.body.ollama.error).toBeDefined();
+    expect(res.body.backend.connected).toBe(false);
+    expect(res.body.backend.error).toBeDefined();
   });
 
-  it('includes Ollama response time and model name when connected', async () => {
+  it('includes backend response time and model name when connected', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ models: [{ name: 'llama3.3:70b' }] }),
+      json: async () => ({ data: [{ id: 'llama3.3:70b' }] }),
     });
     vi.stubGlobal('fetch', mockFetch);
 
     const res = await request(app).get('/status');
 
-    expect(res.body.ollama.connected).toBe(true);
-    expect(res.body.ollama.modelName).toBe('llama3.3:70b');
-    expect(typeof res.body.ollama.responseTimeMs).toBe('number');
+    expect(res.body.backend.connected).toBe(true);
+    expect(res.body.backend.modelName).toBe('llama3.3:70b');
+    expect(typeof res.body.backend.responseTimeMs).toBe('number');
   });
 
   it('returns active sessions from store', async () => {
