@@ -302,3 +302,24 @@ Plans:
 ---
 *Roadmap created: 2026-03-07*
 *Last updated: 2026-03-16 — Phase 13 plans created (2 plans, 1 wave, both parallel)*
+
+### Phase 13.1: vLLM Multi-Model Integration (INSERTED)
+
+**Goal:** Replace Ollama's single-model-in-VRAM constraint with vLLM's OpenAI-compatible multi-model serving. All 7 roles (triage/default/strategic/forensic/worker/vision/embedding) can run simultaneously without 60s+ model swapping. This unblocks the live demo and enables true multi-role routing.
+
+**Plans:** TBD (estimate 2-3 plans)
+
+**Scope:**
+1. **vLLM provider** — new `src/llm/vllm.ts` implementing `ModelRegistry` interface via OpenAI SDK (`/v1/chat/completions`). Drop-in replacement for Ollama provider.
+2. **Config extension** — `provider: "vllm" | "ollama"` field, `vllmBaseUrl`, model routing map with per-role model assignment. Backwards-compatible (default: Ollama).
+3. **Structured output compatibility** — verify `generateObject` (Zod schema) works with vLLM's OpenAI-compatible structured output mode. Handle Qwen3.5 thinking mode if needed.
+4. **RunPod deployment** — vLLM launch script for multi-model serving on single GPU (LoRA adapters or model switching via vLLM's native multi-model support).
+
+**Success criteria:**
+1. Permission Trap DPEV runs end-to-end with vLLM (triage 9B + diagnosis 122B, no swap delay)
+2. Multi-fault demo: 5/5 faults, zero manual intervention, under 10 minutes
+3. `provider: "ollama"` still works (backwards compatible)
+4. 7-role routing active: triage <3s, diagnosis <30s, planning <20s
+
+**Dependencies:** Phase 13
+**Requirements:** ENGN-10

@@ -48,6 +48,7 @@ Last activity: 2026-03-16 -- Post-restart persistence verification: heuristic co
 
 - Phase 12 inserted as first v1.2 phase: Linux Filesystem Permission Trap Scenario (URGENT) — prove OS-level troubleshooting without DB logic
 - Phase 12.1 inserted: Dynamic Command Rewriter — Permission Trap revealed hardcoded SQL Rewriter doesn't scale. New skill-driven rewrite engine replaces scenario-specific TypeScript
+- Phase 13.1 inserted after Phase 13: vLLM Multi-Model Integration (URGENT) — Ollama single-model-in-VRAM blocks multi-role routing and kills demo performance. vLLM serves OpenAI-compatible API with parallel models.
 
 ### From Phase 12-01
 - Permission trap demo: demo/permission-trap/ with compose, Dockerfile, app.py, reset script
