@@ -1,31 +1,59 @@
 {
-  "_comment_connection": "Connection mode: use localhost with SSH tunnel (recommended) or direct RunPod proxy URL",
+  "_doc": "See docs/VLLM-SETUP.md for deployment guide and docs/MODEL-ROUTING.md for role definitions",
 
-  "_example_ssh_tunnel": "http://localhost:11435",
-  "_example_runpod_proxy": "https://YOUR-POD-ID-11434.proxy.runpod.net",
-  "_example_local_ollama": "http://localhost:11434",
+  "_format": "Three config formats supported (all backwards compatible):",
+  "_format_legacy": "1. Legacy: string modelMap + ollamaBaseUrl (auto-migrated to defaultBaseUrl)",
+  "_format_hybrid": "2. Hybrid: some roles as objects with baseUrl, rest as strings using defaultBaseUrl",
+  "_format_full": "3. Full: all roles as objects with explicit baseUrl per backend",
 
-  "ollamaBaseUrl": "http://localhost:11434",
-  "modelName": "qwen3.5:35b-a3b",
+  "defaultBaseUrl": "http://localhost:11434/v1",
   "modelMap": {
+    "triage": { "model": "qwen3.5:9b", "baseUrl": "http://localhost:8000/v1" },
     "default": "qwen3.5:35b-a3b",
-    "triage": "qwen3.5:9b",
     "strategic": "qwen3.5:122b-a10b",
     "forensic": "qwen3.5:35b-a3b",
-    "worker": "glm-4.7-flash",
+    "worker": "qwen3.5:9b",
     "vision": "qwen3.5:122b-a10b",
     "embedding": "bge-m3"
   },
   "apiPort": 3001,
 
   "_comment_roles": {
-    "default": "Primary model for diagnosis + execution (fast MoE)",
-    "triage": "Skill routing — lightweight, fast (9B)",
+    "triage": "Skill routing — lightweight, fast (9B). Points to vLLM on port 8000 for <3s latency",
+    "default": "Primary model for diagnosis + execution (fast MoE). Uses Ollama via defaultBaseUrl",
     "strategic": "Fix planning + self-heal corrections — deep reasoning (122B MoE)",
     "forensic": "Deep chain-of-thought debugging",
-    "worker": "Lightweight background tasks",
+    "worker": "Self-heal corrections (first tier). Can point to vLLM for fast corrections",
     "vision": "Visual analysis (screenshots, diagrams)",
     "embedding": "RAG vector embeddings (future)"
+  },
+
+  "_example_legacy": {
+    "_note": "Legacy format: all strings, single base URL. ollamaBaseUrl auto-migrated to defaultBaseUrl",
+    "ollamaBaseUrl": "http://localhost:11434",
+    "modelMap": {
+      "default": "qwen3.5:35b-a3b",
+      "triage": "qwen3.5:9b",
+      "strategic": "qwen3.5:122b-a10b",
+      "forensic": "qwen3.5:35b-a3b",
+      "worker": "qwen3.5:9b",
+      "vision": "qwen3.5:122b-a10b",
+      "embedding": "bge-m3"
+    }
+  },
+
+  "_example_full_vllm": {
+    "_note": "Full vLLM format: every role gets an explicit baseUrl (multi-GPU deployment)",
+    "defaultBaseUrl": "http://localhost:8000/v1",
+    "modelMap": {
+      "triage": { "model": "qwen3.5:9b", "baseUrl": "http://localhost:8000/v1" },
+      "default": { "model": "qwen3.5:35b-a3b", "baseUrl": "http://localhost:8001/v1" },
+      "strategic": { "model": "qwen3.5:122b-a10b", "baseUrl": "http://localhost:8002/v1" },
+      "forensic": { "model": "qwen3.5:35b-a3b", "baseUrl": "http://localhost:8001/v1" },
+      "worker": { "model": "qwen3.5:9b", "baseUrl": "http://localhost:8000/v1" },
+      "vision": { "model": "qwen3.5:122b-a10b", "baseUrl": "http://localhost:8002/v1" },
+      "embedding": { "model": "bge-m3", "baseUrl": "http://localhost:8003/v1" }
+    }
   },
 
   "selfHealing": {

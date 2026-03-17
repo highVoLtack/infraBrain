@@ -39,23 +39,76 @@ The multi-fault demo validated 5/5 faults across 3 debug-execute cycles. Key obs
 - Planning (fix plan generation): 15-20s
 - Self-heal correction (per attempt): 10-15s
 
-## Configuration
+## Per-Role Backend Routing
 
-Model assignments are configured in `config.json` under the `modelMap` section:
+InfraBrain supports routing each role to a different backend server via per-role `baseUrl` configuration. This enables hybrid deployments where fast models run on vLLM while heavy models run on Ollama.
+
+### Config Format
+
+The `modelMap` accepts two entry formats:
+
+| Format | Syntax | Backend |
+|--------|--------|---------|
+| **String** (legacy) | `"triage": "qwen3.5:9b"` | Uses `defaultBaseUrl` |
+| **Object** (per-role) | `"triage": { "model": "qwen3.5:9b", "baseUrl": "http://localhost:8000/v1" }` | Uses own `baseUrl` |
+
+Both formats can be mixed freely within the same `modelMap`.
+
+### defaultBaseUrl
+
+The `defaultBaseUrl` field replaces the legacy `ollamaBaseUrl` field. Existing configs using `ollamaBaseUrl` are automatically migrated at startup (no manual change required).
+
+- String-format modelMap entries resolve against `defaultBaseUrl`
+- Object-format entries use their own `baseUrl`, ignoring `defaultBaseUrl`
+- Default value: `http://localhost:11434/v1` (local Ollama with OpenAI-compatible endpoint)
+- The `/v1` suffix is required -- both Ollama and vLLM serve OpenAI-compatible APIs at this path
+
+### Hybrid Deployment Example
+
+vLLM serves the fast triage model on port 8000, Ollama handles everything else on port 11434:
 
 ```json
 {
+  "defaultBaseUrl": "http://localhost:11434/v1",
   "modelMap": {
-    "default": "qwen3.5:32b-a22b",
-    "triage": "qwen2.5:7b",
-    "strategic": "llama3.3:70b",
-    "forensic": "deepseek-r1:32b",
-    "worker": "qwen2.5-coder:32b",
-    "vision": "llama3.2-vision",
+    "triage": { "model": "qwen3.5:9b", "baseUrl": "http://localhost:8000/v1" },
+    "default": "qwen3.5:35b-a3b",
+    "strategic": "qwen3.5:122b-a10b",
+    "forensic": "qwen3.5:35b-a3b",
+    "worker": "qwen3.5:9b",
+    "vision": "qwen3.5:122b-a10b",
     "embedding": "bge-m3"
   }
 }
 ```
+
+In this config:
+- `triage` routes to vLLM at `localhost:8000` (sub-3s latency for skill selection)
+- All other roles route to Ollama at `localhost:11434` via `defaultBaseUrl`
+- The health endpoint (`/health`) probes both backends and reports their status independently
+
+### Full vLLM Deployment
+
+When multiple GPUs are available, all roles can point to dedicated vLLM instances:
+
+```json
+{
+  "defaultBaseUrl": "http://localhost:8000/v1",
+  "modelMap": {
+    "triage": { "model": "qwen3.5:9b", "baseUrl": "http://localhost:8000/v1" },
+    "default": { "model": "qwen3.5:35b-a3b", "baseUrl": "http://localhost:8001/v1" },
+    "strategic": { "model": "qwen3.5:122b-a10b", "baseUrl": "http://localhost:8002/v1" },
+    "forensic": { "model": "qwen3.5:35b-a3b", "baseUrl": "http://localhost:8001/v1" },
+    "worker": { "model": "qwen3.5:9b", "baseUrl": "http://localhost:8000/v1" },
+    "vision": { "model": "qwen3.5:122b-a10b", "baseUrl": "http://localhost:8002/v1" },
+    "embedding": { "model": "bge-m3", "baseUrl": "http://localhost:8003/v1" }
+  }
+}
+```
+
+## Configuration
+
+Model assignments are configured in `.infrabrain/config.json` under the `modelMap` section. See `config.example.json` in the project root for a complete reference with all three config formats (legacy, hybrid, full vLLM).
 
 Skills declare their preferred role via `preferred_model` in YAML frontmatter:
 
@@ -73,7 +126,7 @@ When `modelMap` is not configured (or all roles point to the same model), InfraB
 - Worker corrections may time out waiting for a large model
 - No parallelism possible (single model in VRAM)
 
-For production use, multi-GPU enables role-specific model assignment where a fast 7B handles triage while a 70B+ handles strategic planning.
+For production use, multi-GPU enables role-specific model assignment where a fast 7B handles triage while a 70B+ handles strategic planning. See `docs/VLLM-SETUP.md` for vLLM deployment instructions.
 
 ## Escalation Path
 
