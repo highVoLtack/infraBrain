@@ -272,7 +272,7 @@ Plans:
 
 **Goal:** Replace Ollama's single-model-in-VRAM constraint with a unified OpenAI-compatible provider that works with both vLLM and Ollama via baseURL switching. Per-role baseURL routing enables hybrid deployment: vLLM serves fast small models (triage/routing), Ollama handles heavy models with CPU offloading. This unblocks the live demo and enables true multi-role routing.
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 13.1-01-PLAN.md — Config schema migration (defaultBaseUrl, ModelMapEntry union) + openai-compat provider module + unit tests
@@ -325,7 +325,7 @@ Plans:
 | 12.6 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.6 Demo | v1.2 | — | Validated | 2026-03-15 (5/5 faults, 4 autonomous) |
 | 13 | v1.2 | 2/2 | Complete | 2026-03-16 |
-| 13.1 | 1/3 | In Progress|  | — |
+| 13.1 | 2/3 | In Progress|  | — |
 
 ---
 *Roadmap created: 2026-03-07*
