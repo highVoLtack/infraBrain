@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: executing
-stopped_at: Phase 13.1 Plan 01 complete
-last_updated: "2026-03-17T19:30:25Z"
-last_activity: "2026-03-17 -- Unified OpenAI-compatible provider + config schema migration (Plan 13.1-01)"
+stopped_at: Phase 13.1 COMPLETE (all 3 plans)
+last_updated: "2026-03-17T20:50:00Z"
+last_activity: "2026-03-17 -- Phase 13.1 complete: unified OpenAI-compat provider, docs, user-verified with RunPod"
 progress:
   total_phases: 9
   completed_phases: 8
   total_plans: 24
-  completed_plans: 22
+  completed_plans: 24
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 13.1-vllm-multi-model-integration
-Plan: 01 of 03 complete
-Status: Executing Phase 13.1
-Last activity: 2026-03-17 -- Unified OpenAI-compatible provider + config schema migration (Plan 13.1-01)
+Plan: 03 of 03 complete
+Status: Phase 13.1 COMPLETE
+Last activity: 2026-03-17 -- Config example, docs, and user-verified provider swap (Plan 13.1-03)
 
 ## Accumulated Context
 
@@ -353,6 +353,14 @@ Last activity: 2026-03-17 -- Unified OpenAI-compatible provider + config schema 
 - DEFAULT_HEALTH_URL uses /models endpoint (OpenAI standard, works for both backends)
 - 22 new tests, 620 total passing (pre-existing E2E failures unchanged)
 
+### From Phase 13.1-03
+- config.example.json shows three deployment modes: legacy string, hybrid (per-role baseUrl), full vLLM
+- docs/VLLM-SETUP.md: RunPod deployment guide with SSH tunnel setup and troubleshooting
+- docs/MODEL-ROUTING.md extended with per-role backend routing section
+- User verified provider swap: RunPod Ollama with 5 models (qwen3.5:9b, qwen3.5:35b-a3b, glm-4.7-flash, qwen3.5:122b-a10b, bge-m3)
+- CLI health display fixed for multi-backend response format (commands.ts + repl.ts)
+- Phase 13.1 COMPLETE: unified OpenAI-compatible provider operational, ready for vLLM integration
+
 ## Decisions
 
 - [Phase 13.1-01]: z.preprocess for ollamaBaseUrl migration (runs before validation, cleanest for field rename)
@@ -361,8 +369,11 @@ Last activity: 2026-03-17 -- Unified OpenAI-compatible provider + config schema 
 - [Phase 13.1-01]: OLLAMA_HEALTH_URL deprecated alias kept until Plan 02 migrates callers
 - [Phase 13.1-01]: defaultBaseUrl takes precedence when both ollamaBaseUrl and defaultBaseUrl present
 
+- [Phase 13.1-03]: Config example shows three deployment modes (legacy/hybrid/full vLLM) for migration guidance
+- [Phase 13.1-03]: CLI health display adapted for multi-backend response format during user verification
+
 ## Session Continuity
 
-Last session: 2026-03-17T19:30:25Z
-Stopped at: Phase 13.1 Plan 01 complete
-Next: Phase 13.1 Plan 02 — Caller migration (import swap, ollamaBaseUrl references, test updates). Then Plan 03 — docs + config example.
+Last session: 2026-03-17T20:50:00Z
+Stopped at: Phase 13.1 COMPLETE (all 3 plans delivered, user-verified)
+Next: v1.3 Intelligence Platform planning — vLLM multi-model serving, model benchmarking, Qdrant vector search.

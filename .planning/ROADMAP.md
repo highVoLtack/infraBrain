@@ -272,12 +272,12 @@ Plans:
 
 **Goal:** Replace Ollama's single-model-in-VRAM constraint with a unified OpenAI-compatible provider that works with both vLLM and Ollama via baseURL switching. Per-role baseURL routing enables hybrid deployment: vLLM serves fast small models (triage/routing), Ollama handles heavy models with CPU offloading. This unblocks the live demo and enables true multi-role routing.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 13.1-01-PLAN.md — Config schema migration (defaultBaseUrl, ModelMapEntry union) + openai-compat provider module + unit tests
-- [ ] 13.1-02-PLAN.md — Caller migration (all imports, health/status routes, ollama.ts deletion) + full suite green
-- [ ] 13.1-03-PLAN.md — Config example + documentation (MODEL-ROUTING, VLLM-SETUP) + human verification checkpoint
+- [x] 13.1-01-PLAN.md — Config schema migration (defaultBaseUrl, ModelMapEntry union) + openai-compat provider module + unit tests -- completed 2026-03-17
+- [x] 13.1-02-PLAN.md — Caller migration (all imports, health/status routes, ollama.ts deletion) + full suite green -- completed 2026-03-17
+- [x] 13.1-03-PLAN.md — Config example + documentation (MODEL-ROUTING, VLLM-SETUP) + human verification checkpoint -- completed 2026-03-17
 
 **Scope:**
 1. **Unified provider** — `src/llm/openai-compat.ts` using `@ai-sdk/openai-compatible` replaces `src/llm/ollama.ts`. Same `ModelRegistry` interface, zero caller changes.
@@ -325,8 +325,8 @@ Plans:
 | 12.6 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.6 Demo | v1.2 | — | Validated | 2026-03-15 (5/5 faults, 4 autonomous) |
 | 13 | v1.2 | 2/2 | Complete | 2026-03-16 |
-| 13.1 | 2/3 | In Progress|  | — |
+| 13.1 | v1.2 | 3/3 | Complete | 2026-03-17 |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-17 — Phase 13.1 plans created (3 plans, 3 waves, sequential)*
+*Last updated: 2026-03-17 — Phase 13.1 COMPLETE (3/3 plans, unified OpenAI-compat provider verified)*
