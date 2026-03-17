@@ -332,8 +332,18 @@ Last activity: 2026-03-16 -- Post-restart persistence verification: heuristic co
 - [Phase 13-01]: Persistence fix non-blocking -- original step succeeded, retry is bonus verification
 - [Phase 13-01]: Config modifications cleared after handling to avoid re-checking on subsequent restarts
 
+### Live Testing Session (2026-03-17)
+- SSH Tunnel via autossh (brew install autossh) — much more stable than raw ssh
+- Ollama single-model constraint confirmed BRUTAL for demos: 122B→35B swap blocks for minutes
+- Config location: .infrabrain/config.json (NOT config.json in root)
+- Permission Trap DPEV (Diagnosis+Planning) succeeded with 122B single-model config
+- Fix plan generated: chown 1000:1000 + chmod 755 (correct root cause identified)
+- Execute step not tested — tunnel instability killed sessions
+- DECISION: Skip Ollama multi-model routing. Move to vLLM for parallel model serving.
+- Phase 13 code complete (persistence verification + sanity tuning), live validation deferred to after vLLM integration
+
 ## Session Continuity
 
-Last session: 2026-03-16T17:24:07Z
-Stopped at: Completed 13-01-PLAN.md
-Next: Continue Phase 13 execution
+Last session: 2026-03-17T18:00:00Z
+Stopped at: Phase 13 code complete, live testing blocked by Ollama single-model constraint
+Next: Phase 13.1 — vLLM Integration (OpenAI SDK provider, multi-model parallel serving). After vLLM: user tests live. Then Qdrant + BGE-M3 embeddings.
