@@ -3,19 +3,29 @@ import { z } from 'zod';
 export const ModelRoleSchema = z.enum(['default', 'strategic', 'forensic', 'worker', 'vision', 'triage', 'embedding']);
 export type ModelRole = z.infer<typeof ModelRoleSchema>;
 
+export const ModelMapEntrySchema = z.union([
+  z.string(),
+  z.object({
+    model: z.string(),
+    baseUrl: z.string(),
+  }),
+]);
+export type ModelMapEntry = z.infer<typeof ModelMapEntrySchema>;
+
 export const ModelMapSchema = z.object({
-  default: z.string().default('infrabrain'),
-  strategic: z.string().default('llama3.3:70b'),
-  forensic: z.string().default('deepseek-r1:32b'),
-  worker: z.string().default('qwen2.5-coder:7b'),
-  vision: z.string().default('llama3.2-vision'),
-  triage: z.string().default('infrabrain'),
-  embedding: z.string().default('bge-m3'),
+  default: ModelMapEntrySchema.default('infrabrain'),
+  strategic: ModelMapEntrySchema.default('llama3.3:70b'),
+  forensic: ModelMapEntrySchema.default('deepseek-r1:32b'),
+  worker: ModelMapEntrySchema.default('qwen2.5-coder:7b'),
+  vision: ModelMapEntrySchema.default('llama3.2-vision'),
+  triage: ModelMapEntrySchema.default('infrabrain'),
+  embedding: ModelMapEntrySchema.default('bge-m3'),
 });
 export type ModelMap = z.infer<typeof ModelMapSchema>;
 
-export const InfraBrainConfigSchema = z.object({
-  ollamaBaseUrl: z.string().default('http://localhost:11434'),
+// Internal schema without backwards-compat preprocessing
+const InfraBrainConfigSchemaInner = z.object({
+  defaultBaseUrl: z.string().default('http://localhost:11434/v1'),
   modelName: z.string().default('infrabrain'),
   modelMap: ModelMapSchema.default({
     default: 'infrabrain',
@@ -55,4 +65,22 @@ export const InfraBrainConfigSchema = z.object({
   }).default({ maxAttempts: 5, correctionTimeoutMs: 15000, restartVerificationDelayMs: 3000 }),
 });
 
-export type InfraBrainConfig = z.infer<typeof InfraBrainConfigSchema>;
+// Backwards-compatible schema: maps legacy ollamaBaseUrl to defaultBaseUrl
+export const InfraBrainConfigSchema = z.preprocess((val) => {
+  if (val && typeof val === 'object' && !Array.isArray(val)) {
+    const obj = val as Record<string, unknown>;
+    // Map legacy ollamaBaseUrl to defaultBaseUrl (only if defaultBaseUrl not already set)
+    if ('ollamaBaseUrl' in obj && !('defaultBaseUrl' in obj)) {
+      const { ollamaBaseUrl, ...rest } = obj;
+      return { ...rest, defaultBaseUrl: ollamaBaseUrl };
+    }
+    // If both are set, remove ollamaBaseUrl (defaultBaseUrl takes precedence)
+    if ('ollamaBaseUrl' in obj && 'defaultBaseUrl' in obj) {
+      const { ollamaBaseUrl, ...rest } = obj;
+      return rest;
+    }
+  }
+  return val;
+}, InfraBrainConfigSchemaInner);
+
+export type InfraBrainConfig = z.infer<typeof InfraBrainConfigSchemaInner>;

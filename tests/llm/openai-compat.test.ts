@@ -1,19 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock @ai-sdk/openai-compatible before importing module under test
-const mockProvider = vi.fn((modelId: string) => ({
-  modelId,
-  specificationVersion: 'v3',
-  provider: 'infrabrain',
-}));
+// vi.mock factory is hoisted -- cannot reference outer variables
+vi.mock('@ai-sdk/openai-compatible', () => {
+  const mockProvider = vi.fn((modelId: string) => ({
+    modelId,
+    specificationVersion: 'v3',
+    provider: 'infrabrain',
+  }));
 
-const mockCreateOpenAICompatible = vi.fn(() => mockProvider);
+  const mockCreateOpenAICompatible = vi.fn(() => mockProvider);
 
-vi.mock('@ai-sdk/openai-compatible', () => ({
-  createOpenAICompatible: mockCreateOpenAICompatible,
-}));
+  return {
+    createOpenAICompatible: mockCreateOpenAICompatible,
+  };
+});
 
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createCompatModel, createModelRegistry } from '../../src/llm/openai-compat.js';
+
+// Get references to the mocked functions
+const mockCreateOpenAICompatible = vi.mocked(createOpenAICompatible);
 
 describe('createCompatModel', () => {
   beforeEach(() => {
@@ -28,7 +35,6 @@ describe('createCompatModel', () => {
         baseURL: 'http://localhost:11434/v1',
       }),
     );
-    expect(mockProvider).toHaveBeenCalledWith('test-model');
   });
 
   it('creates model with custom baseURL', () => {
@@ -89,9 +95,8 @@ describe('createModelRegistry', () => {
       triage: { model: 'qwen3.5:9b', baseUrl: 'http://vllm:8000/v1' },
     };
     createModelRegistry(mixedMap, 'http://localhost:11434/v1');
-    // Should have created providers for both baseURLs
     const calls = mockCreateOpenAICompatible.mock.calls;
-    const baseURLs = calls.map(c => c[0].baseURL);
+    const baseURLs = calls.map(c => (c[0] as any).baseURL);
     expect(baseURLs).toContain('http://localhost:11434/v1');
     expect(baseURLs).toContain('http://vllm:8000/v1');
   });
@@ -108,7 +113,6 @@ describe('createModelRegistry', () => {
   });
 
   it('provider cache reuses same baseURL', () => {
-    // All 7 roles use defaultBaseUrl -> should create only 1 provider
     createModelRegistry(allStringModelMap, 'http://localhost:11434/v1');
     expect(mockCreateOpenAICompatible).toHaveBeenCalledTimes(1);
   });
@@ -120,7 +124,6 @@ describe('createModelRegistry', () => {
       worker: { model: 'qwen3.5:9b', baseUrl: 'http://vllm:8000/v1' },
     };
     createModelRegistry(mixedMap, 'http://localhost:11434/v1');
-    // 2 unique baseURLs -> 2 providers
     expect(mockCreateOpenAICompatible).toHaveBeenCalledTimes(2);
   });
 

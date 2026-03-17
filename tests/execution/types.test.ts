@@ -14,7 +14,7 @@ describe('Config Schema Extensions', () => {
     const config = InfraBrainConfigSchema.parse({});
 
     // Existing defaults preserved
-    expect(config.ollamaBaseUrl).toBe('http://localhost:11434');
+    expect(config.defaultBaseUrl).toBe('http://localhost:11434/v1');
     expect(config.modelName).toBe('infrabrain');
     expect(config.apiPort).toBe(3000);
     expect(config.tokenBudgets.diagnosis).toBe(4096);
