@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: The Knowledge Layer
 status: executing
-stopped_at: Phase 13.1 context gathered
-last_updated: "2026-03-17T18:41:58.120Z"
-last_activity: "2026-03-16 -- Post-restart persistence verification: heuristic config mod/restart detection, verifyPersistence orchestrator, executor wiring with self-healer retry."
+stopped_at: Phase 13.1 Plan 01 complete
+last_updated: "2026-03-17T19:30:25Z"
+last_activity: "2026-03-17 -- Unified OpenAI-compatible provider + config schema migration (Plan 13.1-01)"
 progress:
   total_phases: 9
   completed_phases: 8
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 24
+  completed_plans: 22
 ---
 
 # Project State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 
 ## Current Position
 
-Phase: 13-execution-hardening
-Plan: 01 and 02 complete
-Status: Executing Phase 13
-Last activity: 2026-03-16 -- Post-restart persistence verification: heuristic config mod/restart detection, verifyPersistence orchestrator, executor wiring with self-healer retry.
+Phase: 13.1-vllm-multi-model-integration
+Plan: 01 of 03 complete
+Status: Executing Phase 13.1
+Last activity: 2026-03-17 -- Unified OpenAI-compatible provider + config schema migration (Plan 13.1-01)
 
 ## Accumulated Context
 
@@ -343,8 +343,26 @@ Last activity: 2026-03-16 -- Post-restart persistence verification: heuristic co
 - DECISION: Skip Ollama multi-model routing. Move to vLLM for parallel model serving.
 - Phase 13 code complete (persistence verification + sanity tuning), live validation deferred to after vLLM integration
 
+### From Phase 13.1-01
+- @ai-sdk/openai-compatible replaces ai-sdk-ollama: unified provider for both vLLM and Ollama via OpenAI API
+- createCompatModel + createModelRegistry in src/llm/openai-compat.ts (drop-in replacement for ollama.ts)
+- ModelMapEntrySchema: z.union([string, {model, baseUrl}]) — per-role baseURL routing
+- defaultBaseUrl replaces ollamaBaseUrl in config schema (z.preprocess for backwards compat)
+- Provider cache: Map<baseURL, provider> avoids duplicate instances (7 roles, 1 URL = 1 provider)
+- supportsStructuredOutputs: true for vLLM guided decoding compatibility
+- DEFAULT_HEALTH_URL uses /models endpoint (OpenAI standard, works for both backends)
+- 22 new tests, 620 total passing (pre-existing E2E failures unchanged)
+
+## Decisions
+
+- [Phase 13.1-01]: z.preprocess for ollamaBaseUrl migration (runs before validation, cleanest for field rename)
+- [Phase 13.1-01]: defaultBaseUrl includes /v1 suffix by default (Ollama's OpenAI compat requires it)
+- [Phase 13.1-01]: supportsStructuredOutputs: true at provider level for generateObject compatibility
+- [Phase 13.1-01]: OLLAMA_HEALTH_URL deprecated alias kept until Plan 02 migrates callers
+- [Phase 13.1-01]: defaultBaseUrl takes precedence when both ollamaBaseUrl and defaultBaseUrl present
+
 ## Session Continuity
 
-Last session: 2026-03-17T18:41:58.118Z
-Stopped at: Phase 13.1 context gathered
-Next: Phase 13.1 — vLLM Integration (OpenAI SDK provider, multi-model parallel serving). After vLLM: user tests live. Then Qdrant + BGE-M3 embeddings.
+Last session: 2026-03-17T19:30:25Z
+Stopped at: Phase 13.1 Plan 01 complete
+Next: Phase 13.1 Plan 02 — Caller migration (import swap, ollamaBaseUrl references, test updates). Then Plan 03 — docs + config example.
