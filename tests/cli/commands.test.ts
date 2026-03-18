@@ -100,13 +100,13 @@ describe('registerCommands', () => {
     expect(logCalls).toContain('prompt is required');
   });
 
-  it('health command shows disconnected status when Ollama is down', async () => {
+  it('health command shows disconnected status when backends are down', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         status: 'ok',
-        ollama: 'disconnected',
-        error: 'Ollama not detected at http://localhost:11434. Run `ollama serve` first.',
+        backends: [],
+        summary: 'all_disconnected',
       }),
     });
     globalThis.fetch = mockFetch;
@@ -117,7 +117,7 @@ describe('registerCommands', () => {
     await program.parseAsync(['health'], { from: 'user' });
 
     const logCalls = consoleSpy.mock.calls.flat().join(' ');
-    expect(logCalls).toContain('Ollama not detected');
+    expect(logCalls).toContain('No backends detected');
   });
 
   it('debug command handles network errors gracefully', async () => {
