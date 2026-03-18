@@ -325,7 +325,7 @@ Plans:
 | 12.6 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.6 Demo | v1.2 | — | Validated | 2026-03-15 (5/5 faults, 4 autonomous) |
 | 13 | v1.2 | 2/2 | Complete | 2026-03-16 |
-| 13.1 | v1.2 | 3/3 | Complete | 2026-03-17 |
+| 13.1 | v1.2 | Complete    | 2026-03-18 | 2026-03-17 |
 
 ---
 *Roadmap created: 2026-03-07*
