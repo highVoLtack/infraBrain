@@ -9,7 +9,7 @@ vi.mock('../../src/log-analysis/filter.js', () => ({
   formatForLLM: vi.fn(),
 }));
 
-import { preFilterIfLogHeavy } from '../../src/api/routes/debug.js';
+import { preFilterIfLogHeavy } from '../../src/orchestrator/diagnosis.js';
 import { parseLog } from '../../src/log-analysis/parsers/index.js';
 import { preFilterLogs, formatForLLM } from '../../src/log-analysis/filter.js';
 import type { LogFormat } from '../../src/log-analysis/types.js';

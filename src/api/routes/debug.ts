@@ -1,305 +1,24 @@
 import { Router } from 'express';
-import { generateObject } from 'ai';
 import type { LLMProvider } from '../../llm/types.js';
 import type { AuditLogger } from '../../audit/logger.js';
 import type { ValidationResult } from '../../safety/types.js';
 import type { SkillRegistry } from '../../skills/registry.js';
-import type { SkillFile } from '../../skills/types.js';
 import type { WriteThrough } from '../../state/store.js';
 import type { InfraBrainConfig } from '../../config/types.js';
-import { selectSkill } from '../../orchestrator/router.js';
-import { generateFixPlan, generatePlanMarkdown, formatPlanTable } from '../../orchestrator/planner.js';
-import { enforceSkillAllowlist } from '../../skills/allowlist.js';
-import { buildMessages } from '../../orchestrator/context.js';
-import type { FixPlan } from '../../orchestrator/types.js';
-import { StructuredDiagnosisSchema, type StructuredDiagnosis } from '../../orchestrator/types.js';
-import { extractTarget } from '../../cli/approval.js';
 import { v7 as uuidv7 } from 'uuid';
-import { runCommand, runShellCommand, parseCommand, needsShell, findDbContainer } from '../../execution/runner.js';
-import { dynamicRewrite, toolsToRewriteRules } from '../../execution/dynamic-rewriter.js';
-import { encodeForLLM, measureSavings } from '../../llm/toon-encoder.js';
-import { parseLog } from '../../log-analysis/parsers/index.js';
-import { preFilterLogs, formatForLLM } from '../../log-analysis/filter.js';
+import { runDPEV } from '../../orchestrator/pipeline.js';
+import {
+  preFilterIfLogHeavy,
+  extractCommands,
+} from '../../orchestrator/diagnosis.js';
 
-const DEV_MODE = process.env.NODE_ENV !== 'production';
-
-/** Max sanity-check retries before giving up */
-const MAX_SANITY_RETRIES = 1;
-
-/** DPEV phase ordering for sequence enforcement */
-export type DPEVPhase = 'discovery' | 'diagnosis' | 'plan' | 'execution' | 'verification';
-
-const DPEV_ORDER: DPEVPhase[] = ['discovery', 'diagnosis', 'plan', 'execution', 'verification'];
-
-/**
- * Enforce DPEV sequence ordering. Throws if attempting to start a phase
- * before all prior phases have completed.
- */
-export function enforceDPEVSequence(current: DPEVPhase, completed: DPEVPhase[]): void {
-  const currentIdx = DPEV_ORDER.indexOf(current);
-  for (let i = 0; i < currentIdx; i++) {
-    if (!completed.includes(DPEV_ORDER[i])) {
-      throw new Error(
-        `DPEV VIOLATION: Cannot start "${current}" before "${DPEV_ORDER[i]}" completes`
-      );
-    }
-  }
-}
-
-/** Regex matching common log indicators: level keywords and ISO-ish timestamps */
-const LOG_INDICATOR = /\b(ERROR|WARN|INFO|DEBUG|FATAL|CRITICAL)\b|\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/i;
-
-/**
- * Docker-legitimate angle-bracket terms that should NOT trigger hallucination detection.
- * These appear in real Docker output (docker images, docker history, docker inspect).
- */
-const DOCKER_LEGITIMATE_TAGS = new Set([
-  'none', 'missing', 'local', 'original-image', 'no-value',
-]);
-
-/**
- * Patterns that indicate hallucinated/placeholder content in LLM output.
- * If any match, the output fails the sanity check.
- * NOTE: Angle-bracket patterns are handled separately in checkForHallucinations
- * to allow Docker-legitimate tags through.
- */
-const HALLUCINATION_PATTERNS = [
-  /\[PID\]/i,                       // [PID] placeholder
-  /\[IP\]/i,                        // [IP] placeholder
-  /\bExample Output\b/i,            // "Example Output" header
-  /\bAssume the following\b/i,      // hypothetical preamble
-  /\bFor example\b/i,               // example reasoning
-  /\bHypothetically\b/i,            // hypothetical reasoning
-  /\bLet's say\b/i,                 // hypothetical reasoning
-  /\bSample output\b/i,             // sample output header
-];
-
-/** Strict grounding penalty prompt appended on sanity-check retry */
-const STRICT_GROUNDING_PENALTY = `
-
-CRITICAL RETRY: Your previous response was REJECTED because it contained placeholder names, example output, or hypothetical reasoning. This is your FINAL attempt.
-
-RULES FOR THIS RETRY:
-- Every container name, IP, PID, port, and file path MUST come from the GROUND TRUTH section above.
-- If you write <anything>, [PID], [IP], or any placeholder, this response will be REJECTED and the system will HALT.
-- Do NOT explain what you "would" do. Do ONLY what the data shows.
-- Zero examples. Zero hypotheticals. Only real data.`;
-
-/**
- * Sanity-check LLM output for hallucination patterns.
- * Returns list of violations found, empty if clean.
- *
- * Angle-bracket tags are checked separately: Docker-legitimate tags
- * (e.g. <none>, <missing>) are whitelisted and do not trigger violations.
- */
-export function checkForHallucinations(text: string): string[] {
-  const violations: string[] = [];
-
-  // Check angle-bracket tags with Docker whitelist
-  const angleBracketPattern = /<([a-z][a-z0-9_-]*)>/gi;
-  let abMatch;
-  while ((abMatch = angleBracketPattern.exec(text)) !== null) {
-    const tagContent = abMatch[1].toLowerCase();
-    if (!DOCKER_LEGITIMATE_TAGS.has(tagContent)) {
-      violations.push(`Found hallucination pattern: "${abMatch[0]}"`);
-    }
-  }
-
-  // Check remaining patterns (non-angle-bracket)
-  for (const pattern of HALLUCINATION_PATTERNS) {
-    const match = text.match(pattern);
-    if (match) {
-      violations.push(`Found hallucination pattern: "${match[0]}"`);
-    }
-  }
-  return violations;
-}
-
-/**
- * Detect log-heavy prompts and pre-filter them using the log-analysis pipeline.
- * - Fewer than 5 lines: not log-heavy
- * - Fewer than 3 lines matching log indicators: not log-heavy
- * - If parseLog returns more unparseable than entries: fallback to raw prompt
- * - Otherwise: context lines + pre-filtered formatted logs
- */
-export function preFilterIfLogHeavy(prompt: string): { filtered: string; wasFiltered: boolean } {
-  const lines = prompt.split('\n');
-
-  // Too few lines to be a log dump
-  if (lines.length < 5) {
-    return { filtered: prompt, wasFiltered: false };
-  }
-
-  // Count lines with log indicators
-  const indicatorCount = lines.filter(line => LOG_INDICATOR.test(line)).length;
-  if (indicatorCount < 3) {
-    return { filtered: prompt, wasFiltered: false };
-  }
-
-  // Separate context lines from log-like lines
-  const contextLines: string[] = [];
-  const logLines: string[] = [];
-  for (const line of lines) {
-    if (LOG_INDICATOR.test(line)) {
-      logLines.push(line);
-    } else {
-      contextLines.push(line);
-    }
-  }
-
-  // Parse the log-like lines
-  const parsed = parseLog(logLines.join('\n'));
-
-  // If more unparseable than successfully parsed entries, heuristic failed — fallback
-  if (parsed.unparseable.length > parsed.entries.length) {
-    return { filtered: prompt, wasFiltered: false };
-  }
-
-  // Pre-filter and format for LLM
-  const result = preFilterLogs({ entries: parsed.entries });
-  const formatted = formatForLLM(result.filtered);
-
-  // Reassemble: context lines + pre-filtered logs
-  const parts: string[] = [];
-  if (contextLines.length > 0) {
-    parts.push(contextLines.join('\n'));
-  }
-  parts.push('Pre-filtered logs:');
-  parts.push(formatted);
-
-  return { filtered: parts.join('\n'), wasFiltered: true };
-}
-
-/**
- * Run discovery commands and return TOON-encoded context string.
- * These are READ-only commands run before the LLM to prevent hallucination.
- */
-async function runDiscovery(skill: SkillFile): Promise<{ context: string; raw: Record<string, string> }> {
-  const commands = skill.frontmatter.discovery;
-  if (!commands || commands.length === 0) return { context: '', raw: {} };
-
-  const results: Record<string, string> = {};
-  const parts: string[] = [];
-
-  for (const { command, label } of commands) {
-    let result;
-    if (needsShell(command)) {
-      result = await runShellCommand(command, { timeout: 15_000 });
-    } else {
-      const { executable, args } = parseCommand(command);
-      result = await runCommand(executable, args, { timeout: 10_000 });
-    }
-    const output = result.stdout.trim() || result.stderr.trim() || '(empty)';
-    results[label] = output;
-    parts.push(`${label}:\n${output}`);
-  }
-
-  const context = encodeForLLM(results, 'Discovery (ground truth from live system)');
-
-  if (DEV_MODE) {
-    const savings = measureSavings(results);
-    console.log(`[DEV] TOON Discovery: ${savings.jsonTokens} (JSON) -> ${savings.toonTokens} (TOON) | Saved: ${savings.savingsPercent.toFixed(1)}%`);
-  }
-
-  return { context, raw: results };
-}
-
-/**
- * Validate that a fix plan doesn't contain placeholder names.
- * Returns list of problems found.
- */
-function validatePlanNames(plan: FixPlan, discoveredNames: Record<string, string>): string[] {
-  const problems: string[] = [];
-  const placeholderPattern = /<[^>]+>/;
-
-  for (const step of plan.steps) {
-    if (placeholderPattern.test(step.command)) {
-      problems.push(`Step "${step.command}" contains placeholder <...>. Must use actual names from discovery.`);
-    }
-  }
-
-  return problems;
-}
-
-/**
- * Extract shell commands from LLM text output.
- * Looks for lines starting with common command patterns or
- * lines prefixed with "Command:" or code blocks.
- */
-function extractCommands(text: string): string[] {
-  const commands: string[] = [];
-  const lines = text.split('\n');
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Match "Command: <command>" pattern
-    const cmdMatch = trimmed.match(/^Command:\s*(.+)$/i);
-    if (cmdMatch) {
-      commands.push(cmdMatch[1].trim());
-      continue;
-    }
-
-    // Match "$ <command>" pattern (shell prompt style)
-    const shellMatch = trimmed.match(/^\$\s+(.+)$/);
-    if (shellMatch) {
-      commands.push(shellMatch[1].trim());
-      continue;
-    }
-
-    // Match "`<command>`" inline code pattern
-    const inlineMatch = trimmed.match(/^`([^`]+)`$/);
-    if (inlineMatch) {
-      commands.push(inlineMatch[1].trim());
-    }
-  }
-
-  return commands;
-}
-
-/**
- * Extract container names from discovery output, handling both key formats:
- * - "Running containers": simple name list from `docker ps --format "{{.Names}}"`
- * - "All containers with status": `name status` pairs from `docker ps -a --format "{{.Names}} {{.Status}}"`
- */
-function extractContainerNames(discoveryRaw: Record<string, string>): string[] {
-  const raw = discoveryRaw['Running containers']
-    ?? discoveryRaw['All containers with status']
-    ?? '';
-  return raw
-    .split('\n')
-    .map(line => line.trim().split(/\s+/)[0])
-    .filter(Boolean);
-}
-
-/**
- * Flatten a StructuredDiagnosis into a text diagnosis string
- * for backward compatibility with existing consumers.
- */
-function flattenDiagnosis(sd: StructuredDiagnosis): string {
-  const lines: string[] = [];
-  for (const step of sd.steps) {
-    lines.push(`Step ${step.step}: ${step.label}`);
-    lines.push(`Command: ${step.command}`);
-    lines.push(`Output: ${step.output}`);
-    lines.push(`Finding: ${step.finding}`);
-    lines.push('');
-  }
-  lines.push(`Root Cause: ${sd.rootCause}`);
-  lines.push(`Correlation: ${sd.correlation}`);
-  lines.push('');
-  lines.push('Fix Plan:');
-  for (let i = 0; i < sd.fixPlan.length; i++) {
-    const step = sd.fixPlan[i];
-    lines.push(`${i + 1}. Command: \`${step.command}\` | Risk: ${step.risk} | Expected: ${step.expected}`);
-  }
-  return lines.join('\n');
-}
+// Backward-compatible re-exports so existing test imports still work
+export { checkForHallucinations, preFilterIfLogHeavy, enforceDPEVSequence } from '../../orchestrator/diagnosis.js';
+export type { DPEVPhase } from '../../orchestrator/diagnosis.js';
 
 /**
  * Create the /debug route.
- * Accepts a prompt, generates a diagnosis via LLM, validates any commands.
- * When a SkillRegistry is provided, uses orchestrator for skill selection and fix plans.
+ * Thin HTTP handler that delegates to the DPEV pipeline orchestrator.
  */
 export interface DebugRouteDeps {
   store?: WriteThrough;
@@ -350,299 +69,35 @@ export function createDebugRoute(
         }
       }
 
-      // Use server's sessionId so audit log entries match the returned ID
       const sessionId = extraDeps?.sessionId ?? uuidv7();
-      let skillMessage: string | undefined;
-      let fixPlan: FixPlan | undefined;
-      let planMarkdown: string | undefined;
-      let planTable: string | undefined;
 
-      // DPEV sequence tracking
-      const completedPhases: DPEVPhase[] = [];
-
-      // Determine system prompt and skill context
-      let systemPrompt = 'You are an infrastructure diagnostic assistant. Analyze the issue and suggest specific commands to investigate or resolve it. Prefix commands with "Command:" on their own line.';
-
-      // Skill selection (if registry available and has skills)
+      // Use DPEV pipeline when registry has skills
       if (registry && registry.list().length > 0) {
         try {
-          const triageModel = provider.registry?.get?.('triage') ?? provider.model;
-          const triageModelId = (triageModel as any)?.modelId ?? 'unknown';
-          if (DEV_MODE) console.log(`[TRIAGE] Selecting skill via ${triageModelId}...`);
-          const triageStart = Date.now();
-          const selection = await selectSkill({
-            model: triageModel,
-            userInput: prompt,
-            registry,
+          const result = await runDPEV({
+            prompt,
             skillOverride: skillOverride as string | undefined,
+            provider,
+            registry,
+            auditLogger,
+            validator,
+            store: extraDeps?.store,
+            config: extraDeps?.config,
+            sessionId,
           });
-          if (DEV_MODE) console.log(`[TRIAGE] Selected "${selection.skill.frontmatter.name}" in ${((Date.now() - triageStart) / 1000).toFixed(1)}s`);
 
-          skillMessage = `Using skill: ${selection.skill.frontmatter.name} -- ${selection.reasoning}`;
-          auditLogger.logSkillSelection(
-            selection.skill.frontmatter.name,
-            selection.reasoning,
-            !!skillOverride,
-          );
-
-          // Routing: if skill declares a preferred_model, resolve it from registry.
-          // Soft enforcement: if the resolved model matches default, log a warning but continue.
-          // This allows single-model setups to work while encouraging multi-model configs.
-          const preferredRole = selection.skill.frontmatter.preferred_model;
-          if (preferredRole && preferredRole !== 'default') {
-            const resolvedModel = provider.registry.get(preferredRole);
-            const defaultModel = provider.registry.getDefault();
-            const resolvedId = (resolvedModel as any).modelId ?? 'unknown';
-            const defaultId = (defaultModel as any).modelId ?? 'unknown';
-
-            const sameModel = resolvedModel === defaultModel || (resolvedId === defaultId && resolvedId !== 'unknown');
-
-            if (sameModel) {
-              console.log(`[ROUTING] WARN: skill "${selection.skill.frontmatter.name}" prefers role "${preferredRole}" but it resolves to default model "${defaultId}". Continuing with default. Configure modelMap.${preferredRole} for optimal results.`);
-            } else {
-              console.log(`[ROUTING] Skill "${selection.skill.frontmatter.name}" routed to ${preferredRole} model: ${resolvedId} (default: ${defaultId})`);
-            }
-          }
-
-          // Run discovery commands to get ground truth BEFORE LLM call
-          if (DEV_MODE) console.log(`[DISCOVERY] Running ${selection.skill.frontmatter.discovery?.length ?? 0} discovery commands...`);
-          const discoveryStart = Date.now();
-          const { context: discoveryContext, raw: discoveryRaw } = await runDiscovery(selection.skill);
-          if (DEV_MODE) console.log(`[DISCOVERY] Complete in ${((Date.now() - discoveryStart) / 1000).toFixed(1)}s`);
-
-          // DPEV: discovery phase complete (auto-complete if no discovery commands)
-          completedPhases.push('discovery');
-
-          if (discoveryContext) {
-            auditLogger.logExecution('discovery_complete', {
-              skill: selection.skill.frontmatter.name,
-              discoveredData: discoveryRaw,
+          // Translate hallucinationError to HTTP 422
+          if (result.hallucinationError) {
+            res.status(422).json({
+              error: 'Diagnosis failed sanity check: LLM output contains hallucinated placeholders or example data',
+              violations: result.hallucinationError.violations,
+              hint: result.hallucinationError.hint,
             });
-          }
-
-          // Use skill's system prompt
-          const { system } = buildMessages(selection.skill, prompt);
-          systemPrompt = system;
-
-          // Build enriched prompt with discovery context injected as GROUND TRUTH
-          // Extract PIDs from idle connections detail for explicit rolling context
-          let rollingContext = '';
-          const idleDetail = discoveryRaw['Idle connections detail'];
-          if (idleDetail && idleDetail !== '(empty)') {
-            const pids = idleDetail.split('\n')
-              .map(line => line.split('|')[0]?.trim())
-              .filter(pid => pid && /^\d+$/.test(pid));
-            if (pids.length > 0) {
-              rollingContext = `\n\n--- ROLLING CONTEXT (from discovery) ---\nIdle connection PIDs found: [${pids.join(', ')}]\nThese PIDs MUST be referenced in the fix plan. Re-query to get fresh PIDs at fix time, but use these as the expected values.\n--- END ROLLING CONTEXT ---`;
-            }
-          }
-
-          const enrichedPrompt = discoveryContext
-            ? `${prompt}\n\n--- GROUND TRUTH - USE ONLY THESE NAMES ---\n${discoveryContext}\n--- END GROUND TRUTH ---${rollingContext}\n\nMANDATORY: Use ONLY the container names, IPs, PIDs, and values shown in GROUND TRUTH above. Do NOT invent, guess, or substitute any names. If a value is not in GROUND TRUTH, run a command to discover it.`
-            : prompt;
-
-          // Pre-filter log-heavy prompts before LLM call to save tokens
-          const { filtered: preFilteredPrompt } = preFilterIfLogHeavy(enrichedPrompt);
-
-          // Extract containers and rewrite rules BEFORE diagnosis so both paths can use them
-          const allContainers = extractContainerNames(discoveryRaw);
-          // Derive rewrite rules: new map-format skills use toolsToRewriteRules(),
-          // legacy string[] skills fall back to explicit rewrite_rules
-          const tools = selection.skill.frontmatter.tools;
-          const rewriteRules = Array.isArray(tools)
-            ? (selection.skill.frontmatter.rewrite_rules ?? [])
-            : toolsToRewriteRules(tools);
-
-          // For DB skills, prioritize the DB container at the front of the list
-          const dbContainer = findDbContainer(allContainers);
-          const targetContainers = dbContainer
-            ? [dbContainer, ...allContainers.filter(c => c !== dbContainer)]
-            : allContainers;
-
-          // DPEV: enforce discovery before diagnosis
-          enforceDPEVSequence('diagnosis', completedPhases);
-
-          // Generate diagnosis with skill context + discovery data
-          // Use preferred_model from skill frontmatter — routing enforcement above ensures it's valid
-          let diagnosis: string;
-          let structuredDiagnosis: StructuredDiagnosis | undefined;
-
-          // Attempt structured diagnosis via generateObject for skills with discovery data
-          if (discoveryContext && preferredRole) {
-            try {
-              const targetModel = provider.registry.get(preferredRole);
-              const diagModelId = (targetModel as any)?.modelId ?? preferredRole;
-              if (DEV_MODE) console.log(`[DIAGNOSIS] Calling ${diagModelId} (structured object)...`);
-              const diagStart = Date.now();
-              const { object } = await generateObject({
-                model: targetModel,
-                schema: StructuredDiagnosisSchema,
-                system: systemPrompt,
-                prompt: preFilteredPrompt,
-              });
-              // Apply dynamic rewrite rules to structured diagnosis fix plan
-              if (rewriteRules.length > 0 && targetContainers.length > 0) {
-                object.fixPlan = object.fixPlan.map(step => ({
-                  ...step,
-                  command: dynamicRewrite(step.command, rewriteRules, targetContainers),
-                }));
-              }
-              structuredDiagnosis = object;
-              diagnosis = flattenDiagnosis(object);
-              if (DEV_MODE) console.log(`[DIAGNOSIS] Complete in ${((Date.now() - diagStart) / 1000).toFixed(1)}s — root cause: ${object.rootCause.slice(0, 80)}`);
-            } catch (structuredErr) {
-              // Fallback to free-text if structured generation fails
-              if (DEV_MODE) console.log(`[DIAGNOSIS] Structured failed after ${((Date.now() - diagStart) / 1000).toFixed(1)}s, falling back to free-text...`);
-              auditLogger.logError(`Structured diagnosis failed, falling back to free-text: ${(structuredErr as Error).message}`);
-              diagnosis = await provider.generateCommand(preFilteredPrompt, systemPrompt, preferredRole);
-            }
-          } else {
-            diagnosis = await provider.generateCommand(preFilteredPrompt, systemPrompt, preferredRole);
-          }
-
-          // Sanity checker: only for free-text diagnosis (structured is Zod-validated)
-          if (!structuredDiagnosis) {
-          const violations = checkForHallucinations(diagnosis);
-          if (violations.length > 0) {
-            if (DEV_MODE) console.log(`[SANITY] Hallucination detected: ${violations.join('; ')} — retrying with grounding penalty...`);
-            auditLogger.logError(`Sanity check failed (attempt 1): ${violations.join('; ')}`);
-
-            // Retry once with strict grounding penalty
-            const sanityStart = Date.now();
-            const retryPrompt = preFilteredPrompt + STRICT_GROUNDING_PENALTY;
-            const retryDiagnosis = await provider.generateCommand(retryPrompt, systemPrompt, preferredRole);
-            const retryViolations = checkForHallucinations(retryDiagnosis);
-            if (DEV_MODE) console.log(`[SANITY] Retry complete in ${((Date.now() - sanityStart) / 1000).toFixed(1)}s — ${retryViolations.length > 0 ? 'STILL FAILED' : 'passed'}`);
-
-            if (retryViolations.length > 0) {
-              // Both attempts failed — return 422
-              auditLogger.logError(`Sanity check failed (attempt 2, halting): ${retryViolations.join('; ')}`);
-              res.status(422).json({
-                error: 'Diagnosis failed sanity check: LLM output contains hallucinated placeholders or example data',
-                violations: retryViolations,
-                hint: 'The LLM generated placeholder names instead of using real discovery data. This may indicate the model needs more context or a different model role.',
-              });
-              return;
-            }
-
-            // Retry succeeded
-            diagnosis = retryDiagnosis;
-          }
-          } // end if (!structuredDiagnosis)
-
-          // DPEV: diagnosis phase complete
-          completedPhases.push('diagnosis');
-
-          // DPEV: enforce diagnosis before plan
-          enforceDPEVSequence('plan', completedPhases);
-
-          // Always attempt fix plan generation from any skill's diagnosis
-          const planningSkill = registry.get('planning');
-          if (planningSkill) {
-            try {
-              const planModelId = planningSkill.frontmatter.preferred_model
-                ? (provider.registry?.get?.(planningSkill.frontmatter.preferred_model) as any)?.modelId ?? planningSkill.frontmatter.preferred_model
-                : (provider.model as any)?.modelId ?? 'default';
-              if (DEV_MODE) console.log(`[PLANNING] Generating fix plan via ${planModelId}...`);
-              const planStart = Date.now();
-
-              // Include discovery context in the diagnosis passed to planner
-              const enrichedDiagnosis = discoveryContext
-                ? `${diagnosis}\n\n${discoveryContext}`
-                : diagnosis;
-
-              fixPlan = await generateFixPlan({
-                model: provider.model,
-                skill: planningSkill,
-                userInput: prompt,
-                diagnosis: enrichedDiagnosis,
-                discoveryContext: discoveryContext || undefined,
-                registry: provider.registry,
-              });
-
-              // Apply dynamic rewrite rules to generated fix plan
-              if (rewriteRules.length > 0 && targetContainers.length > 0) {
-                fixPlan.steps = fixPlan.steps.map(step => ({
-                  ...step,
-                  command: dynamicRewrite(step.command, rewriteRules, targetContainers),
-                }));
-              }
-
-              // Validate plan doesn't contain placeholder names
-              const planProblems = validatePlanNames(fixPlan, discoveryRaw);
-              if (planProblems.length > 0) {
-                auditLogger.logError(`Fix plan contains placeholders: ${planProblems.join('; ')}`);
-              }
-
-              planMarkdown = generatePlanMarkdown(fixPlan);
-              planTable = formatPlanTable(fixPlan);
-              if (DEV_MODE) console.log(`[PLANNING] Complete in ${((Date.now() - planStart) / 1000).toFixed(1)}s — ${fixPlan.steps.length} steps`);
-            } catch (planErr) {
-              if (DEV_MODE) console.log(`[PLANNING] FAILED after ${((Date.now() - planStart) / 1000).toFixed(1)}s: ${(planErr as Error).message}`);
-              auditLogger.logError(`Fix plan generation failed: ${(planErr as Error).message}`);
-            }
-          }
-
-          // Extract and validate commands with per-skill allowlist
-          const extractedCommands = extractCommands(diagnosis);
-          const commands = extractedCommands.map((cmd) => {
-            // Per-skill allowlist check first
-            const allowlistResult = enforceSkillAllowlist(cmd, selection.skill);
-            if (!allowlistResult.allowed) {
-              auditLogger.logCommandValidation(cmd, 'blocked', false, allowlistResult.reason);
-              return {
-                command: cmd,
-                riskLevel: 'blocked' as const,
-                allowed: false,
-                reason: allowlistResult.reason,
-              };
-            }
-
-            // Global safety validator
-            const result = validator(cmd);
-            auditLogger.logCommandValidation(cmd, result.riskLevel, result.allowed, result.reason);
-            return {
-              command: cmd,
-              riskLevel: result.riskLevel,
-              allowed: result.allowed,
-              reason: result.reason,
-            };
-          });
-
-          auditLogger.logDecision(
-            `Debug request: "${prompt}"`,
-            [`Generated ${extractedCommands.length} commands`, `Skill: ${selection.skill.frontmatter.name}`],
-            'diagnosis_complete',
-          );
-
-          // Extract target: prefer DB container from discovery, fallback to command parsing
-          let planTarget: string | undefined;
-          if (allContainers.length > 0) {
-            // Use findDbContainer to pick the DB container (e.g. postgres-demo), not leaky-app
-            planTarget = findDbContainer(allContainers);
-          }
-          if (!planTarget && fixPlan) {
-            const firstWriteStep = fixPlan.steps.find(s => s.risk === 'write' || s.risk === 'destructive');
-            if (firstWriteStep) {
-              planTarget = extractTarget(firstWriteStep.command);
-            }
+            return;
           }
 
           res.json({
-            sessionId,
-            skillMessage,
-            diagnosis,
-            ...(structuredDiagnosis && { structuredDiagnosis }),
-            commands,
-            ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
-            ...(fixPlan && { fixPlan }),
-            ...(planMarkdown && { planMarkdown }),
-            ...(planTable && { planTable }),
-            ...(planTarget && { target: planTarget }),
-            // Self-healing context: skill name + containers for execute route to wire into executor
-            skillName: selection.skill.frontmatter.name,
-            ...(targetContainers.length > 0 && { containers: targetContainers }),
-            ...(fixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName, skillName, containers }' }),
+            ...result,
             ...(incompleteSession && { incompleteSession }),
           });
           return;
@@ -653,7 +108,7 @@ export function createDebugRoute(
       }
 
       // Fallback: direct LLM call (no skills loaded or skill selection failed)
-      // Pre-filter log-heavy prompts before LLM call to save tokens
+      const systemPrompt = 'You are an infrastructure diagnostic assistant. Analyze the issue and suggest specific commands to investigate or resolve it. Prefix commands with "Command:" on their own line.';
       const { filtered: fallbackPrompt } = preFilterIfLogHeavy(prompt);
       const diagnosis = await provider.generateCommand(fallbackPrompt, systemPrompt);
 

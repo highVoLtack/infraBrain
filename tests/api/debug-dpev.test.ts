@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { enforceDPEVSequence } from '../../src/api/routes/debug.js';
+import { enforceDPEVSequence } from '../../src/orchestrator/diagnosis.js';
 
 describe('enforceDPEVSequence', () => {
   it('throws when starting diagnosis before discovery completes', () => {

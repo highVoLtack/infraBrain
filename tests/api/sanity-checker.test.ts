@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { checkForHallucinations } from '../../src/api/routes/debug.js';
+import { checkForHallucinations } from '../../src/orchestrator/diagnosis.js';
 
 describe('Sanity Checker (checkForHallucinations)', () => {
   it('passes clean diagnosis with real data', () => {
