@@ -14,7 +14,10 @@ import { formatEmbeddingInput, generateEmbedding } from '../../src/cache/embedde
 import { computeConfidence } from '../../src/cache/confidence.js';
 import type { CacheConfig, ConfidenceConfig } from '../../src/cache/types.js';
 
-function makeMockStore(searchResults: Array<Record<string, unknown>> = []) {
+function makeMockStore(
+  searchResults: Array<Record<string, unknown>> = [],
+  getByIdResult: Record<string, unknown> | null = { success_count: 0, fail_count: 0, hit_count: 0 },
+) {
   return {
     init: vi.fn(),
     search: vi.fn().mockResolvedValue(searchResults),
@@ -23,6 +26,7 @@ function makeMockStore(searchResults: Array<Record<string, unknown>> = []) {
     deleteAll: vi.fn().mockResolvedValue(true),
     listAll: vi.fn().mockResolvedValue([]),
     updateStats: vi.fn().mockResolvedValue(true),
+    getById: vi.fn().mockResolvedValue(getByIdResult),
   };
 }
 
@@ -215,22 +219,68 @@ describe('recordFixOutcome', () => {
     vi.clearAllMocks();
   });
 
-  it('increments success_count on success', async () => {
-    const store = makeMockStore();
+  it('increments success_count from 0 to 1 on first success', async () => {
+    const store = makeMockStore([], { success_count: 0, fail_count: 0 });
     await recordFixOutcome(store as any, 'entry-1', true);
 
+    expect(store.getById).toHaveBeenCalledWith('entry-1');
     expect(store.updateStats).toHaveBeenCalledWith('entry-1', expect.objectContaining({
-      success_count: expect.any(Number),
+      success_count: 1,
     }));
   });
 
-  it('increments fail_count on failure', async () => {
-    const store = makeMockStore();
+  it('increments success_count across two calls', async () => {
+    const store = makeMockStore([], { success_count: 0, fail_count: 0 });
+    // First call: getById returns success_count: 0
+    await recordFixOutcome(store as any, 'entry-1', true);
+
+    expect(store.updateStats).toHaveBeenCalledWith('entry-1', expect.objectContaining({
+      success_count: 1,
+    }));
+
+    // Second call: getById returns success_count: 1 (reflecting the first increment)
+    store.getById.mockResolvedValue({ success_count: 1, fail_count: 0 });
+    await recordFixOutcome(store as any, 'entry-1', true);
+
+    expect(store.updateStats).toHaveBeenLastCalledWith('entry-1', expect.objectContaining({
+      success_count: 2,
+    }));
+  });
+
+  it('increments fail_count from 0 to 1 on first failure', async () => {
+    const store = makeMockStore([], { success_count: 0, fail_count: 0 });
+    await recordFixOutcome(store as any, 'entry-1', false);
+
+    expect(store.getById).toHaveBeenCalledWith('entry-1');
+    expect(store.updateStats).toHaveBeenCalledWith('entry-1', expect.objectContaining({
+      fail_count: 1,
+    }));
+  });
+
+  it('increments fail_count across two calls', async () => {
+    const store = makeMockStore([], { success_count: 0, fail_count: 0 });
+    // First call: getById returns fail_count: 0
     await recordFixOutcome(store as any, 'entry-1', false);
 
     expect(store.updateStats).toHaveBeenCalledWith('entry-1', expect.objectContaining({
-      fail_count: expect.any(Number),
+      fail_count: 1,
     }));
+
+    // Second call: getById returns fail_count: 1 (reflecting the first increment)
+    store.getById.mockResolvedValue({ success_count: 0, fail_count: 1 });
+    await recordFixOutcome(store as any, 'entry-1', false);
+
+    expect(store.updateStats).toHaveBeenLastCalledWith('entry-1', expect.objectContaining({
+      fail_count: 2,
+    }));
+  });
+
+  it('handles missing entry gracefully (getById returns null)', async () => {
+    const store = makeMockStore([], null);
+    await expect(recordFixOutcome(store as any, 'entry-1', true)).resolves.not.toThrow();
+
+    expect(store.getById).toHaveBeenCalledWith('entry-1');
+    expect(store.updateStats).not.toHaveBeenCalled();
   });
 
   it('does not throw when store is null', async () => {
