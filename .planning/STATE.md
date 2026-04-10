@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
-status: in_progress
-stopped_at: Phase 15 Plan 01 complete
-last_updated: "2026-04-10T13:47:00.000Z"
-last_activity: 2026-04-10 -- Phase 15 Plan 01 executed (token counter + noise filter)
+status: executing
+stopped_at: Completed 15-02-PLAN.md
+last_updated: "2026-04-10T13:54:10.307Z"
+last_activity: 2026-04-10 -- Phase 15 Plan 02 executed (ContextManager, ground truth, compactor)
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 50
+  total_plans: 5
+  completed_plans: 4
+  percent: 98
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 15 of 19 (Auto-Compact Context Management)
-Plan: 1 of TBD complete in current phase
+Plan: 2 of 3 complete in current phase
 Status: In Progress
-Last activity: 2026-04-10 -- Phase 15 Plan 01 executed (token counter + noise filter)
+Last activity: 2026-04-10 -- Phase 15 Plan 02 executed (ContextManager, ground truth, compactor)
 
-Progress: [█████-----] 50%
+Progress: [██████████] 98%
 
 ## Performance Metrics
 
@@ -58,6 +58,9 @@ Progress: [█████-----] 50%
 - [15-01]: Plain TypeScript interfaces for context types (not zod) -- internal types
 - [15-01]: Lazy singleton tokenizer pattern for Qwen3 BPE counting
 - [15-01]: Worker model threshold at 10 unrecognized lines per CONTEXT.md decision
+- [Phase 15-02]: Eviction priority by type: IPs first, then ports, containers, custom, error_codes last
+- [Phase 15-02]: Tier 3 fallback: aggressive 1-line compression + drop oldest when no worker model
+- [Phase 15-02]: Synchronous saveSnapshot (writeFileSync) for guaranteed audit trail before eviction
 
 ### Pending Todos
 
@@ -71,6 +74,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T13:47:00.000Z
-Stopped at: Completed 15-01-PLAN.md
-Resume: Phase 15 Plan 02 (next plan in auto-compact context)
+Last session: 2026-04-10T13:54:10.305Z
+Stopped at: Completed 15-02-PLAN.md
+Resume: Phase 15 Plan 03 (next plan in auto-compact context)

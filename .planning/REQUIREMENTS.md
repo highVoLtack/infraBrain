@@ -28,9 +28,9 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 ### Context Management (Auto-Compact)
 
 - [x] **CTXT-01**: Token counting via `@lenml/tokenizer-qwen3` tracks context window usage in real-time
-- [ ] **CTXT-02**: Auto-compact triggers at 83% context window threshold
-- [ ] **CTXT-03**: Ground truth pinning (`is_pinned: true`) protects critical data from compaction (container names, ports, error codes, discovery facts)
-- [ ] **CTXT-04**: Observation masking removes stale/redundant observations before LLM summarization
+- [x] **CTXT-02**: Auto-compact triggers at 83% context window threshold
+- [x] **CTXT-03**: Ground truth pinning (`is_pinned: true`) protects critical data from compaction (container names, ports, error codes, discovery facts)
+- [x] **CTXT-04**: Observation masking removes stale/redundant observations before LLM summarization
 - [x] **CTXT-05**: Regex pre-processor filters known noise patterns (healthcheck spam, systemd journal noise) before context injection
 - [x] **CTXT-06**: 9B worker model pre-filters unknown log formats for relevance scoring
 
@@ -106,9 +106,9 @@ Deferred to future release. Tracked but not in current roadmap.
 | EXEC-03 | Phase 14 | Complete |
 | EXEC-04 | Phase 14 | Complete |
 | CTXT-01 | Phase 15 | Complete |
-| CTXT-02 | Phase 15 | Pending |
-| CTXT-03 | Phase 15 | Pending |
-| CTXT-04 | Phase 15 | Pending |
+| CTXT-02 | Phase 15 | Complete |
+| CTXT-03 | Phase 15 | Complete |
+| CTXT-04 | Phase 15 | Complete |
 | CTXT-05 | Phase 15 | Complete |
 | CTXT-06 | Phase 15 | Complete |
 | CACHE-01 | Phase 16 | Pending |

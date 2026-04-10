@@ -90,7 +90,7 @@ Plans:
   3. Critical data (container names, port numbers, error codes, discovery facts) survives compaction intact
   4. Healthcheck spam and systemd journal noise are filtered out before reaching the LLM
   5. Context compaction fires exactly once per threshold crossing (no recursive summarization loop)
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 - [ ] 15-01-PLAN.md -- Token counter, types, and noise filter (foundation)
 - [ ] 15-02-PLAN.md -- Ground truth pinning, compactor, and ContextManager (core logic)
@@ -178,7 +178,7 @@ Plans:
 | 13 | v1.2 | 2/2 | Complete | 2026-03-16 |
 | 13.1 | v1.2 | 3/3 | Complete | 2026-03-17 |
 | 14 | 2/2 | Complete    | 2026-04-10 | - |
-| 15 | 1/3 | In Progress|  | - |
+| 15 | 2/3 | In Progress|  | - |
 | 16 | v1.3 | TBD | Not started | - |
 | 17 | v1.3 | TBD | Not started | - |
 | 18 | v1.3 | TBD | Not started | - |
