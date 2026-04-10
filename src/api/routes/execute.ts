@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { AuditLogger } from '../../audit/logger.js';
-import type { InfraBrainConfig } from '../../config/types.js';
+import type { InfraBrainConfig, ModelMapEntry } from '../../config/types.js';
 import type { RunResult } from '../../execution/types.js';
 import type { LLMProvider } from '../../llm/types.js';
 import type { SkillRegistry } from '../../skills/registry.js';
@@ -10,6 +10,9 @@ import { FixPlanSchema } from '../../orchestrator/types.js';
 import { executePlan } from '../../execution/executor.js';
 import { runCommand, parseCommand } from '../../execution/runner.js';
 import { toolsToRewriteRules } from '../../execution/dynamic-rewriter.js';
+import { storeFixInCache, recordFixOutcome } from '../../cache/cache-lookup.js';
+import { getCacheStore } from '../../cache/lance-store.js';
+import { DEFAULT_CACHE_CONFIG } from '../../cache/types.js';
 
 export interface ExecuteRouteDeps {
   auditLogger: AuditLogger;
@@ -173,6 +176,54 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
           status: 'verified',
           stepsCompleted: result.stepResults.length,
         });
+      }
+
+      // Cache write: store successful fix and record outcome
+      // Cache operations are non-critical -- wrapped in try-catch to never affect execution response
+      try {
+        const cacheEnabled = deps.config.cache?.enabled !== false;
+        if (cacheEnabled) {
+          const cacheDataDir = deps.config.cache?.dataDir ?? DEFAULT_CACHE_CONFIG.data_dir;
+          const cacheStore = getCacheStore(cacheDataDir);
+          await cacheStore.init();
+
+          // Resolve embedding model config
+          const embeddingEntry = deps.config.modelMap?.embedding as ModelMapEntry | undefined;
+          const embeddingBaseURL = typeof embeddingEntry === 'object' && embeddingEntry !== null
+            ? (embeddingEntry as { baseUrl: string }).baseUrl
+            : (deps.config.defaultBaseUrl ?? 'http://localhost:11434/v1');
+          const embeddingModelId = typeof embeddingEntry === 'string'
+            ? embeddingEntry
+            : typeof embeddingEntry === 'object' && embeddingEntry !== null
+              ? (embeddingEntry as { model: string }).model
+              : 'bge-m3';
+
+          // Store successful fix in cache for future lookups
+          if (result.status === 'completed' && skillName) {
+            await storeFixInCache({
+              prompt: req.body.prompt ?? '',
+              filteredDiscovery: discoveryContext ?? {},
+              diagnosis: req.body.diagnosis ?? '',
+              fixPlan: planResult.data,
+              skillName: String(skillName),
+              sessionId: String(sessionId),
+              store: cacheStore,
+              baseURL: embeddingBaseURL,
+              modelId: embeddingModelId,
+            });
+          }
+
+          // Record fix outcome if a cache entry was used (passed through from cacheHit)
+          const cacheEntryId = req.body.cacheEntryId;
+          if (cacheEntryId && typeof cacheEntryId === 'string') {
+            await recordFixOutcome(cacheStore, cacheEntryId, result.status === 'completed');
+          }
+        }
+      } catch (cacheErr) {
+        // Cache write failure is non-critical -- log and continue
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[CACHE] Post-execution cache write failed:', cacheErr);
+        }
       }
 
       res.json(result);

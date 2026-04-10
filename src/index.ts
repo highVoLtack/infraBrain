@@ -83,7 +83,7 @@ async function main(): Promise<void> {
   console.log(chalk.gray(`[API] Listening on ${apiBaseUrl}`));
 
   // Register CLI commands
-  const program = registerCommands({ apiBaseUrl });
+  const program = registerCommands({ apiBaseUrl, config });
 
   // Check if one-shot mode (CLI args present)
   const args = process.argv.slice(2);

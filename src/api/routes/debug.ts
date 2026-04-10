@@ -37,7 +37,7 @@ export function createDebugRoute(
 
   router.post('/', async (req, res, next) => {
     try {
-      const { prompt, skill: skillOverride } = req.body ?? {};
+      const { prompt, skill: skillOverride, noCache } = req.body ?? {};
 
       if (!prompt || typeof prompt !== 'string') {
         res.status(400).json({ error: 'prompt is required' });
@@ -84,6 +84,7 @@ export function createDebugRoute(
             store: extraDeps?.store,
             config: extraDeps?.config,
             sessionId,
+            noCache: noCache === true,
           });
 
           // Translate hallucinationError to HTTP 422

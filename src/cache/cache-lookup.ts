@@ -12,6 +12,34 @@ import { computeConfidence } from './confidence.js';
 
 const DEV_MODE = process.env.NODE_ENV !== 'production';
 
+/**
+ * Format a relative date string from an ISO date.
+ * Returns "Xs ago", "Xm ago", "Xh ago", or "Xd ago".
+ */
+function formatRelativeDate(isoDate: string): string {
+  const diffMs = Date.now() - new Date(isoDate).getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHrs = Math.floor(diffMin / 60);
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  const diffDays = Math.floor(diffHrs / 24);
+  return `${diffDays}d ago`;
+}
+
+/**
+ * Format provenance information for a cache hit.
+ * Displays the original session ID prefix, relative date, similarity and confidence percentages.
+ */
+export function formatProvenance(hit: CacheHit): string {
+  const sessionPrefix = hit.entry.session_id.slice(0, 8);
+  const relDate = formatRelativeDate(hit.entry.created_at);
+  const simPct = (hit.similarity * 100).toFixed(0);
+  const confPct = (hit.confidence * 100).toFixed(0);
+  return `Based on session ${sessionPrefix} (${relDate}) -- Cache Hit (similarity: ${simPct}%, confidence: ${confPct}%)`;
+}
+
 export interface CheckCacheParams {
   prompt: string;
   filteredDiscovery: Record<string, string>;

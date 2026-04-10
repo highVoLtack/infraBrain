@@ -27,10 +27,15 @@ import { formatPlanTable } from '../orchestrator/planner.js';
 import type { FixPlan } from '../orchestrator/types.js';
 import { envelope, errorEnvelope } from './json-envelope.js';
 import { parseTimeInput } from './time-parser.js';
+import { registerCacheCommands } from './cache-commands.js';
+import { formatProvenance } from '../cache/cache-lookup.js';
+import type { CacheHitProvenance } from '../orchestrator/pipeline.js';
+import type { InfraBrainConfig } from '../config/types.js';
 
 export interface CommandConfig {
   apiBaseUrl: string;
   rl?: readline.Interface;
+  config?: InfraBrainConfig;
 }
 
 // Module-level rl reference for late binding (REPL creates rl after commands are registered)
@@ -70,6 +75,7 @@ interface DebugResponse {
   skillName?: string;
   containers?: string[];
   incompleteSession?: IncompleteSessionInfo;
+  cacheHit?: CacheHitProvenance;
 }
 
 interface ResumeResponse {
@@ -114,12 +120,16 @@ export function registerCommands(config: CommandConfig): Command {
     .description('Diagnose an infrastructure issue')
     .argument('<prompt>', 'Description of the issue to diagnose')
     .option('--skill <name>', 'Override skill selection')
-    .action(async function (this: Command, prompt: string, options: { skill?: string }) {
+    .option('--no-cache', 'Skip fix cache lookup')
+    .action(async function (this: Command, prompt: string, options: { skill?: string; cache?: boolean }) {
       const jsonMode = this.optsWithGlobals().json;
       try {
-        const body: Record<string, string> = { prompt };
+        const body: Record<string, unknown> = { prompt };
         if (options.skill) {
           body.skill = options.skill;
+        }
+        if (options.cache === false) {
+          body.noCache = true;
         }
 
         const spinner = jsonMode ? null : createSpinner('Diagnosing issue via LLM...');
@@ -199,6 +209,29 @@ export function registerCommands(config: CommandConfig): Command {
           for (const [label, value] of Object.entries(data.discovery)) {
             console.log(chalk.gray(`    ${label}: ${value.replace(/\n/g, ', ')}`));
           }
+        }
+
+        // Display cache hit provenance if present
+        if (data.cacheHit) {
+          const provenanceLine = formatProvenance({
+            similarity: data.cacheHit.similarity,
+            confidence: data.cacheHit.confidence,
+            entry: {
+              id: '',
+              vector: [],
+              error_signature: '',
+              skill_name: data.cacheHit.skillName,
+              fix_plan: '',
+              diagnosis: '',
+              session_id: data.cacheHit.originalSessionId,
+              created_at: data.cacheHit.originalDate,
+              last_used: data.cacheHit.originalDate,
+              hit_count: 0,
+              success_count: 0,
+              fail_count: 0,
+            },
+          });
+          console.log('\n' + chalk.dim('[CACHE HIT] ') + provenanceLine);
         }
 
         // Structured diagnosis: display rootCause + fixPlan table only (no LLM chatter)
@@ -641,6 +674,11 @@ export function registerCommands(config: CommandConfig): Command {
         console.log(formatError(`Execution failed: ${(err as Error).message}`));
       }
     });
+
+  // Register cache management commands if config is available
+  if (config.config) {
+    registerCacheCommands(program, config.config);
+  }
 
   return program;
 }
