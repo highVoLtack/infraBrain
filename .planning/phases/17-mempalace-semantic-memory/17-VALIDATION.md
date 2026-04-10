@@ -38,15 +38,13 @@ created: 2026-04-11
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 17-01-01 | 01 | 1 | MEM-01 | unit | `npx vitest run tests/memory/incident-store.test.ts -t "auto-file"` | ❌ W0 | ⬜ pending |
-| 17-01-02 | 01 | 1 | MEM-08 | unit | `npx vitest run tests/memory/incident-store.test.ts -t "wing"` | ❌ W0 | ⬜ pending |
-| 17-02-01 | 02 | 1 | MEM-03 | unit | `npx vitest run tests/memory/entity-store.test.ts -t "temporal"` | ❌ W0 | ⬜ pending |
-| 17-02-02 | 02 | 1 | MEM-06 | unit | `npx vitest run tests/memory/entity-extractor.test.ts -t "extract"` | ❌ W0 | ⬜ pending |
-| 17-03-01 | 03 | 1 | MEM-02 | unit | `npx vitest run tests/memory/memory-search.test.ts -t "semantic search"` | ❌ W0 | ⬜ pending |
-| 17-03-02 | 03 | 1 | MEM-07 | unit | `npx vitest run tests/memory/memory-search.test.ts -t "decay"` | ❌ W0 | ⬜ pending |
-| 17-04-01 | 04 | 2 | MEM-04 | unit | `npx vitest run tests/memory/wake-up.test.ts -t "layers"` | ❌ W0 | ⬜ pending |
-| 17-05-01 | 05 | 2 | MEM-05 | unit | `npx vitest run tests/memory/intent-classifier.test.ts -t "classify"` | ❌ W0 | ⬜ pending |
-| 17-06-01 | 06 | 2 | MEM-09 | unit | `npx vitest run tests/memory/wal.test.ts -t "append"` | ❌ W0 | ⬜ pending |
+| 17-01-T1 | 01 | 1 | MEM-08, MEM-09 | unit | `npx vitest run tests/memory/wal.test.ts --reporter=verbose` | ❌ W0 | ⬜ pending |
+| 17-02-T1 | 02 | 2 | MEM-01, MEM-03, MEM-08 | unit | `npx vitest run tests/memory/incident-store.test.ts tests/memory/entity-store.test.ts --reporter=verbose` | ❌ W0 | ⬜ pending |
+| 17-02-T2 | 02 | 2 | MEM-06, MEM-07 | unit | `npx vitest run tests/memory/entity-extractor.test.ts tests/memory/memory-scoring.test.ts --reporter=verbose` | ❌ W0 | ⬜ pending |
+| 17-03-T1 | 03 | 3 | MEM-02, MEM-04 | unit | `npx vitest run tests/memory/memory-search.test.ts tests/memory/wake-up.test.ts --reporter=verbose` | ❌ W0 | ⬜ pending |
+| 17-03-T2 | 03 | 3 | MEM-02, MEM-04 | unit | `npx vitest run tests/orchestrator/ tests/context/ --reporter=verbose` | ✅ | ⬜ pending |
+| 17-04-T1 | 04 | 4 | MEM-05 | unit | `npx vitest run tests/memory/intent-classifier.test.ts tests/memory/memory-skill.test.ts --reporter=verbose` | ❌ W0 | ⬜ pending |
+| 17-04-T2 | 04 | 4 | MEM-01, MEM-05 | unit | `npx vitest run tests/api/ tests/memory/ --reporter=verbose` | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
