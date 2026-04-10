@@ -14,6 +14,7 @@
   "license": "ISC",
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.35",
+    "@lancedb/lancedb": "^0.27.2",
     "@lenml/tokenizer-qwen3": "^3.7.2",
     "@toon-format/toon": "^2.1.0",
     "ai": "^6.0.116",

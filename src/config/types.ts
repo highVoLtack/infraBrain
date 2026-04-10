@@ -64,6 +64,18 @@ const InfraBrainConfigSchemaInner = z.object({
     restartVerificationDelayMs: z.number().default(3000),
   }).default({ maxAttempts: 5, correctionTimeoutMs: 15000, restartVerificationDelayMs: 3000 }),
   contextWindow: z.number().default(32768),
+  cache: z.object({
+    enabled: z.boolean().default(true),
+    similarityThreshold: z.number().default(0.85),
+    softZoneFloor: z.number().default(0.75),
+    dataDir: z.string().default('.infrabrain/cache'),
+    confidenceWeights: z.object({
+      w_sim: z.number().default(0.5),
+      w_rec: z.number().default(0.3),
+      w_suc: z.number().default(0.2),
+      decayLambda: z.number().default(0.1),
+    }).default({}),
+  }).default({}),
 });
 
 // Backwards-compatible schema: maps legacy ollamaBaseUrl to defaultBaseUrl
