@@ -106,7 +106,7 @@ Plans:
   3. InfraBrain starts, diagnoses, and fixes problems normally when LanceDB is unavailable (graceful degradation)
   4. Updating a skill file invalidates stale cached fixes for that skill's domain
   5. LanceDB embedded store initializes automatically in-process (no external services)
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 - [ ] 16-01-PLAN.md -- Cache types, LanceDB store, BGE-M3 embedder, confidence scoring (foundation)
 - [ ] 16-02-PLAN.md -- Cache lookup, pipeline integration, skill invalidation, graceful degradation
@@ -167,7 +167,7 @@ Plans:
 | 13.1 | v1.2 | 3/3 | Complete | 2026-03-17 |
 | 14 | v1.3 | 2/2 | Complete | 2026-04-10 |
 | 15 | v1.3 | 3/3 | Complete | 2026-04-10 |
-| 16 | 1/3 | In Progress|  | - |
+| 16 | 2/3 | In Progress|  | - |
 | 17 | v1.3 | TBD | Not started | - |
 | 18 | v1.3 | TBD | Not started | - |
 | 19 | v1.3 | TBD | Not started | - |

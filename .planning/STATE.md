@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
-status: in-progress
-stopped_at: Phase 16 Plan 01 executed
-last_updated: "2026-04-10T18:29:15.000Z"
-last_activity: 2026-04-10 -- Phase 16 Plan 01 executed (cache foundation with LanceDB, embedder, confidence scoring)
+status: executing
+stopped_at: Phase 16 Plan 02 executed
+last_updated: "2026-04-10T18:45:10.879Z"
+last_activity: 2026-04-10 -- Phase 16 Plan 02 executed (pipeline integration with cache lookup, invalidation, degradation)
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 8
-  completed_plans: 6
-  percent: 75
+  completed_plans: 8
+  percent: 98
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 16 of 19 (Qdrant Fix Caching)
-Plan: 1 of 3 complete in current phase
+Plan: 2 of 3 complete in current phase
 Status: In Progress
-Last activity: 2026-04-10 -- Phase 16 Plan 01 executed (cache foundation with LanceDB, embedder, confidence scoring)
+Last activity: 2026-04-10 -- Phase 16 Plan 02 executed (pipeline integration with cache lookup, invalidation, degradation)
 
-Progress: [████████░░] 75%
+Progress: [██████████] 98%
 
 ## Performance Metrics
 
@@ -67,6 +67,12 @@ Progress: [████████░░] 75%
 - [16-01]: LanceDB seed-row-then-delete for schema-inferred table creation
 - [16-01]: CacheStore singleton keyed by dataDir with lazy init promise deduplication
 - [16-01]: All cache store operations gracefully degrade (return null/empty, never throw)
+- [16-02]: Cache check inserted between noise filter and diagnosis in pipeline
+- [16-02]: Fast-path hits skip entire LLM diagnosis/planning/command extraction
+- [16-02]: Speculative hits logged but proceed to full LLM (parallel exec is Phase 18)
+- [16-02]: Skill invalidation only purges changed files (new files have no cached entries)
+- [16-02]: Cache mocks required in all test files that exercise the pipeline
+- [Phase 16]: Cache check between noise filter and diagnosis; fast-path skips LLM entirely
 
 ### Pending Todos
 
@@ -80,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T18:29:15Z
-Stopped at: Phase 16 Plan 01 executed
-Resume: Execute Phase 16 Plan 02 (pipeline integration)
+Last session: 2026-04-10T18:45:00.427Z
+Stopped at: Phase 16 Plan 02 executed
+Resume: Execute Phase 16 Plan 03 (CLI cache management)
