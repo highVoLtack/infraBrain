@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
 status: executing
-stopped_at: Phase 16 Plan 03 executed -- Phase 16 complete
-last_updated: "2026-04-10T18:55:33.492Z"
-last_activity: 2026-04-10 -- Phase 16 Plan 03 executed (CLI cache management, provenance display, cache write, integration test)
+stopped_at: Phase 16 Plan 04 executed -- recordFixOutcome increment bug fixed (gap closure)
+last_updated: "2026-04-10T20:21:30.000Z"
+last_activity: 2026-04-10 -- Phase 16 Plan 04 executed (recordFixOutcome read-then-increment fix, getById method, TDD)
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 10
+  completed_plans: 10
   percent: 100
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 16 of 19 (Qdrant Fix Caching)
-Plan: 3 of 3 complete in current phase
+Plan: 4 of 4 complete in current phase (includes gap closure plan 04)
 Status: Phase Complete
-Last activity: 2026-04-10 -- Phase 16 Plan 03 executed (CLI cache management, provenance display, cache write, integration test)
+Last activity: 2026-04-10 -- Phase 16 Plan 04 executed (recordFixOutcome read-then-increment fix, gap closure)
 
 Progress: [██████████] 100%
 
@@ -75,6 +75,7 @@ Progress: [██████████] 100%
 - [Phase 16]: Cache check between noise filter and diagnosis; fast-path skips LLM entirely
 - [16-03]: Cache write in execute route is non-critical (try-catch, never affects response)
 - [16-03]: Startup invalidation + embedding check run after skill registry with graceful degradation
+- [16-04]: Read-then-increment pattern for counter updates in LanceDB (getById before updateStats)
 
 ### Pending Todos
 
@@ -88,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T18:55:33.490Z
-Stopped at: Phase 16 Plan 03 executed -- Phase 16 complete
+Last session: 2026-04-10T20:21:30.000Z
+Stopped at: Phase 16 Plan 04 executed -- recordFixOutcome increment bug fixed (gap closure)
 Resume: Plan Phase 17 (MemPalace Semantic Memory) or next milestone phase
