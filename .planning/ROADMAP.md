@@ -178,7 +178,7 @@ Plans:
 | 13 | v1.2 | 2/2 | Complete | 2026-03-16 |
 | 13.1 | v1.2 | 3/3 | Complete | 2026-03-17 |
 | 14 | 2/2 | Complete    | 2026-04-10 | - |
-| 15 | 3/3 | Complete   | 2026-04-10 | - |
+| 15 | 3/3 | Complete    | 2026-04-10 | - |
 | 16 | v1.3 | TBD | Not started | - |
 | 17 | v1.3 | TBD | Not started | - |
 | 18 | v1.3 | TBD | Not started | - |
