@@ -40,6 +40,7 @@ export const SkillFrontmatterSchema = z.object({
   discovery: z.array(DiscoveryCommandSchema).default([]),
   negative_triggers: z.array(z.string()).default([]),
   when_not_to_use: z.array(z.string()).default([]),
+  noise_patterns: z.array(z.string()).default([]),
 });
 
 export const SkillSectionsSchema = z.object({
