@@ -122,7 +122,12 @@ Plans:
   3. Infrastructure entities (hostnames, service names, IPs) extracted from diagnostic text appear as searchable knowledge graph entries
   4. Recent incidents score higher than old ones at equal semantic similarity (temporal decay observable in search results)
   5. All memory mutations are recorded in a write-ahead log (audit trail for what was remembered and when)
-**Plans:** [To be planned]
+**Plans:** 4 plans
+Plans:
+- [ ] 17-01-PLAN.md -- Types, config schema, and write-ahead log (foundation contracts)
+- [ ] 17-02-PLAN.md -- IncidentStore, EntityStore, entity extractor, memory scoring (data layer)
+- [ ] 17-03-PLAN.md -- Memory search, wake-up context, pipeline [MEMORY] integration
+- [ ] 17-04-PLAN.md -- Intent classifier, memory skill, incident auto-filing
 
 ### Phase 18: Parallel Inference Pipeline
 **Goal**: 9B models pre-process logs and extract patterns while 122B reasons about diagnosis, cutting total inference time
@@ -167,11 +172,11 @@ Plans:
 | 13.1 | v1.2 | 3/3 | Complete | 2026-03-17 |
 | 14 | v1.3 | 2/2 | Complete | 2026-04-10 |
 | 15 | v1.3 | 3/3 | Complete | 2026-04-10 |
-| 16 | 4/4 | Complete    | 2026-04-10 | - |
-| 17 | v1.3 | TBD | Not started | - |
+| 16 | v1.3 | 4/4 | Complete | 2026-04-10 |
+| 17 | v1.3 | 0/4 | Planned | - |
 | 18 | v1.3 | TBD | Not started | - |
 | 19 | v1.3 | TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-04-10 -- Phase 16 planned (3 plans, 3 waves)*
+*Last updated: 2026-04-11 -- Phase 17 planned (4 plans, 3 waves)*
