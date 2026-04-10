@@ -16,6 +16,10 @@ import { createServer } from './api/server.js';
 import { registerCommands } from './cli/commands.js';
 import { startRepl } from './cli/repl.js';
 import { SkillRegistry } from './skills/registry.js';
+import { getCacheStore } from './cache/lance-store.js';
+import { runStartupInvalidation } from './cache/invalidation.js';
+import { isEmbeddingAvailable } from './cache/embedder.js';
+import type { ModelMapEntry } from './config/types.js';
 
 // Re-exports for library usage
 export { createProvider } from './llm/provider.js';
@@ -60,6 +64,33 @@ async function main(): Promise<void> {
     console.log(chalk.gray(`[Skills] Loaded ${loadedSkills.length} skills from ${config.skillsDir}`));
   } catch {
     console.log(chalk.gray(`[Skills] No skills directory found at ${config.skillsDir}`));
+  }
+
+  // Initialize fix cache: startup invalidation + embedding model check
+  try {
+    const cacheDataDir = config.cache?.dataDir ?? '.infrabrain/cache';
+    const cacheStore = getCacheStore(cacheDataDir);
+    await cacheStore.init();
+    await runStartupInvalidation(cacheStore, skillsDir, join(cacheDataDir, 'skill-hashes.json'));
+    console.log(chalk.gray('[Cache] Fix cache initialized'));
+
+    // Check if embedding model is available
+    const embeddingEntry = config.modelMap?.embedding as ModelMapEntry | undefined;
+    const embeddingBaseURL = typeof embeddingEntry === 'object' && embeddingEntry !== null
+      ? (embeddingEntry as { baseUrl: string }).baseUrl
+      : (config.defaultBaseUrl ?? 'http://localhost:11434/v1');
+    const embeddingModelId = typeof embeddingEntry === 'string'
+      ? embeddingEntry
+      : typeof embeddingEntry === 'object' && embeddingEntry !== null
+        ? (embeddingEntry as { model: string }).model
+        : 'bge-m3';
+
+    const embeddingOk = await isEmbeddingAvailable(embeddingBaseURL, embeddingModelId);
+    if (!embeddingOk) {
+      console.log(chalk.yellow('[Cache] WARNING: Embedding model not reachable -- cache lookups will degrade gracefully'));
+    }
+  } catch (cacheErr) {
+    console.log(chalk.yellow(`[Cache] Fix cache init failed (non-critical): ${(cacheErr as Error).message}`));
   }
 
   // Create Express server
