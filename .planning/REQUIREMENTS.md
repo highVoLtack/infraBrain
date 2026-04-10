@@ -43,7 +43,7 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 - [x] **CACHE-05**: Cache invalidation on skill file updates (stale fixes purged)
 - [x] **CACHE-06**: Confidence scoring on cached fixes (recency + success rate + similarity score)
 - [x] **CACHE-07**: Graceful degradation -- InfraBrain works without LanceDB (cache is optimization, not requirement)
-- [ ] **CACHE-08**: Cache hit explainability -- Ink terminal shows provenance indicator when using cached fix ("Based on incident #42 (2026-03-12) -- Cache Hit")
+- [x] **CACHE-08**: Cache hit explainability -- Ink terminal shows provenance indicator when using cached fix ("Based on incident #42 (2026-03-12) -- Cache Hit")
 
 ### Semantic Memory (MemPalace Native TypeScript)
 
@@ -118,7 +118,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | CACHE-05 | Phase 16 | Complete |
 | CACHE-06 | Phase 16 | Complete |
 | CACHE-07 | Phase 16 | Complete |
-| CACHE-08 | Phase 16 | Pending |
+| CACHE-08 | Phase 16 | Complete |
 | MEM-01 | Phase 17 | Pending |
 | MEM-02 | Phase 17 | Pending |
 | MEM-03 | Phase 17 | Pending |

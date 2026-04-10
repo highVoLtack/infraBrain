@@ -58,7 +58,7 @@
 
 - [x] **Phase 14: Pipeline Extraction + Parallel Discovery** - Extract debug.ts into pipeline orchestrator, run discovery commands in parallel with safety mutex (completed 2026-04-10)
 - [x] **Phase 15: Auto-Compact Context Management** - Token counting and automatic context compaction at 83% threshold with ground truth pinning (completed 2026-04-10)
-- [ ] **Phase 16: Qdrant Fix-Caching** - Vector similarity search returns cached fixes in 2s instead of 113s LLM reasoning
+- [x] **Phase 16: Qdrant Fix-Caching** - Vector similarity search returns cached fixes in 2s instead of 113s LLM reasoning (completed 2026-04-10)
 - [ ] **Phase 17: MemPalace Semantic Memory** - Native TypeScript incident memory with temporal knowledge graph and semantic search
 - [ ] **Phase 18: Parallel Inference Pipeline** - Concurrent 9B pre-processing + 122B reasoning via Promise.allSettled
 - [ ] **Phase 19: Ink/React Terminal UI** - Full terminal renderer with live DPEV tracking, streaming output, and rich dashboard
@@ -106,7 +106,7 @@ Plans:
   3. InfraBrain starts, diagnoses, and fixes problems normally when LanceDB is unavailable (graceful degradation)
   4. Updating a skill file invalidates stale cached fixes for that skill's domain
   5. LanceDB embedded store initializes automatically in-process (no external services)
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [ ] 16-01-PLAN.md -- Cache types, LanceDB store, BGE-M3 embedder, confidence scoring (foundation)
 - [ ] 16-02-PLAN.md -- Cache lookup, pipeline integration, skill invalidation, graceful degradation
@@ -167,7 +167,7 @@ Plans:
 | 13.1 | v1.2 | 3/3 | Complete | 2026-03-17 |
 | 14 | v1.3 | 2/2 | Complete | 2026-04-10 |
 | 15 | v1.3 | 3/3 | Complete | 2026-04-10 |
-| 16 | 2/3 | In Progress|  | - |
+| 16 | 3/3 | Complete   | 2026-04-10 | - |
 | 17 | v1.3 | TBD | Not started | - |
 | 18 | v1.3 | TBD | Not started | - |
 | 19 | v1.3 | TBD | Not started | - |
