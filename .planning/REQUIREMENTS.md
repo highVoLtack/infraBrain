@@ -1,7 +1,7 @@
 # Requirements: InfraBrain v1.3
 
 **Defined:** 2026-04-10
-**Core Value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control — every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
+**Core Value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control -- every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
 
 ## v1.3 Requirements
 
@@ -14,7 +14,7 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 - [ ] **TERM-03**: Approval prompts work as Ink React components with `useInput` (replacing readline)
 - [ ] **TERM-04**: Admin sees rich status dashboard with panels (active sessions, backend health, recent incidents)
 - [ ] **TERM-05**: Terminal output adapts to terminal width (no hardcoded column widths)
-- [ ] **TERM-06**: Admin sees step-by-step execution progress with per-step status icons (✓/✗/◆/○)
+- [ ] **TERM-06**: Admin sees step-by-step execution progress with per-step status icons
 - [ ] **TERM-07**: Express REST API serves SSE endpoints for live streaming to Ink renderer
 - [ ] **TERM-08**: All existing CLI commands work through Ink renderer (backwards compatible)
 
@@ -42,8 +42,8 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 - [ ] **CACHE-04**: Cached fix returned in <2s vs 113s for LLM reasoning (zero LLM calls for cache hits)
 - [ ] **CACHE-05**: Cache invalidation on skill file updates (stale fixes purged)
 - [ ] **CACHE-06**: Confidence scoring on cached fixes (recency + success rate + similarity score)
-- [ ] **CACHE-07**: Graceful degradation — InfraBrain works without Qdrant (cache is optimization, not requirement)
-- [ ] **CACHE-08**: Cache hit explainability — Ink terminal shows provenance indicator when using cached fix ("Based on incident #42 (2026-03-12) — Cache Hit")
+- [ ] **CACHE-07**: Graceful degradation -- InfraBrain works without Qdrant (cache is optimization, not requirement)
+- [ ] **CACHE-08**: Cache hit explainability -- Ink terminal shows provenance indicator when using cached fix ("Based on incident #42 (2026-03-12) -- Cache Hit")
 
 ### Semantic Memory (MemPalace Native TypeScript)
 
@@ -53,14 +53,14 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 - [ ] **MEM-04**: 4-layer wake-up context: L0 identity (~100 tokens) + L1 recent incidents (~500 tokens) + L2 filtered search + L3 deep semantic
 - [ ] **MEM-05**: Memory skill (`skills/memory.md`) routes "what did we decide" / "when did this happen" queries
 - [ ] **MEM-06**: Infrastructure entity detection from diagnostic text (hostnames, service names, container IDs, IPs)
-- [ ] **MEM-07**: Temporal decay weighting — recent incidents score higher than old ones at equal similarity
+- [ ] **MEM-07**: Temporal decay weighting -- recent incidents score higher than old ones at equal similarity
 - [ ] **MEM-08**: Wings/Rooms organizational hierarchy: wing_incidents, wing_config, wing_runbooks, wing_user
 - [ ] **MEM-09**: Write-ahead log for all memory mutations (audit trail for memory changes)
 
 ### Parallel Inference
 
 - [ ] **INFER-01**: Concurrent model calls to different vLLM backends via `Promise.allSettled()`
-- [ ] **INFER-02**: Pipeline stages: 9B intent classification (<200ms) → 122B deep reasoning
+- [ ] **INFER-02**: Pipeline stages: 9B intent classification (<200ms) -> 122B deep reasoning
 - [ ] **INFER-03**: 9B pre-processes logs and extracts error patterns while 122B reasons about diagnosis
 - [ ] **INFER-04**: Separate vLLM instances per model size (no VRAM contention on single GPU)
 - [ ] **INFER-05**: Fallback to sequential inference when only single backend available
@@ -89,10 +89,10 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Feature | Reason |
 |---------|--------|
-| Python sidecar for MemPalace | Adds runtime dependency, IPC overhead, breaks air-gap simplicity — native TypeScript instead |
+| Python sidecar for MemPalace | Adds runtime dependency, IPC overhead, breaks air-gap simplicity -- native TypeScript instead |
 | ChromaDB | Qdrant is single vector store for both fix-caching and semantic memory |
-| Neo4j / GraphRAG | Overkill for v1.3 — SQLite-in-Qdrant-payload handles temporal KG |
-| Cloud-hosted Qdrant | 100% local, air-gapped — Docker container only |
+| Neo4j / GraphRAG | Overkill for v1.3 -- SQLite-in-Qdrant-payload handles temporal KG |
+| Cloud-hosted Qdrant | 100% local, air-gapped -- Docker container only |
 | AAAK Dialect (MemPalace) | Lossy compression destroys infra diagnostic signal (error messages, configs) |
 | Real-time collaborative UI | Single-admin CLI tool for v1.3 |
 | OAuth/multi-tenant | Single-instance, single-team for v1.3 |
@@ -101,13 +101,52 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (To be filled by roadmapper) | | |
+| EXEC-01 | Phase 14 | Pending |
+| EXEC-02 | Phase 14 | Pending |
+| EXEC-03 | Phase 14 | Pending |
+| EXEC-04 | Phase 14 | Pending |
+| CTXT-01 | Phase 15 | Pending |
+| CTXT-02 | Phase 15 | Pending |
+| CTXT-03 | Phase 15 | Pending |
+| CTXT-04 | Phase 15 | Pending |
+| CTXT-05 | Phase 15 | Pending |
+| CTXT-06 | Phase 15 | Pending |
+| CACHE-01 | Phase 16 | Pending |
+| CACHE-02 | Phase 16 | Pending |
+| CACHE-03 | Phase 16 | Pending |
+| CACHE-04 | Phase 16 | Pending |
+| CACHE-05 | Phase 16 | Pending |
+| CACHE-06 | Phase 16 | Pending |
+| CACHE-07 | Phase 16 | Pending |
+| CACHE-08 | Phase 16 | Pending |
+| MEM-01 | Phase 17 | Pending |
+| MEM-02 | Phase 17 | Pending |
+| MEM-03 | Phase 17 | Pending |
+| MEM-04 | Phase 17 | Pending |
+| MEM-05 | Phase 17 | Pending |
+| MEM-06 | Phase 17 | Pending |
+| MEM-07 | Phase 17 | Pending |
+| MEM-08 | Phase 17 | Pending |
+| MEM-09 | Phase 17 | Pending |
+| INFER-01 | Phase 18 | Pending |
+| INFER-02 | Phase 18 | Pending |
+| INFER-03 | Phase 18 | Pending |
+| INFER-04 | Phase 18 | Pending |
+| INFER-05 | Phase 18 | Pending |
+| TERM-01 | Phase 19 | Pending |
+| TERM-02 | Phase 19 | Pending |
+| TERM-03 | Phase 19 | Pending |
+| TERM-04 | Phase 19 | Pending |
+| TERM-05 | Phase 19 | Pending |
+| TERM-06 | Phase 19 | Pending |
+| TERM-07 | Phase 19 | Pending |
+| TERM-08 | Phase 19 | Pending |
 
 **Coverage:**
-- v1.3 requirements: 34 total
-- Mapped to phases: 0
-- Unmapped: 33 ⚠️
+- v1.3 requirements: 40 total
+- Mapped to phases: 40
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-10*
-*Last updated: 2026-04-10 after research synthesis*
+*Last updated: 2026-03-31 -- All 40 requirements mapped to phases 14-19*

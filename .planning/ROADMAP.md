@@ -2,315 +2,143 @@
 
 ## Milestones
 
-- ✅ **v1.0 MVP** — Phases 1-7 (shipped 2026-03-12) | [Archive](milestones/v1.0-ROADMAP.md)
-- ✅ **v1.1 The Scenario Factory** — Phases 8-11 (shipped 2026-03-13) | [Archive](milestones/v1.1-ROADMAP.md)
+- v1.0 MVP -- Phases 1-7 (shipped 2026-03-12) | [Archive](milestones/v1.0-ROADMAP.md)
+- v1.1 The Scenario Factory -- Phases 8-11 (shipped 2026-03-13) | [Archive](milestones/v1.1-ROADMAP.md)
+- v1.2 The Knowledge Layer -- Phases 12-13.1 (shipped 2026-03-17)
+- v1.3 The Intelligence Layer -- Phases 14-19 (in progress)
 
 ## Phases
 
 <details>
-<summary>✅ v1.0 MVP (Phases 1-7) — SHIPPED 2026-03-12</summary>
+<summary>v1.0 MVP (Phases 1-7) -- SHIPPED 2026-03-12</summary>
 
-- [x] Phase 1: Foundation and Safety Gates (5/5 plans) — completed 2026-03-07
-- [x] Phase 2: Skill System and Orchestrator (3/3 plans) — completed 2026-03-08
-- [x] Phase 3: Execution Engine and Safety Net (3/3 plans) — completed 2026-03-08
-- [x] Phase 4: Session Management and CLI Polish (4/4 plans) — completed 2026-03-08
-- [x] Phase 5: POC Scenario and Integration (2/2 plans) — completed 2026-03-08
-- [x] Phase 6: Resume Wiring and Audit Completeness (2/2 plans) — completed 2026-03-12
-- [x] Phase 7: Audit Metadata and Integration Polish (3/3 plans) — completed 2026-03-12
+- [x] Phase 1: Foundation and Safety Gates (5/5 plans) -- completed 2026-03-07
+- [x] Phase 2: Skill System and Orchestrator (3/3 plans) -- completed 2026-03-08
+- [x] Phase 3: Execution Engine and Safety Net (3/3 plans) -- completed 2026-03-08
+- [x] Phase 4: Session Management and CLI Polish (4/4 plans) -- completed 2026-03-08
+- [x] Phase 5: POC Scenario and Integration (2/2 plans) -- completed 2026-03-08
+- [x] Phase 6: Resume Wiring and Audit Completeness (2/2 plans) -- completed 2026-03-12
+- [x] Phase 7: Audit Metadata and Integration Polish (3/3 plans) -- completed 2026-03-12
 
 **Total:** 7 phases, 22 plans, 39/39 requirements, 354 tests
 
 </details>
 
 <details>
-<summary>✅ v1.1 The Scenario Factory (Phases 8-11) — SHIPPED 2026-03-13</summary>
+<summary>v1.1 The Scenario Factory (Phases 8-11) -- SHIPPED 2026-03-13</summary>
 
-- [x] Phase 8: Rolling Context Injection (2/2 plans) — completed 2026-03-13
-- [x] Phase 9: Postgres Failure Scenario (3/3 plans + Engine-First hardening) — completed 2026-03-13
-- [x] Phase 10: Docker Storage Failure Scenario (3/3 plans) — completed 2026-03-13
-- [x] Phase 11: Cross-Scenario Validation and UX Polish (2/2 plans) — completed 2026-03-13
+- [x] Phase 8: Rolling Context Injection (2/2 plans) -- completed 2026-03-13
+- [x] Phase 9: Postgres Failure Scenario (3/3 plans + Engine-First hardening) -- completed 2026-03-13
+- [x] Phase 10: Docker Storage Failure Scenario (3/3 plans) -- completed 2026-03-13
+- [x] Phase 11: Cross-Scenario Validation and UX Polish (2/2 plans) -- completed 2026-03-13
 
 **Total:** 4 phases, 10 plans, 13/13 requirements, 440 tests, Engine-First architecture
 
 </details>
 
-## v1.2 The Knowledge Layer
-
-### Phase 12: Linux Filesystem Permission Trap Scenario (INSERTED)
-
-**Goal:** Prove that the Technical Lead (Qwen 32B) can handle raw Linux OS-level troubleshooting without any DB-specific logic — autonomous diagnosis and repair of filesystem permission issues in Docker containers.
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 12-01-PLAN.md — Docker permission trap demo environment (compose, app, reset script) -- completed 2026-03-14
-- [x] 12-02-PLAN.md — Diagnostic skill, discovery commands, and safety rule updates -- completed 2026-03-14
-- [x] 12-03-PLAN.md — Full DPEV loop E2E test -- completed 2026-03-14
-
-**Scope:**
-1. Scenario setup: `demo/permission-trap/` with Docker Compose — Python app writing to `/app/data/status.pid`, directory owned by root:root with 700 permissions, app runs as UID 1000 → crashes with Permission Denied
-2. New skill: `linux-filesystem-troubleshoot.md` with diagnostic ladder (logs → permissions → user check → correlate owner mismatch → fix)
-3. E2E validation: InfraBrain autonomously diagnoses and fixes the permission issue
-
-**Success criteria:**
-1. Docker scenario starts and reproduces Permission Denied crash
-2. InfraBrain diagnoses root cause (owner mismatch) via DPEV loop
-3. Fix applied (chown/chmod) and verified (app writes successfully)
-4. No DB-specific logic used — pure OS-level troubleshooting
-
-**Dependencies:** Phases 1-11 (Engine-First architecture, DPEV loop, sub-agent execution)
-**Requirements:** SCEN-07
-
-### Phase 12.1: Dynamic Command Rewriter (INSERTED)
-
-**Goal:** Replace the hardcoded SQL Rewriter with a universal, skill-driven command rewriting engine. Each skill declares rewrite rules (container targeting, privilege escalation, command wrapping) in its frontmatter — the engine applies them dynamically. No new TypeScript code needed per scenario.
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 12.1-01-PLAN.md — Dynamic rewriter pure function + Zod schema + TDD unit tests
-- [x] 12.1-02-PLAN.md — Skill frontmatter schema extension + rewrite_rules migration for 3 skills
-- [x] 12.1-03-PLAN.md — Wire dynamic rewriter into debug.ts, deprecate old rewriter, full suite green
-
-**Scope:**
-1. New `src/execution/dynamic-rewriter.ts` — reads rewrite rules from skill metadata, applies container wrapping + privilege escalation + command wrapping
-2. Migrate existing SQL Rewriter logic into postgres-troubleshoot.md `rewrite_rules` frontmatter
-3. Add `rewrite_rules` to linux-filesystem-troubleshoot.md (container auto-detect, `-u 0` for chown/chmod)
-4. Add `rewrite_rules` to docker-storage.md
-5. Update runner.ts to call dynamic rewriter instead of hardcoded `rewriteForContainer()`
-6. All existing E2E tests must pass (backwards-compatible)
-7. Re-test Permission Trap with dynamic rewriter (live DPEV)
-
-**Success criteria:**
-1. Skills declare rewrite rules in frontmatter — engine applies them without scenario-specific code
-2. All 3 existing scenarios (Nginx, Postgres, Docker Storage, Permission Trap) work with dynamic rewriter
-3. `rewriteForContainer()` and `stripHostFlag()` removed or deprecated — logic lives in skill metadata
-4. Adding a new scenario requires zero TypeScript changes to the rewriter
-
-**Dependencies:** Phase 12 (Permission Trap proved the need)
-**Requirements:** ENGN-03
-
-### Phase 12.2: Skill-Driven Discovery (INSERTED)
-
-**Goal:** Eliminate the hardcoded `DISCOVERY_COMMANDS` constant from debug.ts. Each skill declares its own discovery commands in frontmatter — the orchestrator reads them dynamically. Skills without discovery simply skip the discovery phase. This completes the Agnostic Engine transition: 100% of domain knowledge lives in Markdown skill files.
-
-**Plans:** 2/2 plans complete
-
-Plans:
-- [ ] 12.2-01-PLAN.md — Discovery schema + skill YAML migration (DiscoveryCommandSchema, 4 skills)
-- [ ] 12.2-02-PLAN.md — Orchestrator refactor + DISCOVERY_COMMANDS removal
-
-**Scope:**
-1. Add `discovery` field to `SkillFrontmatterSchema` — array of `{ command: string, label: string }`
-2. Refactor `runDiscovery` in debug.ts to read from `skill.frontmatter.discovery` instead of `DISCOVERY_COMMANDS`
-3. Migrate all 4 skills (nginx, postgres, docker-storage, linux-filesystem) — move discovery commands from debug.ts into skill YAML
-4. Remove `DISCOVERY_COMMANDS` constant entirely from debug.ts
-5. If a skill has no `discovery` section, orchestrator skips discovery (graceful fallback)
-6. All existing E2E tests must pass
-
-**Success criteria:**
-1. `DISCOVERY_COMMANDS` constant removed from debug.ts
-2. All 4 skills declare discovery commands in frontmatter
-3. Skills without discovery gracefully skip (no error)
-4. debug.ts loses ~100 lines of hardcoded domain knowledge
-5. Adding a new scenario requires zero TypeScript changes for discovery
-
-**Dependencies:** Phase 12.1 (Dynamic Rewriter pattern established)
-**Requirements:** ENGN-04
-
-### Phase 12.3: Agnostic Skills + Engine-Proof Rewriter (INSERTED)
-
-**Goal:** Complete the Agnostic Engine transition by making skills truly domain-generic: no hardcoded container names, no docker exec in prompts or examples. Skills describe WHAT to diagnose and fix using bare commands — the engine handles WHERE (container targeting) and HOW (privilege escalation, wrapping). The rewriter becomes docker-exec-aware to handle LLM outputs that still include docker exec as belt-and-suspenders.
-
-**Plans:** 2/2 plans complete
-
-Plans:
-- [ ] 12.3-01-PLAN.md — Docker-exec-aware rewriter (TDD: parseDockerExec + dynamicRewrite fix)
-- [ ] 12.3-02-PLAN.md — COMMAND-ONLY skill prompts + E2E regression verification
-
-**Scope:**
-1. Rewriter: Parse pre-wrapped `docker exec` commands, extract inner command, apply rewrite rules, reassemble with injected flags (-u 0)
-2. Skill prompts: All 4 skills refactored to COMMAND-ONLY mode — no docker exec in system prompts, examples use bare commands with `{container}` placeholder only in discovery
-3. Discovery: Replace hardcoded container names with dynamic `{target}` or remove them (discovery commands should use container names from runtime, not skill file)
-4. All existing E2E tests must pass (canned fix plans may need updating)
-
-**Success criteria:**
-1. Skills contain zero hardcoded container names in prompts/examples
-2. LLM outputs bare commands, engine wraps them correctly
-3. `docker exec <container> chown ...` gets `-u 0` injected (belt-and-suspenders)
-4. Discovery commands work with any container name (not just demo-specific ones)
-5. Permission Trap live test passes end-to-end
-6. All existing E2E scenarios still pass
-
-**Dependencies:** Phase 12.2
-**Requirements:** ENGN-05
-
-### Phase 12.4: Agnostic Skill Redesign (INSERTED)
-
-**Goal:** Replace scenario-specific scripted skills with universal expert skills. Merge `tools[]` + `rewrite_rules[]` + safety rules into a single `tools: { name: { risk, user, wrapper } }` map. Replace Diagnostic Ladders with Domain Knowledge sections. Remove all hardcoded container names. Make the LLM reason instead of follow scripts. The Permission Trap live test must pass end-to-end.
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 12.4-01-PLAN.md — ToolDeclarationSchema + toolsToRewriteRules() adapter + engine wiring -- completed 2026-03-14
-- [ ] 12.4-02-PLAN.md — Universal expert skills (linux-expert, postgres-expert, network-expert)
-- [ ] 12.4-03-PLAN.md — E2E test updates + full suite verification
-
-**Scope:**
-1. New `ToolDeclarationSchema` — `{ risk, user?, wrapper?, strip_flags?, container? }`
-2. `toolsToRewriteRules()` adapter — converts tool map to rewrite rules
-3. Auto-generated tool list injection into LLM system prompt
-4. Consolidate 4 scenario skills into 2-3 universal experts: `linux-expert`, `postgres-expert`, `network-expert`
-5. Domain Knowledge sections replace Diagnostic Ladders
-6. Generic discovery — no hardcoded container names
-7. Update allowlist.ts for new format
-8. All E2E tests + Permission Trap live DPEV pass
-
-**Success criteria:**
-1. Skills have zero hardcoded container names
-2. `tools:` map = single source for allowlist + rewrite + risk
-3. LLM reasons from domain knowledge, not scripts
-4. Permission Trap live test succeeds
-5. All E2E tests pass
-6. New scenario = only a `.md` file, zero TypeScript
-
-**Dependencies:** Phase 12.3
-**Requirements:** ENGN-06
-
-### Phase 12.5: Intelligent Routing + Framework Merge (INSERTED)
-
-**Goal:** Fix the broken skill routing (triggers not used, log-analysis catches everything) and merge the best patterns from Superpowers (composable skills, trigger-based routing, CSO) and GSD (context engineering, verification gates, atomic execution) into InfraBrain's engine. The Permission Trap live test must finally pass end-to-end.
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [ ] 12.5-01-PLAN.md — Schema extension + registry enrichment + skill frontmatter updates
-- [ ] 12.5-02-PLAN.md — Two-tier routing engine (pre-filter + enriched LLM) + DPEV enforcement
-- [ ] 12.5-03-PLAN.md — Permission Trap scenario remix + dynamic E2E test
-
-**Scope:**
-1. **Trigger-based pre-filtering:** Before LLM routing, filter skills by trigger keyword match against user prompt. Only matched skills go to LLM for final selection.
-2. **Routing prompt enrichment:** Include triggers + "When NOT to Use" in the routing prompt, not just name + description.
-3. **log-analysis trigger narrowing:** Remove overly broad triggers ("error", "debug", "diagnose") that hijack other skills.
-4. **Superpowers CSO (Claude Search Optimization):** Skill descriptions optimized for LLM discovery — "Use when..." format, symptom keywords, error messages.
-5. **GSD context engineering:** Ensure discovery GROUND TRUTH flows correctly into LLM context, TOON-encoded for token efficiency.
-6. **Priority-based tie-breaking:** When multiple skills match, use `priority` field. Domain experts (10) beat utility skills (0).
-7. **Live Permission Trap test must pass:** linux-expert selected → discovery runs → LLM diagnoses → chown with -u 0 → fix applied.
-
-**Success criteria:**
-1. "permission error" prompt → `linux-expert` selected (not log-analysis)
-2. Trigger pre-filter reduces candidate skills to 2-3 max
-3. Discovery Ground Truth injected into LLM context
-4. Permission Trap live DPEV: chown applied with root escalation, app recovers
-5. All E2E tests pass
-6. Routing is deterministic for clear prompts, LLM-assisted for ambiguous ones
-
-**Dependencies:** Phase 12.4
-**Requirements:** ENGN-07
-
-### Phase 12.6: Self-Healing Executor (INSERTED)
-
-**Goal:** Replace the band-aid regex command sanitizer with a self-healing execution loop. When a command fails, the executor captures stderr + exit code, feeds them back to the LLM with the original command, and lets the LLM generate a corrected command — like a human reading `--help`. Merges the best patterns from Superpowers (systematic-debugging 4-phase protocol, verification-before-completion evidence gates) and GSD (deviation auto-fix rules, checkpoint state, goal-backward verification) into InfraBrain's execution engine. This makes even weak local LLMs (7B) effective because the SYSTEM compensates for model limitations through error-driven self-correction.
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 12.6-01-PLAN.md — Self-healer module (TDD): types, config, correction prompt builder, LLM response parser, self-healing loop with safety pipeline -- completed 2026-03-14
-- [x] 12.6-02-PLAN.md — Executor integration + fixKnownCommandErrors removal + regression tests -- completed 2026-03-14
-- [x] 12.6-03-PLAN.md — Debug route wiring + integration test + Permission Trap live verification -- completed 2026-03-14
-
-**Scope:**
-1. Self-healing retry loop in executor: on command failure → capture stderr/exit code → LLM generates corrected command → retry (max N attempts, budget-tracked)
-2. Remove fixKnownCommandErrors() regex band-aid — self-healing replaces it
-3. Error context injection: failed command + stderr + exit code formatted as structured prompt for correction LLM call
-4. Correction budget: each self-heal attempt costs damage budget points (prevents infinite loops)
-5. Correction history: track original → corrected command pairs for learning/audit
-6. Verification gate: after self-healed command succeeds, verify actual effect (not just exit code 0)
-7. Permission Trap live DPEV must pass end-to-end with self-healing (no regex patches)
-
-**Success criteria:**
-1. LLM generates wrong `chown` syntax → executor catches error → LLM corrects → fix applies successfully
-2. fixKnownCommandErrors() removed — zero regex command patches remain
-3. Self-healing works across all skill types (linux-expert, postgres-expert, network-expert)
-4. Correction budget prevents runaway retry loops (max 3 self-heal attempts per step)
-5. All correction attempts audited (original command, error, corrected command, outcome)
-6. Permission Trap live test passes without any hardcoded command fixes
-7. All existing E2E tests pass (538+)
-
-**Dependencies:** Phase 12.5
-**Requirements:** ENGN-08
-
-### Phase 13: Execution Hardening (from multi-fault learnings)
-
-**Goal:** Fix the real-world gaps exposed by the 5-fault multi-fault demo. The engine diagnosed and fixed 4/5 faults fully autonomous — Phase 13 closes the remaining gaps so the next multi-fault test achieves 5/5 with zero manual intervention.
-
-**Plans:** 2/2 plans complete
-
-Plans:
-- [ ] 13-01-PLAN.md — Post-restart persistence verification (detect reverted config changes, self-heal retry)
-- [ ] 13-02-PLAN.md — Sanity checker tuning (structured diagnosis exemption, Docker tag whitelist) + model routing docs
-
-**Scope:**
-1. **Post-restart persistence verification** — after a fix + container restart, verify the fix persists. The Redis `sed` without `-i` bug: LLM changed runtime config but not the file, so restart reverted the fix. Add a verification step after restarts that re-checks the original symptom.
-2. **Sanity checker tuning** — `<original-image>` false positive cost 47s extra LLM call. Review hallucination patterns, remove over-aggressive ones, add structured diagnosis exemptions.
-3. **7-role model routing validation** — triage takes 13s with 122B (target: <3s). Validate that triage works with smaller models when multi-GPU is available. Document recommended model assignments per role.
-
-**Success criteria:**
-1. `sed -i` vs `sed` gap: self-healer detects when a restart reverts a fix and retries with persistent approach
-2. Sanity checker: zero false positives on valid structured diagnosis output
-3. Multi-fault demo: 5/5 faults fixed, zero manual intervention, total time under 10 minutes
-4. Dev logging shows every DPEV phase with model + timing (already shipped, needs E2E validation)
-
-**Research topics (may become Phase 13.1):**
-- **State Rollbacks** — when self-heal exhausts all attempts, restore pre-execution state (Docker commit snapshots, ZFS, or per-step rollback commands). Currently partial fixes are left in place on halt.
-- Existing `rollback` field on FixStep schema is rarely populated by LLM. Need infrastructure-level approach.
-
-**Dependencies:** Phase 12.6
-**Requirements:** ENGN-09
-
-### Phase 13.1: vLLM Multi-Model Integration (INSERTED)
-
-**Goal:** Replace Ollama's single-model-in-VRAM constraint with a unified OpenAI-compatible provider that works with both vLLM and Ollama via baseURL switching. Per-role baseURL routing enables hybrid deployment: vLLM serves fast small models (triage/routing), Ollama handles heavy models with CPU offloading. This unblocks the live demo and enables true multi-role routing.
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 13.1-01-PLAN.md — Config schema migration (defaultBaseUrl, ModelMapEntry union) + openai-compat provider module + unit tests -- completed 2026-03-17
-- [x] 13.1-02-PLAN.md — Caller migration (all imports, health/status routes, ollama.ts deletion) + full suite green -- completed 2026-03-17
-- [x] 13.1-03-PLAN.md — Config example + documentation (MODEL-ROUTING, VLLM-SETUP) + human verification checkpoint -- completed 2026-03-17
-
-**Scope:**
-1. **Unified provider** — `src/llm/openai-compat.ts` using `@ai-sdk/openai-compatible` replaces `src/llm/ollama.ts`. Same `ModelRegistry` interface, zero caller changes.
-2. **Config migration** — `defaultBaseUrl` replaces `ollamaBaseUrl` (backwards compatible). ModelMap entries accept string (legacy) or `{ model, baseUrl }` (per-role routing).
-3. **Multi-backend health** — health check probes all unique backends via OpenAI `/v1/models` endpoint.
-4. **Documentation** — hybrid deployment guide, vLLM setup on RunPod, config examples.
-
-**Success criteria:**
-1. Permission Trap DPEV runs end-to-end with vLLM (triage 9B + diagnosis 122B, no swap delay)
-2. `ai-sdk-ollama` removed, `src/llm/ollama.ts` deleted, zero Ollama-specific code
-3. Backwards compatible: string-only modelMap + defaultBaseUrl still works
-4. Health check reports per-backend status for mixed deployments
-5. Full test suite passes (597+ tests)
-
-**Dependencies:** Phase 13
-**Requirements:** ENGN-10
-
-## Planned: v1.3 Intelligence Platform
-
-**Goal:** Multi-model serving, model benchmarking per role, Qdrant vector search for declarative knowledge, and LoRA domain expertise — transforming InfraBrain from a single-model CLI tool into an intelligent platform.
-
-**Target features:**
-- vLLM multi-model serving (parallel models, no swapping overhead)
-- Model benchmarking framework: test each role (triage/default/strategic/forensic/worker) with different models, measure quality + latency
-- Qdrant + BGE-M3 for RAG-based diagnosis (vendor docs, runbooks, internal wikis)
-- **Fix Caching via Vector DB** — when the same error pattern has been solved before (e.g. "Redis bind 127.0.0.1"), retrieve the fix from Qdrant in 2s instead of 113s LLM reasoning. Pattern: `{error_signature + discovery_context}` → embed → similarity search → cached fix plan. This IS the Qdrant use case — for fixes, not just docs.
-- **Parallel Inference Pipeline** — while 122B reasons about diagnosis, 9B models pre-process logs, extract error patterns, check topology in parallel. Cuts diagnosis time in half. Requires vLLM multi-model serving.
-- LoRA production pipeline: domain Expert Packs (SAP, Cisco, VMware)
-- Optimal model assignment per role based on benchmark results
-
-**Depends on:** Phase 13.1 complete, multi-GPU hardware available
+<details>
+<summary>v1.2 The Knowledge Layer (Phases 12-13.1) -- SHIPPED 2026-03-17</summary>
+
+- [x] Phase 12: Linux Filesystem Permission Trap Scenario (3/3 plans) -- completed 2026-03-14
+- [x] Phase 12.1: Dynamic Command Rewriter (3/3 plans) -- completed 2026-03-14
+- [x] Phase 12.2: Skill-Driven Discovery (2/2 plans) -- completed 2026-03-14
+- [x] Phase 12.3: Agnostic Skills + Engine-Proof Rewriter (2/2 plans) -- completed 2026-03-14
+- [x] Phase 12.4: Agnostic Skill Redesign (3/3 plans) -- completed 2026-03-14
+- [x] Phase 12.5: Intelligent Routing + Framework Merge (3/3 plans) -- completed 2026-03-14
+- [x] Phase 12.6: Self-Healing Executor (3/3 plans) -- completed 2026-03-14
+- [x] Phase 12.6 Demo: Multi-Fault Validation -- validated 2026-03-15 (5/5 faults)
+- [x] Phase 13: Execution Hardening (2/2 plans) -- completed 2026-03-16
+- [x] Phase 13.1: vLLM Multi-Model Integration (3/3 plans) -- completed 2026-03-17
+
+**Total:** 9 phases + demo, 24 plans, Engine-First + Self-Healing + Multi-Model
+
+</details>
+
+## v1.3 The Intelligence Layer
+
+- [ ] **Phase 14: Pipeline Extraction + Parallel Discovery** - Extract debug.ts into pipeline orchestrator, run discovery commands in parallel with safety mutex
+- [ ] **Phase 15: Auto-Compact Context Management** - Token counting and automatic context compaction at 83% threshold with ground truth pinning
+- [ ] **Phase 16: Qdrant Fix-Caching** - Vector similarity search returns cached fixes in 2s instead of 113s LLM reasoning
+- [ ] **Phase 17: MemPalace Semantic Memory** - Native TypeScript incident memory with temporal knowledge graph and semantic search
+- [ ] **Phase 18: Parallel Inference Pipeline** - Concurrent 9B pre-processing + 122B reasoning via Promise.allSettled
+- [ ] **Phase 19: Ink/React Terminal UI** - Full terminal renderer with live DPEV tracking, streaming output, and rich dashboard
+
+## Phase Details
+
+### Phase 14: Pipeline Extraction + Parallel Discovery
+**Goal**: Discovery commands run in parallel (2-5x speedup) on a cleanly extracted pipeline that prevents merge conflicts for all subsequent phases
+**Depends on**: Phase 13.1 (unified OpenAI-compat provider)
+**Requirements**: EXEC-01, EXEC-02, EXEC-03, EXEC-04
+**Success Criteria** (what must be TRUE):
+  1. Discovery commands for a multi-container scenario complete in parallel (observable wall-clock speedup vs sequential)
+  2. Two commands targeting the same container never execute concurrently (mutex prevents race conditions)
+  3. Execution steps remain serial with circuit breaker and damage budget unchanged (safety preserved)
+  4. Parallel discovery results appear as a single merged context block in the LLM diagnosis prompt
+  5. debug.ts is under 200 lines with pipeline logic extracted to src/orchestrator/
+**Plans**: TBD
+
+### Phase 15: Auto-Compact Context Management
+**Goal**: Context window usage is tracked in real-time and automatically compacted before overflow, preserving ground truth while discarding noise
+**Depends on**: Phase 14 (pipeline orchestrator is integration point for context hooks)
+**Requirements**: CTXT-01, CTXT-02, CTXT-03, CTXT-04, CTXT-05, CTXT-06
+**Success Criteria** (what must be TRUE):
+  1. Admin can see token count and context usage percentage during a diagnosis session (dev-mode logging or status output)
+  2. A self-healing loop that would overflow 32K context triggers compaction automatically and completes without error
+  3. Critical data (container names, port numbers, error codes, discovery facts) survives compaction intact
+  4. Healthcheck spam and systemd journal noise are filtered out before reaching the LLM
+  5. Context compaction fires exactly once per threshold crossing (no recursive summarization loop)
+**Plans**: TBD
+
+### Phase 16: Qdrant Fix-Caching
+**Goal**: Repeat errors are resolved in under 2 seconds via vector similarity cache lookup, with zero LLM calls for cache hits
+**Depends on**: Phase 15 (auto-compact needed because cache metadata expands context)
+**Requirements**: CACHE-01, CACHE-02, CACHE-03, CACHE-04, CACHE-05, CACHE-06, CACHE-07, CACHE-08
+**Success Criteria** (what must be TRUE):
+  1. Running the same error scenario twice returns a cached fix on the second run (observable in terminal output as "Cache Hit" with provenance)
+  2. Cached fix resolves in under 2 seconds (vs 60-120s for LLM reasoning)
+  3. InfraBrain starts, diagnoses, and fixes problems normally when Qdrant container is unavailable (graceful degradation)
+  4. Updating a skill file invalidates stale cached fixes for that skill's domain
+  5. Qdrant container starts and stops automatically with InfraBrain (no manual docker commands)
+**Plans**: TBD
+
+### Phase 17: MemPalace Semantic Memory
+**Goal**: InfraBrain remembers every incident it has worked on and uses past experience to improve future diagnoses
+**Depends on**: Phase 16 (Qdrant infrastructure proven, shared instance)
+**Requirements**: MEM-01, MEM-02, MEM-03, MEM-04, MEM-05, MEM-06, MEM-07, MEM-08, MEM-09
+**Success Criteria** (what must be TRUE):
+  1. After fixing an incident, admin can ask "what did we fix last week?" and get a semantically relevant answer from memory
+  2. A new diagnosis session automatically receives relevant context from past similar incidents (wake-up context layers visible in dev logging)
+  3. Infrastructure entities (hostnames, service names, IPs) extracted from diagnostic text appear as searchable knowledge graph entries
+  4. Recent incidents score higher than old ones at equal semantic similarity (temporal decay observable in search results)
+  5. All memory mutations are recorded in a write-ahead log (audit trail for what was remembered and when)
+**Plans**: TBD
+
+### Phase 18: Parallel Inference Pipeline
+**Goal**: 9B models pre-process logs and extract patterns while 122B reasons about diagnosis, cutting total inference time
+**Depends on**: Phase 15 (auto-compact), Phase 16 (fix-cache), Phase 17 (stable feature set)
+**Requirements**: INFER-01, INFER-02, INFER-03, INFER-04, INFER-05
+**Success Criteria** (what must be TRUE):
+  1. During a diagnosis, 9B intent classification completes in under 200ms before 122B deep reasoning begins
+  2. 9B log pre-processing runs concurrently with 122B reasoning (observable via dev-mode timing logs showing overlapping model calls)
+  3. With only a single vLLM backend available, inference falls back to sequential mode transparently (no errors, same results)
+  4. Separate vLLM instances serve different model sizes without VRAM contention (health check shows multiple backends)
+**Plans**: TBD
+
+### Phase 19: Ink/React Terminal UI
+**Goal**: Admin interacts with InfraBrain through a rich, reactive terminal interface with live progress tracking, streaming output, and a status dashboard
+**Depends on**: Phase 14-18 (all backend features and SSE endpoints stable)
+**Requirements**: TERM-01, TERM-02, TERM-03, TERM-04, TERM-05, TERM-06, TERM-07, TERM-08
+**Success Criteria** (what must be TRUE):
+  1. Admin sees which DPEV phase is active, which model is being used, and elapsed time -- all updating live during diagnosis
+  2. LLM output streams token-by-token in the terminal (not buffered until complete)
+  3. Approval prompts render as interactive Ink components (Y/N/details) replacing readline
+  4. Terminal output adapts correctly to narrow (80-col) and wide (200-col) terminals without truncation or overflow
+  5. All existing CLI commands (`/infra:debug`, `/infra:status`, `/infra:history`, `/infra:resume`) work through the Ink renderer with identical behavior
+**Plans**: TBD
 
 ## Progress
+
+**Execution Order:** Phases 14 -> 15 -> 16 -> 17 -> 18 -> 19
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
@@ -323,10 +151,16 @@ Plans:
 | 12.4 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.5 | v1.2 | 3/3 | Complete | 2026-03-14 |
 | 12.6 | v1.2 | 3/3 | Complete | 2026-03-14 |
-| 12.6 Demo | v1.2 | — | Validated | 2026-03-15 (5/5 faults, 4 autonomous) |
+| 12.6 Demo | v1.2 | -- | Validated | 2026-03-15 |
 | 13 | v1.2 | 2/2 | Complete | 2026-03-16 |
-| 13.1 | v1.2 | Complete    | 2026-03-18 | 2026-03-17 |
+| 13.1 | v1.2 | 3/3 | Complete | 2026-03-17 |
+| 14 | v1.3 | TBD | Not started | - |
+| 15 | v1.3 | TBD | Not started | - |
+| 16 | v1.3 | TBD | Not started | - |
+| 17 | v1.3 | TBD | Not started | - |
+| 18 | v1.3 | TBD | Not started | - |
+| 19 | v1.3 | TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-03-17 — Phase 13.1 COMPLETE (3/3 plans, unified OpenAI-compat provider verified)*
+*Last updated: 2026-03-31 -- v1.3 Intelligence Layer roadmap added (6 phases, 40 requirements)*

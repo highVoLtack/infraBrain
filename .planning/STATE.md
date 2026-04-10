@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
-status: defining_requirements
-stopped_at: Defining requirements for v1.3
-last_updated: "2026-04-10T10:00:00.000Z"
-last_activity: 2026-04-10 -- Milestone v1.3 started, gathering requirements
+status: ready_to_plan
+stopped_at: Roadmap created for v1.3, ready to plan Phase 14
+last_updated: "2026-03-31T12:00:00.000Z"
+last_activity: 2026-03-31 -- v1.3 roadmap created (6 phases, 40 requirements mapped)
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,363 +17,52 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-10)
+See: .planning/PROJECT.md (updated 2026-03-31)
 
-**Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control — every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.3 The Intelligence Layer
+**Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control -- every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
+**Current focus:** v1.3 The Intelligence Layer -- Phase 14 (Pipeline Extraction + Parallel Discovery)
 
 ## Current Position
 
-Phase: 13.1-vllm-multi-model-integration
-Plan: 03 of 03 complete
-Status: Phase 13.1 COMPLETE
-Last activity: 2026-03-17 -- Config example, docs, and user-verified provider swap (Plan 13.1-03)
+Phase: 14 of 19 (Pipeline Extraction + Parallel Discovery)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-03-31 -- v1.3 roadmap created
+
+Progress: [░░░░░░░░░░] 0%
+
+## Performance Metrics
+
+**Velocity:**
+- v1.0: 7 phases, 22 plans (6 days)
+- v1.1: 4 phases, 10 plans (1 day)
+- v1.2: 9 phases, 24 plans (4 days)
+- v1.3: 6 phases, TBD plans
+
+**Recent Trend:** Stable -- phases complete in 1-2 sessions each
 
 ## Accumulated Context
 
-### From v1.1
-- Engine-First Architecture proven: SQL Rewriter, Sanity Checker, findDbContainer, stripHostFlag
-- Multi-model registry with domain-expertise routing (default/strategic/forensic)
-- 440 tests passing across 42 files, 60+ source files
-- Anti-hallucination hardening: MANDATORY_EXECUTION_PROTOCOL, GROUND TRUTH labels, Zod schema
-- TOON encoding validated for structured data compression
+### Decisions
 
-### From v1.0
-- Full DPEV loop (Diagnose → Plan → Execute → Verify) proven end-to-end
-- CLI + REST API architecture, dual state storage (files + SQLite)
-- Safety system: circuit breaker, damage budget, HITL approval, rollback
-- Ollama provider abstraction with pluggable model support
+- [v1.3]: MemPalace in native TypeScript (no Python sidecar, no ChromaDB, no MCP)
+- [v1.3]: Qdrant is single vector store for both fix-caching and semantic memory
+- [v1.3]: 100% air-gapped, zero external API calls
+- [v1.3]: Extract debug.ts pipeline before feature work (prevents merge conflicts)
+- [v1.3]: Build backend features before UI (Ink last over stable APIs)
 
-### Roadmap Evolution
+### Pending Todos
 
-- Phase 12 inserted as first v1.2 phase: Linux Filesystem Permission Trap Scenario (URGENT) — prove OS-level troubleshooting without DB logic
-- Phase 12.1 inserted: Dynamic Command Rewriter — Permission Trap revealed hardcoded SQL Rewriter doesn't scale. New skill-driven rewrite engine replaces scenario-specific TypeScript
-- Phase 13.1 inserted after Phase 13: vLLM Multi-Model Integration (URGENT) — Ollama single-model-in-VRAM blocks multi-role routing and kills demo performance. vLLM serves OpenAI-compatible API with parallel models.
+None yet.
 
-### From Phase 12-01
-- Permission trap demo: demo/permission-trap/ with compose, Dockerfile, app.py, reset script
-- Container stays alive after PermissionError via sleep loop for docker exec diagnostics
-- Single-service compose, no ports/volumes -- all state inside container
+### Blockers/Concerns
 
-### From Phase 12-02
-- linux-filesystem-troubleshoot skill with 4-step Diagnostic Ladder (permission correlation)
-- 4 discovery commands registered for ground truth injection (docker ps -a, logs, ls -ld, id)
-- Safety rules: id/stat=READ, chown/chmod/docker-exec=WRITE
-- Preferred fix pattern: chown over chmod 777
-
-### From Phase 12-03
-- Full DPEV E2E test: 4 sequential tests covering broken state, diagnosis, fix execution, audit trail
-- Mocked LLM with Diagnostic Ladder reasoning for permission correlation
-- Fix uses chown 1000:1000 + restart (not chmod 777)
-- Recovery verified via log polling (container may exit after successful PID write)
-- No DB-specific logic -- pure OS-level troubleshooting proven
-
-### From Phase 12.1-01
-- dynamicRewrite() pure function: regex-match pipeline with strip-then-wrap-then-exec
-- RewriteRuleSchema (Zod): match, container, user, wrapper, risk, strip_flags
-- Container auto-resolution: "auto" -> first discovered, specific -> verify + fallback
-- First-match-wins rule ordering, case-insensitive regex
-- 21 unit tests covering all rewrite behaviors
-
-### From Phase 12.1-02
-- RewriteRuleSchema defined inline in types.ts (Plan 01 not yet delivered)
-- 3 skills migrated with declarative rewrite_rules in YAML frontmatter
-- Backwards-compatible: skills without rewrite_rules default to []
-
-### From Phase 12.1-03
-- debug.ts wired to dynamicRewrite() replacing hardcoded rewriteForContainer()
-- Both structured diagnosis and generateFixPlan paths apply dynamic rewriting
-- extractContainerNames() handles both "Running containers" and "All containers with status" discovery keys
-- DB container prioritized at front of targetContainers via findDbContainer()
-- rewriteForContainer() and stripHostFlag() marked @deprecated in runner.ts
-- 475 tests passing (2 pre-existing nginx E2E failures out of scope)
-
-### From Phase 12.2-01
-- DiscoveryCommandSchema validates command+label pairs via Zod with min-length constraints
-- discovery field on SkillFrontmatterSchema defaults to [] for backwards compatibility
-- 16 discovery commands migrated from hardcoded DISCOVERY_COMMANDS into 4 skill YAML files
-- YAML single-quoted strings handle Go template syntax ({{.Names}}) and embedded SQL quotes ('idle')
-
-### From Phase 12.2-02
-- DISCOVERY_COMMANDS constant fully removed from debug.ts (61 lines of hardcoded domain knowledge deleted)
-- runDiscovery refactored to take SkillFile argument, reads from skill.frontmatter.discovery
-- debug.ts is now a 100% Agnostic Engine -- zero hardcoded domain knowledge remains
-- 477 tests passing, all E2E scenarios work with skill-driven discovery
-
-### From Phase 12.3-01
-- parseDockerExec() token-walk parser: extracts flags, container, inner command from docker exec strings
-- Docker exec branch in dynamicRewrite(): parse -> match inner against rules -> inject user -> strip -it -> reassemble
-- No double-injection: checks for existing -u/--user before injecting rule.user
-- Belt-and-suspenders -it stripping in rewriter (complements validator.ts sanitizeDockerExec)
-- 29 unit tests (21 existing + 8 new docker-exec-aware), 488 full suite passing
-
-### From Phase 12.3-02
-- COMMAND-ONLY MODE sections added to linux-filesystem-troubleshoot.md and docker-storage.md
-- Skill examples updated to bare commands -- engine handles docker exec wrapping
-- Three-skill-mode taxonomy established: SQL-ONLY (postgres), COMMAND-ONLY (linux-fs, docker-storage), as-is (nginx)
-- E2E validation confirms docker-exec-aware rewriter handles canned fix plans correctly (no changes needed)
-- Phase 12.3 complete -- engine-first architecture fully proven across all skill types
-
-### From Phase 12.4-01
-- ToolDeclarationSchema: risk (required), user, wrapper, strip_flags, container (default 'auto')
-- SkillFrontmatterSchema tools field: z.union([string[], Record<string, ToolDeclaration>]).default({})
-- toolsToRewriteRules() adapter converts unified tool map to RewriteRule[] for dynamicRewrite()
-- allowlist.ts uses Array.isArray() to detect format, Object.keys() for map tools
-- debug.ts derives rewrite rules from tool map for new-format skills, falls back to rewrite_rules for legacy
-- context.ts generateToolList() auto-injects YOUR TOOLS section into system prompt for map-format skills
-- Removed unused version and author fields from SkillFrontmatterSchema
-- 489 tests passing, zero regressions
-
-### From Phase 12.4-02
-- 3 universal expert skills: linux-expert (permissions+disk+OOM), postgres-expert (connections+deadlocks+slow queries), network-expert (HTTP+proxy+Docker networking)
-- Domain Knowledge sections replace Diagnostic Ladders -- LLM reasons from knowledge, not scripted steps
-- All skills use map-format tools with risk classification, no hardcoded container names
-- Generic discovery commands only (docker ps -a, docker stats --no-stream)
-- 4 old scenario-specific skills deleted: linux-filesystem-troubleshoot, docker-storage, postgres-troubleshoot, nginx-troubleshoot
-- log-analysis.md converted to map-format tools
-- 6 total skills: linux-expert, postgres-expert, network-expert, log-analysis, planning, verification
-
-### From Phase 12.4-03
-- All 4 E2E tests migrated: permission-trap, docker-storage, nginx-502, postgres-connleak use universal expert skills
-- 2 new loader tests: map-format tools validation, real skills directory integration (6 skills)
-- 506 tests passing, 2 pre-existing nginx E2E failures, 4 skipped
-- Phase 12.4 complete: tool schema + universal skills + test migration all delivered
-
-### From Phase 12.5-01
-- SkillFrontmatterSchema extended with negative_triggers and when_not_to_use (both default to [])
-- EnrichedSkillSummary interface exported from registry.ts for typed routing data
-- registry.list() returns enriched objects: name, description, triggers, negative_triggers, when_not_to_use, priority
-- log-analysis triggers narrowed to 6 log-specific terms (error/debug/diagnose/why removed)
-- log-analysis has 8 negative_triggers and 3 when_not_to_use for routing exclusion
-- All 6 skills have negative_triggers and when_not_to_use in frontmatter
-- 512 tests passing, 2 pre-existing nginx E2E failures, 4 skipped
-
-### From Phase 12.5-02
-- preFilterSkills() Level 0 pre-filter: positive trigger match + negative trigger exclusion
-- Two-tier routing in selectSkill(): pre-filter narrows candidates, LLM resolves ambiguity
-- Single-candidate shortcut skips LLM call entirely (deterministic for clear prompts)
-- ROUTING_CONSTITUTION with Negative Selection protocol exported from context.ts
-- buildRoutingPrompt() accepts EnrichedSkillSummary[] with triggers/when_not_to_use/priority
-- enforceDPEVSequence() validates DPEV ordering at phase transitions in debug route
-- Debug route tracks completedPhases array (discovery -> diagnosis -> plan)
-- 523 tests passing, 2 pre-existing nginx E2E failures, 4 skipped
-
-### From Phase 12.5-03
-- Permission trap demo parameterized via DATA_DIR env var (app.py + Dockerfile ARG/ENV)
-- Remix scenario: vault-processor-99 container with /var/lib/internal/secrets path
-- E2E test discovers container name and data path dynamically -- zero hardcoded strings
-- Full DPEV chain proven with remix: linux-expert routing, chown -u 0 fix, PID recovery
-- Phase 12.5 complete: skill schema + two-tier routing + agnosticism proof delivered
-- 523 tests passing, 2 pre-existing nginx E2E failures, 4 skipped
-
-## Decisions
-
-- Classified docker exec as WRITE (conservative -- can run arbitrary commands inside containers)
-- Followed existing skill structure (docker-storage.md pattern) for consistency
-- Poll logs for recovery signal instead of docker exec after restart (container exits after success)
-- Defined RewriteRuleSchema inline in types.ts since Plan 01 dynamic-rewriter.ts not yet created
-- Used YAML single-quoted strings for regex patterns in skill frontmatter to avoid escape issues
-- Wrapper {cmd} replaces with full stripped command -- wrapper is the entire executable line
-- Empty containers list causes passthrough (no container = no docker exec wrapping)
-- DB container prioritized at front of targetContainers list for rewrite rule resolution
-- Rewrite rules and containers extracted once before diagnosis, shared by both code paths
-- Kept findDbContainer in debug.ts for DB container prioritization (not deprecated)
-- [Phase 12.2]: YAML single-quoted strings for Go template syntax and embedded quotes in discovery commands
-- [Phase 12.2]: Discovery commands declared in skill YAML frontmatter, not hardcoded in TypeScript
-- [Phase 12.2-02]: SkillFile import added for typed runDiscovery signature instead of string-based lookup
-- [Phase 12.3-01]: Token-walk parser over regex for docker exec flag parsing -- more robust for value-flags
-- [Phase 12.3-01]: parseDockerExec not exported -- internal helper, not public API
-- [Phase 12.3-01]: User injection prepended to flag list for consistent docker exec formatting
-- [Phase 12.3]: Token-walk parser over regex for docker exec flag parsing
-- [Phase 12.3-02]: Discovery frontmatter commands kept as-is -- engine-executed, not LLM-generated
-- [Phase 12.3-02]: Infrastructure commands (docker restart/logs/ps) left in skill text -- not inside-container commands
-- [Phase 12.3-02]: No E2E test changes needed -- docker exec parser handles existing canned fix plans correctly
-
-- [Phase 12.4-01]: ToolDeclarationSchema requires risk field -- tools must declare their risk level
-- [Phase 12.4-01]: Default tools to {} (empty map) not [] -- new-format-first design
-- [Phase 12.4-01]: z.union([string[], Record]) with .default({}) for backward-compat migration
-- [Phase 12.4-01]: generateToolList injected only for map-format skills, not legacy string[]
-- [Phase 12.4-01]: Removed unused version and author fields from SkillFrontmatterSchema
-
-- [Phase 12.4-02]: linux-expert merges filesystem permissions + disk pressure + OOM into single universal skill
-- [Phase 12.4-02]: Discovery commands are generic only -- LLM gathers evidence using tools guided by domain knowledge
-- [Phase 12.4-02]: Old skills deleted (not deprecated) to avoid registry confusion
-- [Phase 12.4-02]: log-analysis.md tool "docker logs" changed to "docker" key in map format
-- [Phase 12.4]: Universal expert skills replace scenario-specific skills: linux-expert merges permissions+disk+OOM, Domain Knowledge over Diagnostic Ladders
-
-- [Phase 12.4-03]: Mock skill objects in unit tests kept with old names -- self-contained fixtures that don't use registry.get()
-- [Phase 12.4-03]: 2 pre-existing nginx E2E failures remain out of scope (Docker networking environment issue)
-
-- [Phase 12.5-01]: negative_triggers and when_not_to_use use .default([]) for backwards compatibility
-- [Phase 12.5-01]: log-analysis triggers narrowed per user decision -- broad terms removed to prevent over-matching
-- [Phase 12.5-01]: EnrichedSkillSummary exported as named interface for router.ts/context.ts imports
-- [Phase 12.5-01]: registry.list() return type is breaking change -- Plan 02 updates callers
-- [Phase 12.5]: negative_triggers and when_not_to_use use .default([]) for backwards compatibility
-
-- [Phase 12.5-02]: preFilterSkills returns ALL skills on empty result (safety net for unrecognized queries)
-- [Phase 12.5-02]: Single-candidate shortcut skips LLM entirely for deterministic routing
-- [Phase 12.5-02]: negative_triggers are Level 0 only -- never sent to LLM (when_not_to_use goes to LLM via routing prompt)
-- [Phase 12.5-02]: DPEV enforcement is additive -- validates at transitions but doesn't restructure handler
-- [Phase 12.5-02]: Discovery auto-completes after runDiscovery returns (whether commands exist or not)
-
-- [Phase 12.5-03]: DATA_DIR defaults to /app/data for full backwards compatibility with original demo
-- [Phase 12.5-03]: Container name discovered via docker compose ps, data path via docker exec printenv
-- [Phase 12.5-03]: Canned fix plan built inside beforeAll after dynamic discovery (not at module scope)
-
-### Post-Phase 12.5 Live Testing (2026-03-14)
-- GROUND TRUTH injection into planner: discoveryContext passed through to fix plan LLM prompt
-- Shell mode discovery: runDiscovery uses needsShell() + runShellCommand() for complex commands
-- Error-only log filtering: discovery greps for error/fatal/denied/fail only (2966 → 176 tokens)
-- Agnostic discovery E2E test: random container name + random path, 6 tests proving zero hardcoded values
-- Planning skill routed to strategic model (llama3.3:70b) for better command generation
-- Docker command sanitizer (fixKnownCommandErrors): strips -it, fixes -u placement, replaces $(id -u/g)
-- CRITICAL FINDING: Local LLMs (7B-70B) ALL generate wrong chown/docker exec syntax -- different variant each run
-- DECISION: Self-healing executor needed (error → LLM correction → retry) instead of regex band-aids
-- Next: Merge Superpowers + GSD patterns into self-healing executor architecture
-- 538 tests passing (2 pre-existing nginx E2E failures)
-
-### From Phase 12.6-01
-- selfHealStep() correction loop: on failure, asks LLM for corrected command, validates through full safety pipeline, retries up to 3 times
-- buildCorrectionPrompt: fresh each time (no previous attempts), includes stderr, exit code, step description, tools
-- extractCommandFromLLMResponse: strips markdown fences, prose prefixes, short lines
-- validateCorrectedCommand: enforceSkillAllowlist + validateCommand + dynamicRewrite pipeline
-- verifyEffect: for WRITE/DESTRUCTIVE-risk steps, LLM generates read-only verification command after exit 0
-- Fail-open verification: bad verification commands skip rather than block successful fixes
-- CorrectionAttempt, SelfHealResult, SelfHealContext types in execution/types.ts
-- selfHealing config section: maxAttempts=3, correctionTimeoutMs=15000
-- self_heal_attempt and self_heal_exhausted audit event types
-- 22 new tests, 560 total passing (2 pre-existing nginx E2E failures)
-
-### From Phase 12.6-02
-- Self-healing wired into executor step loop: failed commands routed to selfHealStep when correctionModel+skill present
-- CircuitBreaker fallback preserved for callers without self-healing deps (backwards compatible)
-- fixKnownCommandErrors deleted from planner.ts (50 lines of regex patches removed)
-- Rolling context tracks actual corrected command, not original failed command
-- ExecutionDeps extended with optional correctionModel, skill, rewriteRules, containers
-- 556 tests passing (4 new, 8 removed, 2 pre-existing nginx E2E failures)
-
-### From Phase 12.6-03
-- Debug route and execute route wire correctionModel, skill, rewriteRules, containers into ExecutionDeps
-- Integration test proves full self-healing pipeline (error -> LLM correction -> safety -> retry -> success)
-- Self-healing correction prompts enriched with skill context (tool names, risk levels, domain knowledge)
-- Dynamic error-driven progress detection: different stderr between attempts = forward progress signal
-- Permission Trap live DPEV: self-healer suggested -u 0, detected error-type change, adopted corrected command
-- Log Bloat Trap live DPEV: stripped -it flags, added -u 0, truncated logs, disk 100% -> 0%
-- Phase 12.6 complete: self-healing executor fully operational, zero regex command patches
-- 574 tests passing (568 + 6 new from enrichment)
-
-## Decisions
-
-- [Phase 12.6-02]: Self-healing deps optional on ExecutionDeps for backwards compatibility
-- [Phase 12.6-02]: First attempt runs directly (no CircuitBreaker), self-healing on failure only
-- [Phase 12.6-02]: needsShell() applied to first attempt too (shell mode for piped commands)
-- [Phase 12.6-02]: fixKnownCommandErrors deleted entirely -- self-healing replaces it
-
-- [Phase 12.6-03]: correctionModel sourced from registry.get('default') for general-purpose syntax corrections
-- [Phase 12.6-03]: Both execute route and debug route wire self-healing deps (not just debug route)
-- [Phase 12.6-03]: Correction prompts enriched with skill context after live testing showed LLM needs domain awareness
-- [Phase 12.6-03]: Error-type change detection added -- different stderr between attempts = forward progress
-
-- [Phase 12.6-01]: Fresh correction prompt per attempt (no previous attempt history) per user decision
-- [Phase 12.6-01]: Fail-open verification: bad verification commands skip rather than block successful fixes
-- [Phase 12.6-01]: Effect verification only for WRITE and DESTRUCTIVE risk steps, not READ
-- [Phase 12.6-01]: Safety-blocked corrections count as attempts and deduct budget
-
-### Post-Phase 12.6 Multi-Fault Demo (2026-03-15)
-
-**Result: 5/5 faults fixed across 3 debug→execute cycles**
-- Cycle 1: DB auth (CREATE/ALTER USER), network connect (dataplane), worker network
-- Cycle 2: Spool permissions (chown via alpine container — self-healer required 7 attempts)
-- Cycle 3: Redis bind 127.0.0.1→0.0.0.0 (CONFIG SET + sed -i config file)
-- 4/5 faults fully autonomous; Redis config fix needed manual `sed -i` assist (LLM wrote to stdout instead of in-place)
-
-**Code changes shipped this session:**
-- 7-role model routing: triage, default, strategic, forensic, worker, vision, embedding
-- Self-healing escalation: worker→strategic→forensic with EscalationAdvice in API response
-- Dev-mode logging: [TRIAGE], [DISCOVERY], [DIAGNOSIS], [PLANNING], [SANITY], [SELF-HEAL] with model+timing
-- Lock filename sanitization (URLs in target no longer crash)
-- Removed inferCorrectionHints (no scripted solutions — LLM reasons from stderr)
-- maxAttempts default 3→5
-- README: RunPod SSH tunnel guide, 7-role model documentation
-- config.example.json: connection modes, role descriptions
-
-**Key learnings:**
-1. Cloudflare proxy 100s timeout is #1 perf killer → SSH tunnel mandatory for 122B models
-2. Ollama model swapping: 60s+ per switch, only 1 model in VRAM at a time → need multi-GPU or single model
-3. `sed` without `-i`: LLM writes to stdout not in-place → need post-restart persistence verification
-4. GLM-4.7-Flash cannot reason about state changes ("already exists → ALTER") — too weak for self-heal corrections
-5. 122B works for everything but too slow for triage (13s vs <3s target)
-6. Sanity checker catches hallucinations but costs extra 47s when triggered
-7. SSH tunnel eliminates all timeout issues — diagnosis went from 300s+ to 42s total
-
-**Decisions:**
-- [2026-03-15]: 7-role routing replaces 3-role (triage/default/strategic/forensic/worker/vision/embedding)
-- [2026-03-15]: Self-healing escalates worker→strategic→forensic (not fixed to single model)
-- [2026-03-15]: inferCorrectionHints removed — scripted hints made LLM ignore real stderr context
-- [2026-03-15]: maxAttempts raised 3→5 — complex permission/network faults need more correction cycles
-- [2026-03-15]: Lock filename sanitization needed before URL-containing targets are used as filenames
-
-### From Phase 13-01
-- persistence-verification.ts: isConfigModification (sed/tee/echo/CONFIG SET/ALTER SYSTEM), isRestartStep (docker restart/systemctl restart/reload)
-- verifyPersistence orchestrator: waits configurable delay, re-verifies each tracked config mod via verifyEffect, marks reverted changes
-- Executor wiring: tracks ConfigModificationRecord[] during step loop, triggers verification on restart step when self-healing deps present
-- Reverted config changes re-executed through selfHealStep with "persistent approach" hint in description
-- restartVerificationDelayMs config (default 3000ms) in selfHealing schema
-- config_reverted_after_restart, persistence_fix_failed, self_heal_progress audit event types added
-- 597 tests passing (20 new persistence-verification tests)
-
-### From Phase 13-02
-- DOCKER_LEGITIMATE_TAGS whitelist: none, missing, local, original-image, no-value — eliminates 47s false-positive retry penalty
-- checkForHallucinations: angle-bracket pattern extracted into separate scan with Set-based whitelist lookup
-- Structured diagnosis (generateObject + Zod) bypasses sanity checker entirely — only free-text runs hallucination check
-- docs/MODEL-ROUTING.md: 7-role definitions, latency evidence from multi-fault demo, config example, escalation path
-- 597 tests passing (21 sanity checker tests, 10 new), 6 pre-existing E2E failures unchanged
-
-- [Phase 13-01]: Fail-open on verifyEffect skip -- config mod treated as persisted if LLM can't verify
-- [Phase 13-01]: Persistence fix non-blocking -- original step succeeded, retry is bonus verification
-- [Phase 13-01]: Config modifications cleared after handling to avoid re-checking on subsequent restarts
-
-### Live Testing Session (2026-03-17)
-- SSH Tunnel via autossh (brew install autossh) — much more stable than raw ssh
-- Ollama single-model constraint confirmed BRUTAL for demos: 122B→35B swap blocks for minutes
-- Config location: .infrabrain/config.json (NOT config.json in root)
-- Permission Trap DPEV (Diagnosis+Planning) succeeded with 122B single-model config
-- Fix plan generated: chown 1000:1000 + chmod 755 (correct root cause identified)
-- Execute step not tested — tunnel instability killed sessions
-- DECISION: Skip Ollama multi-model routing. Move to vLLM for parallel model serving.
-- Phase 13 code complete (persistence verification + sanity tuning), live validation deferred to after vLLM integration
-
-### From Phase 13.1-01
-- @ai-sdk/openai-compatible replaces ai-sdk-ollama: unified provider for both vLLM and Ollama via OpenAI API
-- createCompatModel + createModelRegistry in src/llm/openai-compat.ts (drop-in replacement for ollama.ts)
-- ModelMapEntrySchema: z.union([string, {model, baseUrl}]) — per-role baseURL routing
-- defaultBaseUrl replaces ollamaBaseUrl in config schema (z.preprocess for backwards compat)
-- Provider cache: Map<baseURL, provider> avoids duplicate instances (7 roles, 1 URL = 1 provider)
-- supportsStructuredOutputs: true for vLLM guided decoding compatibility
-- DEFAULT_HEALTH_URL uses /models endpoint (OpenAI standard, works for both backends)
-- 22 new tests, 620 total passing (pre-existing E2E failures unchanged)
-
-### From Phase 13.1-03
-- config.example.json shows three deployment modes: legacy string, hybrid (per-role baseUrl), full vLLM
-- docs/VLLM-SETUP.md: RunPod deployment guide with SSH tunnel setup and troubleshooting
-- docs/MODEL-ROUTING.md extended with per-role backend routing section
-- User verified provider swap: RunPod Ollama with 5 models (qwen3.5:9b, qwen3.5:35b-a3b, glm-4.7-flash, qwen3.5:122b-a10b, bge-m3)
-- CLI health display fixed for multi-backend response format (commands.ts + repl.ts)
-- Phase 13.1 COMPLETE: unified OpenAI-compatible provider operational, ready for vLLM integration
-
-## Decisions
-
-- [Phase 13.1-01]: z.preprocess for ollamaBaseUrl migration (runs before validation, cleanest for field rename)
-- [Phase 13.1-01]: defaultBaseUrl includes /v1 suffix by default (Ollama's OpenAI compat requires it)
-- [Phase 13.1-01]: supportsStructuredOutputs: true at provider level for generateObject compatibility
-- [Phase 13.1-01]: OLLAMA_HEALTH_URL deprecated alias kept until Plan 02 migrates callers
-- [Phase 13.1-01]: defaultBaseUrl takes precedence when both ollamaBaseUrl and defaultBaseUrl present
-
-- [Phase 13.1-03]: Config example shows three deployment modes (legacy/hybrid/full vLLM) for migration guidance
-- [Phase 13.1-03]: CLI health display adapted for multi-backend response format during user verification
+- MemPalace TypeScript data model has no reference implementation (highest-risk phase)
+- vLLM concurrent 7B+32B on single 32GB GPU needs benchmarking (Phase 18)
+- Qdrant BGE-M3 embeddings need validation for both error patterns and incident summaries
 
 ## Session Continuity
 
-Last session: 2026-03-17T20:50:00Z
-Stopped at: Phase 13.1 COMPLETE (all 3 plans delivered, user-verified)
-Next: v1.3 Intelligence Platform planning — vLLM multi-model serving, model benchmarking, Qdrant vector search.
+Last session: 2026-03-31
+Stopped at: v1.3 roadmap created, all 40 requirements mapped to 6 phases
+Resume: `/gsd:plan-phase 14`
