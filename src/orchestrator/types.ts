@@ -52,6 +52,16 @@ export type SkillSelection = z.infer<typeof SkillSelectionSchema>;
 export type DiagnosticStep = z.infer<typeof DiagnosticStepSchema>;
 export type StructuredDiagnosis = z.infer<typeof StructuredDiagnosisSchema>;
 
+export interface DiscoveryCommand {
+  command: string;
+  label: string;
+}
+
+export interface DiscoveryResult {
+  context: string;    // TOON-encoded for LLM
+  raw: Record<string, string>;  // label -> output
+}
+
 export interface OrchestratorResult {
   skill: SkillFile;
   diagnosis: string;
