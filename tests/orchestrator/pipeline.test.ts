@@ -28,6 +28,16 @@ vi.mock('../../src/orchestrator/diagnosis.js', async (importOriginal) => {
     runDiagnosis: vi.fn(),
   };
 });
+// Mock cache modules to prevent real LanceDB/embedding calls in pipeline tests
+vi.mock('../../src/cache/cache-lookup.js', () => ({
+  checkCache: vi.fn().mockResolvedValue({ type: 'miss' }),
+}));
+vi.mock('../../src/cache/lance-store.js', () => ({
+  getCacheStore: vi.fn(() => ({
+    init: vi.fn().mockResolvedValue(undefined),
+    search: vi.fn().mockResolvedValue([]),
+  })),
+}));
 
 import { runDPEV } from '../../src/orchestrator/pipeline.js';
 import { selectSkill } from '../../src/orchestrator/router.js';

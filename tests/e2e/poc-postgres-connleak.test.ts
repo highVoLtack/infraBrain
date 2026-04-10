@@ -23,6 +23,14 @@ vi.mock('../../src/orchestrator/planner.js', async (importOriginal) => {
 vi.mock('../../src/orchestrator/context.js', () => ({
   buildMessages: vi.fn(() => ({ system: 'You are a diagnostic specialist.', messages: [] })),
 }));
+vi.mock('../../src/cache/cache-lookup.js', () => ({
+  checkCache: vi.fn().mockResolvedValue({ type: 'miss' }),
+}));
+vi.mock('../../src/cache/lance-store.js', () => ({
+  getCacheStore: vi.fn(() => ({
+    init: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
 
 import type { Express } from 'express';
 import { createServer } from '../../src/api/server.js';

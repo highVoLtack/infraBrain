@@ -1,5 +1,5 @@
 import type { LLMProvider } from '../llm/types.js';
-import type { ModelRole } from '../config/types.js';
+import type { ModelRole, ModelMapEntry } from '../config/types.js';
 import type { AuditLogger } from '../audit/logger.js';
 import type { ValidationResult } from '../safety/types.js';
 import type { SkillRegistry } from '../skills/registry.js';
@@ -7,6 +7,10 @@ import type { SkillFile } from '../skills/types.js';
 import type { WriteThrough } from '../state/store.js';
 import type { InfraBrainConfig } from '../config/types.js';
 import type { FixPlan, StructuredDiagnosis } from './types.js';
+import { checkCache } from '../cache/cache-lookup.js';
+import { getCacheStore } from '../cache/lance-store.js';
+import type { CacheStore } from '../cache/lance-store.js';
+import { DEFAULT_CACHE_CONFIG, DEFAULT_CONFIDENCE_CONFIG } from '../cache/types.js';
 
 import { selectSkill } from './router.js';
 import { generateFixPlan, generatePlanMarkdown, formatPlanTable } from './planner.js';
@@ -45,6 +49,15 @@ export interface DPEVInput {
   store?: WriteThrough;
   config?: InfraBrainConfig;
   sessionId?: string;
+  noCache?: boolean;
+}
+
+export interface CacheHitProvenance {
+  similarity: number;
+  confidence: number;
+  originalSessionId: string;
+  originalDate: string;
+  skillName: string;
 }
 
 export interface DPEVResult {
@@ -62,6 +75,7 @@ export interface DPEVResult {
   containers?: string[];
   executeHint?: string;
   hallucinationError?: { violations: string[]; hint: string };
+  cacheHit?: CacheHitProvenance;
 }
 
 // ---------------------------------------------------------------------------
@@ -221,6 +235,82 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   const targetContainers = dbContainer
     ? [dbContainer, ...allContainers.filter(c => c !== dbContainer)]
     : allContainers;
+
+  // --- Cache check: between noise filter and diagnosis ---
+  if (!input.noCache) {
+    let cacheStore: CacheStore | null = null;
+    const cacheEnabled = input.config?.cache?.enabled !== false;
+    if (cacheEnabled) {
+      try {
+        cacheStore = getCacheStore(input.config?.cache?.dataDir ?? DEFAULT_CACHE_CONFIG.data_dir);
+        await cacheStore.init();
+      } catch { cacheStore = null; }
+    }
+
+    // Resolve embedding model config from modelMap
+    const embeddingEntry = input.config?.modelMap?.embedding as ModelMapEntry | undefined;
+    const embeddingBaseURL = typeof embeddingEntry === 'object' && embeddingEntry !== null
+      ? (embeddingEntry as { baseUrl: string }).baseUrl
+      : (input.config?.defaultBaseUrl ?? 'http://localhost:11434/v1');
+    const embeddingModelId = typeof embeddingEntry === 'string'
+      ? embeddingEntry
+      : typeof embeddingEntry === 'object' && embeddingEntry !== null
+        ? (embeddingEntry as { model: string }).model
+        : 'bge-m3';
+
+    const cacheResult = await checkCache({
+      prompt,
+      filteredDiscovery: filteredRaw,
+      store: cacheStore,
+      baseURL: embeddingBaseURL,
+      modelId: embeddingModelId,
+      cacheConfig: {
+        enabled: cacheEnabled,
+        similarity_threshold: input.config?.cache?.similarityThreshold ?? DEFAULT_CACHE_CONFIG.similarity_threshold,
+        soft_zone_floor: input.config?.cache?.softZoneFloor ?? DEFAULT_CACHE_CONFIG.soft_zone_floor,
+        data_dir: input.config?.cache?.dataDir ?? DEFAULT_CACHE_CONFIG.data_dir,
+      },
+      confidenceConfig: input.config?.cache?.confidenceWeights ?? DEFAULT_CONFIDENCE_CONFIG,
+    });
+
+    if (cacheResult.type === 'fast-path') {
+      // Fast-path: skip LLM diagnosis entirely, return cached fix
+      const cachedEntry = cacheResult.hit.entry;
+      let cachedFixPlan: FixPlan | undefined;
+      try {
+        cachedFixPlan = JSON.parse(cachedEntry.fix_plan);
+      } catch { /* invalid JSON, skip fix plan */ }
+
+      return {
+        sessionId: input.sessionId ?? '',
+        skillMessage: `Using skill: ${selection.skill.frontmatter.name} -- ${selection.reasoning}`,
+        diagnosis: cachedEntry.diagnosis,
+        commands: [],
+        ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
+        ...(cachedFixPlan && { fixPlan: cachedFixPlan }),
+        skillName: selection.skill.frontmatter.name,
+        ...(targetContainers.length > 0 && { containers: targetContainers }),
+        cacheHit: {
+          similarity: cacheResult.hit.similarity,
+          confidence: cacheResult.hit.confidence,
+          originalSessionId: cachedEntry.session_id,
+          originalDate: cachedEntry.created_at,
+          skillName: cachedEntry.skill_name,
+        },
+        ...(cachedFixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName, skillName, containers }' }),
+      };
+    }
+
+    if (cacheResult.type === 'speculative') {
+      // Speculative: log and proceed to full LLM diagnosis
+      // The speculative hit is stored in result for Plan 03 to display
+      if (DEV_MODE) console.log(`[CACHE] Speculative match found -- proceeding to LLM diagnosis`);
+      // Note: speculative hit provenance will be attached to the final result below
+    }
+
+    // Cache miss: proceed normally (existing code path unchanged)
+  }
+  // Cache write happens in execution route after fix verification -- see storeFixInCache()
 
   // DPEV: enforce discovery before diagnosis
   enforceDPEVSequence('diagnosis', completedPhases);

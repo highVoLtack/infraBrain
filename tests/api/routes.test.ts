@@ -25,6 +25,14 @@ vi.mock('../../src/orchestrator/planner.js', () => ({
 vi.mock('../../src/orchestrator/context.js', () => ({
   buildMessages: vi.fn(() => ({ system: 'mock system prompt', messages: [] })),
 }));
+vi.mock('../../src/cache/cache-lookup.js', () => ({
+  checkCache: vi.fn().mockResolvedValue({ type: 'miss' }),
+}));
+vi.mock('../../src/cache/lance-store.js', () => ({
+  getCacheStore: vi.fn(() => ({
+    init: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
 
 describe('GET /health', () => {
   it('returns 200 with backend connected when backend is reachable', async () => {
