@@ -1,12 +1,15 @@
 # Phase 16: Qdrant Fix-Caching - Context
 
 **Gathered:** 2026-04-10
+**Updated:** 2026-04-10 (LanceDB pivot — no Docker dependency)
 **Status:** Ready for planning
 
 <domain>
 ## Phase Boundary
 
-Repeat errors resolved in under 2 seconds via vector similarity cache lookup in Qdrant, with zero LLM calls for cache hits. Qdrant runs as Docker container with auto-lifecycle management. Cache is an optimization layer -- InfraBrain works normally without it (graceful degradation). Does NOT include semantic memory (Phase 17) or terminal UI (Phase 19).
+Repeat errors resolved in under 2 seconds via vector similarity cache lookup, with zero LLM calls for cache hits. Uses **LanceDB** as embedded vector store (in-process, no external service). Cache is an optimization layer -- InfraBrain works normally without it (graceful degradation). Does NOT include semantic memory (Phase 17) or terminal UI (Phase 19).
+
+**Key constraint:** InfraBrain is a universal standalone tool. No Docker, no external services required. LanceDB runs fully in-process via NAPI Rust bindings.
 
 </domain>
 
@@ -56,9 +59,15 @@ Repeat errors resolved in under 2 seconds via vector similarity cache lookup in 
 - `infrabrain cache list` -- show entries with stats (similarity, hit count, success rate, age, skill)
 - Useful for debugging and maintenance
 
+### Vector Store: LanceDB (User Decision 2026-04-10)
+- **LanceDB replaces Qdrant** — embedded, in-process, no subprocess, no Docker
+- Package: `@lancedb/lancedb` (NAPI Rust bindings, platform-specific)
+- Storage: local directory (Lance columnar format), portable
+- No server process, no port management, no lifecycle management needed
+- Zero startup overhead beyond module import
+
 ### Claude's Discretion
-- Qdrant container lifecycle details (port, volume mount, health check implementation)
-- Qdrant collection schema and index configuration
+- LanceDB table schema and index configuration
 - Exact embedding input formatting (how error signature + discovery context are concatenated)
 - Cache entry payload structure beyond the required fields
 - Abbreviated diagnosis block exact formatting
@@ -77,7 +86,6 @@ Repeat errors resolved in under 2 seconds via vector similarity cache lookup in 
 ### Established Patterns
 - OpenAI-compatible API calls via `src/llm/openai-compat.ts` -- BGE-M3 embedding calls should follow the same pattern
 - Config schema extension via zod in `src/config/types.ts` -- cache config (weights, thresholds) added here
-- Docker container interaction via `execSync`/`exec` in execution layer -- Qdrant lifecycle follows same pattern
 
 ### Integration Points
 - `runDPEV()` in `pipeline.ts`: Cache check inserts after `filterNoise()` call, before `runDiagnosis()` call

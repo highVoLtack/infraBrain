@@ -1,21 +1,25 @@
-# Phase 16: Qdrant Fix-Caching - Research
+# Phase 16: Fix-Caching - Research
 
 **Researched:** 2026-04-10
-**Domain:** Vector similarity caching with Qdrant, BGE-M3 embeddings, Docker container lifecycle
+**Updated:** 2026-04-10 (LanceDB pivot — no Docker/external service dependency)
+**Domain:** Vector similarity caching with LanceDB (embedded), BGE-M3 embeddings
 **Confidence:** HIGH
 
 ## Summary
 
-Phase 16 adds a vector similarity cache layer to the DPEV pipeline using Qdrant as the vector store and BGE-M3 (1024-dimensional) for embeddings. The cache intercepts after noise filtering and before LLM diagnosis, enabling sub-2-second resolution of repeat errors. The implementation requires four new subsystems: (1) Qdrant Docker lifecycle management, (2) BGE-M3 embedding via Ollama's OpenAI-compatible `/v1/embeddings` endpoint, (3) cache lookup/store logic with confidence scoring, and (4) skill-based invalidation via file hashing.
+Phase 16 adds a vector similarity cache layer to the DPEV pipeline using **LanceDB** as an embedded vector store and BGE-M3 (1024-dimensional) for embeddings. The cache intercepts after noise filtering and before LLM diagnosis, enabling sub-2-second resolution of repeat errors. The implementation requires three new subsystems: (1) LanceDB table management (in-process, no server), (2) BGE-M3 embedding via Ollama's OpenAI-compatible `/v1/embeddings` endpoint, (3) cache lookup/store logic with confidence scoring, and (4) skill-based invalidation via file hashing.
 
-The project already has all prerequisites in place: the `embedding` model role is defined in `ModelMap` with `bge-m3` as default, the Vercel AI SDK (`ai` package) provides `embed()` for embeddings via `@ai-sdk/openai-compatible`, the pipeline has a clear insertion point between `filterNoise()` and `runDiagnosis()`, and Docker container management patterns exist in the execution layer. Qdrant's TypeScript client (`@qdrant/js-client-rest`) provides a clean REST API for collection management, upsert, search, and filtered deletion.
+**Why LanceDB over Qdrant:** InfraBrain is a universal standalone tool. No Docker, no external services, no subprocess management. LanceDB runs fully in-process via NAPI Rust bindings — `npm install` and it works. Qdrant requires either Docker (rejected) or binary subprocess management (unnecessary complexity). LanceDB is proven in production CLI tools (AnythingLLM, Continue VS Code extension).
 
-**Primary recommendation:** Use `@qdrant/js-client-rest` for Qdrant operations and the Vercel AI SDK `embed()` function with the existing `@ai-sdk/openai-compatible` provider for BGE-M3 embeddings. Qdrant container lifecycle via `child_process.exec` following the project's established pattern.
+The project already has all prerequisites in place: the `embedding` model role is defined in `ModelMap` with `bge-m3` as default, the Vercel AI SDK (`ai` package) provides `embed()` for embeddings via `@ai-sdk/openai-compatible`, and the pipeline has a clear insertion point between `filterNoise()` and `runDiagnosis()`.
+
+**Primary recommendation:** Use `@lancedb/lancedb` for vector storage and the Vercel AI SDK `embed()` function with the existing `@ai-sdk/openai-compatible` provider for BGE-M3 embeddings. No external service needed.
 
 <user_constraints>
 ## User Constraints (from CONTEXT.md)
 
 ### Locked Decisions
+- **LanceDB replaces Qdrant** — embedded, in-process, no Docker, no subprocess (User Decision 2026-04-10)
 - Cache check happens **before diagnosis** in the DPEV pipeline -- after discovery + noise filter, before LLM diagnosis
 - On cache hit (similarity > 0.85): skip diagnosis and planning entirely, show abbreviated diagnosis block with cached fix plan + provenance
 - User prompted "Use cached fix or re-diagnose?" before execution; `--no-cache` flag for forced bypass
@@ -31,8 +35,7 @@ The project already has all prerequisites in place: the `embedding` model role i
 - Manual cache management: `infrabrain cache clear` and `infrabrain cache list`
 
 ### Claude's Discretion
-- Qdrant container lifecycle details (port, volume mount, health check implementation)
-- Qdrant collection schema and index configuration
+- LanceDB table schema and index configuration
 - Exact embedding input formatting (how error signature + discovery context are concatenated)
 - Cache entry payload structure beyond the required fields
 - Abbreviated diagnosis block exact formatting
@@ -46,13 +49,13 @@ None -- discussion stayed within phase scope
 
 | ID | Description | Research Support |
 |----|-------------|-----------------|
-| CACHE-01 | Qdrant runs as Docker container with auto-lifecycle management | Docker lifecycle via child_process.exec; health check via GET /healthz on port 6333; volume mount for persistence |
-| CACHE-02 | Error signature + discovery context embedded via BGE-M3 into Qdrant collection | Vercel AI SDK `embed()` with `@ai-sdk/openai-compatible` provider; BGE-M3 produces 1024-dim vectors; Ollama serves /v1/embeddings |
-| CACHE-03 | Before LLM diagnosis, similarity search checks for cached fix (threshold > 0.85) | Qdrant `client.query()` with score_threshold; inserts in pipeline after filterNoise() before runDiagnosis() |
-| CACHE-04 | Cached fix returned in <2s vs 113s for LLM reasoning | Qdrant search is <50ms; BGE-M3 embedding ~100-200ms via Ollama; total well under 2s |
-| CACHE-05 | Cache invalidation on skill file updates | Startup file hashing with crypto.createHash('sha256'); per-skill filter-based deletion via client.delete() with payload filter |
+| CACHE-01 | Vector store with auto-lifecycle management | LanceDB embedded — no lifecycle management needed; `await lancedb.connect("./data/cache")` opens/creates automatically |
+| CACHE-02 | Error signature + discovery context embedded via BGE-M3 into vector store | Vercel AI SDK `embed()` with `@ai-sdk/openai-compatible` provider; BGE-M3 produces 1024-dim vectors; Ollama serves /v1/embeddings |
+| CACHE-03 | Before LLM diagnosis, similarity search checks for cached fix (threshold > 0.85) | LanceDB `table.vectorSearch(embedding).limit(1).distanceType("cosine")` with post-filter on distance; inserts in pipeline after filterNoise() before runDiagnosis() |
+| CACHE-04 | Cached fix returned in <2s vs 113s for LLM reasoning | LanceDB brute-force search at 10k vectors is sub-millisecond; BGE-M3 embedding ~100-200ms via Ollama; total well under 2s |
+| CACHE-05 | Cache invalidation on skill file updates | Startup file hashing with crypto.createHash('sha256'); per-skill filter-based deletion via LanceDB `table.delete()` with filter predicate |
 | CACHE-06 | Confidence scoring on cached fixes | Weighted formula computed in TypeScript; recency via exponential decay from last_used timestamp |
-| CACHE-07 | Graceful degradation -- InfraBrain works without Qdrant | Try-catch wrapper around all Qdrant operations; cache miss fallback path identical to no-cache path |
+| CACHE-07 | Graceful degradation -- InfraBrain works without vector store | Try-catch wrapper around all LanceDB operations; cache miss fallback path identical to no-cache path; LanceDB is in-process so failure is rare but handled |
 | CACHE-08 | Cache hit explainability -- provenance indicator | Payload stores original incident date, session ID, skill name, similarity score; formatted in pipeline output |
 </phase_requirements>
 
@@ -61,26 +64,26 @@ None -- discussion stayed within phase scope
 ### Core
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| @qdrant/js-client-rest | ^1.17.0 | Qdrant vector DB client | Official TypeScript REST client, type-safe, ESM support, Node.js >= 18 |
+| @lancedb/lancedb | ^0.27.x | Embedded vector store | True in-process (NAPI Rust bindings), zero-config, no server needed, proven in production CLI tools |
 | ai (Vercel AI SDK) | ^6.0.116 | `embed()` function for BGE-M3 | Already in project; provides unified embedding API |
 | @ai-sdk/openai-compatible | ^2.0.35 | OpenAI-compatible provider for embedding model | Already in project; `textEmbeddingModel()` method for BGE-M3 via Ollama |
 
 ### Supporting
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| node:child_process | built-in | Docker container lifecycle (start/stop/inspect) | Qdrant container management |
 | node:crypto | built-in | SHA-256 hashing for skill file invalidation | Startup skill hash comparison |
 | zod | ^4.3.6 | Config schema extension for cache weights/thresholds | Already in project; extend InfraBrainConfigSchema |
 
 ### Alternatives Considered
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
-| @qdrant/js-client-rest | Raw HTTP fetch to Qdrant REST API | Client provides type safety, error handling, reconnection; raw fetch adds maintenance burden |
+| LanceDB | Qdrant (Docker/binary) | Requires external process management; Docker dependency rejected by user |
+| LanceDB | sqlite-vec + better-sqlite3 | Works but no ANN indexing; LanceDB has IVF-PQ for scale; LanceDB API is more natural for vector ops |
 | Vercel AI SDK embed() | Direct HTTP POST to /v1/embeddings | SDK handles retries, typing, provider abstraction; raw fetch loses these benefits |
 
 **Installation:**
 ```bash
-npm install @qdrant/js-client-rest
+npm install @lancedb/lancedb
 ```
 
 (All other dependencies already present in package.json)
@@ -91,10 +94,9 @@ npm install @qdrant/js-client-rest
 ```
 src/
 ├── cache/                    # NEW: Fix caching subsystem
-│   ├── qdrant-client.ts      # Singleton QdrantClient wrapper with graceful degradation
-│   ├── qdrant-lifecycle.ts   # Docker container start/stop/health check
+│   ├── lance-store.ts        # LanceDB connection, table management, search, upsert, delete
 │   ├── embedder.ts           # BGE-M3 embedding via Vercel AI SDK embed()
-│   ├── cache-store.ts        # Upsert, search, delete operations on Qdrant collection
+│   ├── cache-lookup.ts       # Pipeline-facing cache check + confidence scoring
 │   ├── confidence.ts         # Confidence scoring formula + exponential decay
 │   ├── invalidation.ts       # Skill file hashing + stale entry purge
 │   └── types.ts              # CacheEntry, CacheHit, CacheConfig types
@@ -106,30 +108,70 @@ src/
     └── cache-commands.ts     # NEW: `infrabrain cache clear` and `infrabrain cache list`
 ```
 
-### Pattern 1: Graceful Degradation Wrapper
-**What:** Every Qdrant operation wrapped in try-catch that returns a "cache miss" result on failure
+### Pattern 1: LanceDB Embedded Store
+**What:** In-process vector store, no server, directory-based persistence
+**When to use:** All vector cache operations
+**Example:**
+```typescript
+import * as lancedb from "@lancedb/lancedb";
+
+const CACHE_DIR = "./data/fix-cache";
+const TABLE_NAME = "fix_cache";
+
+let _db: lancedb.Connection | null = null;
+
+export async function getCacheDb(): Promise<lancedb.Connection> {
+  if (!_db) {
+    _db = await lancedb.connect(CACHE_DIR);
+  }
+  return _db;
+}
+
+export async function ensureTable(db: lancedb.Connection): Promise<lancedb.Table> {
+  const tableNames = await db.tableNames();
+  if (tableNames.includes(TABLE_NAME)) {
+    return db.openTable(TABLE_NAME);
+  }
+  // Create with initial empty schema-defining row (LanceDB requires data to create)
+  return db.createEmptyTable(TABLE_NAME, {
+    vector: new lancedb.FixedSizeList(1024, new lancedb.Float32()),
+    error_signature: new lancedb.Utf8(),
+    skill_name: new lancedb.Utf8(),
+    fix_plan: new lancedb.Utf8(), // JSON-serialized
+    diagnosis: new lancedb.Utf8(),
+    session_id: new lancedb.Utf8(),
+    created_at: new lancedb.Utf8(),
+    last_used: new lancedb.Utf8(),
+    hit_count: new lancedb.Int32(),
+    success_count: new lancedb.Int32(),
+    fail_count: new lancedb.Int32(),
+  });
+}
+```
+
+### Pattern 2: Graceful Degradation Wrapper
+**What:** Every LanceDB operation wrapped in try-catch that returns a "cache miss" result on failure
 **When to use:** All cache operations -- the cache is an optimization, never a requirement
 **Example:**
 ```typescript
-// Source: Project pattern -- cache is optimization, not requirement
 export async function searchCache(
   embedding: number[],
-  client: QdrantClient | null,
+  table: lancedb.Table | null,
 ): Promise<CacheHit | null> {
-  if (!client) return null; // Qdrant unavailable
+  if (!table) return null;
   try {
-    const results = await client.query('fix_cache', {
-      query: embedding,
-      limit: 1,
-      score_threshold: 0.75, // Lowest threshold (soft zone floor)
-      with_payload: true,
-    });
-    if (results.points.length === 0) return null;
-    const point = results.points[0];
+    const results = await table
+      .vectorSearch(embedding)
+      .distanceType("cosine")
+      .limit(1)
+      .toArray();
+    if (results.length === 0) return null;
+    const row = results[0];
+    const similarity = 1 - row._distance; // LanceDB returns distance, not similarity
+    if (similarity < 0.75) return null; // Below soft zone floor
     return {
-      similarity: point.score,
-      payload: point.payload as CacheEntryPayload,
-      pointId: point.id,
+      similarity,
+      payload: row as CacheEntryPayload,
     };
   } catch {
     return null; // Graceful degradation
@@ -137,7 +179,7 @@ export async function searchCache(
 }
 ```
 
-### Pattern 2: Pipeline Insertion Point
+### Pattern 3: Pipeline Insertion Point
 **What:** Cache check inserts between noise filter and diagnosis in runDPEV()
 **When to use:** Main pipeline flow
 **Example:**
@@ -146,7 +188,7 @@ export async function searchCache(
 // before runDiagnosis():
 const cacheResult = await searchCache(
   await embedForCache(filteredRaw, prompt),
-  qdrantClient,
+  cacheTable,
 );
 
 if (cacheResult && cacheResult.similarity >= 0.85) {
@@ -159,12 +201,11 @@ if (cacheResult && cacheResult.similarity >= 0.85) {
 // else: cache miss, proceed to full LLM diagnosis
 ```
 
-### Pattern 3: Embedding Input Formatting
+### Pattern 4: Embedding Input Formatting
 **What:** Concatenate error signature + noise-filtered discovery context for embedding
 **When to use:** Both cache write (after successful fix) and cache read (before diagnosis)
 **Example:**
 ```typescript
-// Consistent embedding input ensures "same error in same infra state" matches
 function formatEmbeddingInput(
   userPrompt: string,
   filteredDiscovery: Record<string, string>,
@@ -176,109 +217,88 @@ function formatEmbeddingInput(
 }
 ```
 
-### Pattern 4: Singleton Qdrant Client with Lazy Init
-**What:** Single QdrantClient instance created on first use, reused across requests
-**When to use:** All Qdrant interactions
+### Pattern 5: Skill-Based Cache Invalidation
+**What:** Delete cache entries for skills whose files have changed
+**When to use:** On startup, after skill hash comparison
 **Example:**
 ```typescript
-let _client: QdrantClient | null = null;
-let _available = true;
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
-export async function getQdrantClient(): Promise<QdrantClient | null> {
-  if (!_available) return null;
-  if (_client) return _client;
-  try {
-    _client = new QdrantClient({ url: 'http://localhost:6333' });
-    // Verify connection with health check
-    await _client.getCollections();
-    return _client;
-  } catch {
-    _available = false;
-    return null; // Graceful degradation
+function hashSkillFiles(skillsDir: string): Map<string, string> {
+  const hashes = new Map<string, string>();
+  for (const file of readdirSync(skillsDir)) {
+    if (!file.endsWith('.md')) continue;
+    const content = readFileSync(join(skillsDir, file), 'utf-8');
+    const hash = createHash('sha256').update(content).digest('hex');
+    hashes.set(file, hash);
   }
+  return hashes;
+}
+
+async function purgeStaleEntries(
+  table: lancedb.Table,
+  skillName: string,
+): Promise<void> {
+  await table.delete(`skill_name = '${skillName}'`);
 }
 ```
 
 ### Anti-Patterns to Avoid
-- **Creating QdrantClient per request:** Connection overhead adds latency. Use singleton.
+- **Opening LanceDB connection per request:** Use singleton connection. LanceDB is in-process but connection setup has overhead.
 - **Embedding the raw (unfiltered) discovery output:** Different noise yields different embeddings for the same error. Always embed post-noise-filter output.
-- **Hard-failing on Qdrant unavailability:** The cache is an optimization. Never throw errors that block the pipeline.
-- **Storing the full fix plan as the vector:** The vector should represent the error context, not the fix. The fix goes in the payload.
+- **Hard-failing on LanceDB errors:** The cache is an optimization. Never throw errors that block the pipeline.
+- **Storing the full fix plan as the vector:** The vector should represent the error context, not the fix. The fix goes in the payload columns.
 
 ## Don't Hand-Roll
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| Vector similarity search | Custom cosine similarity over in-memory arrays | Qdrant `client.query()` | HNSW index scales, handles persistence, filtering, pagination |
+| Vector similarity search | Custom cosine similarity over in-memory arrays | LanceDB `table.vectorSearch()` | Handles persistence, indexing at scale, filtering |
 | Embedding generation | Manual tokenization + model inference | Vercel AI SDK `embed()` | Handles API protocol, retries, provider abstraction |
-| Docker container health checks | Polling with `docker inspect` in a loop | HTTP GET to `http://localhost:6333/healthz` | Qdrant exposes REST health endpoint; simpler and faster than Docker inspect |
 | Exponential decay scoring | Reinventing decay formulas | `Math.exp(-lambda * ageDays)` with configurable lambda | Standard formula, just needs a clean implementation |
-
-**Key insight:** Qdrant and the AI SDK handle all the hard parts (indexing, vector math, API protocols). The custom code is just orchestration: when to check cache, what to embed, how to score confidence.
+| Vector storage format | Custom binary file or JSON dump | LanceDB Lance format | Columnar, memory-mapped, efficient for vector ops |
 
 ## Common Pitfalls
 
 ### Pitfall 1: Embedding Dimension Mismatch
-**What goes wrong:** Collection created with wrong vector size, upserts fail silently or with cryptic errors
+**What goes wrong:** Table created with wrong vector size, inserts fail
 **Why it happens:** BGE-M3 produces 1024-dimensional vectors; easy to confuse with other models (384 for MiniLM, 768 for BERT)
-**How to avoid:** Hard-code `size: 1024` in collection creation; assert embedding length before upsert
-**Warning signs:** "Vector dimension mismatch" errors from Qdrant
+**How to avoid:** Hard-code vector size 1024 in table schema; assert embedding length before upsert
+**Warning signs:** Dimension mismatch errors from LanceDB
 
-### Pitfall 2: Qdrant Container Port Conflict
-**What goes wrong:** Qdrant fails to start because port 6333 is already in use
-**Why it happens:** Previous Qdrant container not cleaned up, or another service on the same port
-**How to avoid:** Check for existing container by name before creating; use `docker start` for stopped containers rather than `docker run`
-**Warning signs:** EADDRINUSE errors, Docker exit code 125
+### Pitfall 2: LanceDB Distance vs Similarity
+**What goes wrong:** Using distance directly as similarity score (inverted scale)
+**Why it happens:** LanceDB returns `_distance` (lower = more similar), but the confidence formula expects similarity (higher = more similar)
+**How to avoid:** Convert: `similarity = 1 - distance` for cosine distance
+**Warning signs:** High-distance (dissimilar) results treated as cache hits
 
 ### Pitfall 3: Stale Embeddings After Noise Filter Changes
 **What goes wrong:** Cached entries from before a noise filter update match with wrong similarity because the embedding input format changed
 **Why it happens:** Noise filter patterns evolve; same error produces different filtered output over time
-**How to avoid:** Include a schema version in cache entries; consider purging on major filter changes (but this is an edge case)
+**How to avoid:** Include a schema version in cache entries; consider purging on major filter changes
 **Warning signs:** High similarity hits that produce wrong fixes
 
-### Pitfall 4: Blocking Pipeline on Qdrant Start
-**What goes wrong:** First request hangs for 5-10 seconds while Qdrant Docker container starts
-**Why it happens:** Container startup is synchronous and blocks the pipeline
-**How to avoid:** Start Qdrant container during server startup (not on first request); use a startup health check with timeout
-**Warning signs:** First diagnosis after restart takes 10+ seconds longer than subsequent ones
-
-### Pitfall 5: Embedding Model Not Loaded in Ollama
+### Pitfall 4: Embedding Model Not Loaded in Ollama
 **What goes wrong:** embed() call fails because BGE-M3 isn't pulled in Ollama
 **Why it happens:** The model role is configured but the actual model isn't downloaded
 **How to avoid:** Check model availability during startup; log a warning if embedding model is not available (degrade gracefully)
 **Warning signs:** 404 or model not found errors from Ollama embedding endpoint
 
-### Pitfall 6: Speculative Execution Race Condition
+### Pitfall 5: Speculative Execution Race Condition
 **What goes wrong:** Both cached fix and LLM result modify shared state simultaneously
 **Why it happens:** The 0.75-0.85 soft zone runs cache suggestion and LLM in parallel
 **How to avoid:** Both paths should produce independent result objects; only the user's choice gets committed. No shared mutable state.
 **Warning signs:** Corrupted diagnosis or mixed results
 
+### Pitfall 6: LanceDB Table Schema Evolution
+**What goes wrong:** Adding new columns to cache entries breaks existing tables
+**Why it happens:** LanceDB uses Arrow schemas; changing schema requires migration
+**How to avoid:** Define schema upfront with all needed columns. If schema must change, add migration that recreates table (acceptable for cache — data is ephemeral).
+**Warning signs:** Schema mismatch errors on table open
+
 ## Code Examples
-
-### Qdrant Collection Setup
-```typescript
-// Source: Qdrant official docs + project BGE-M3 config
-import { QdrantClient } from '@qdrant/js-client-rest';
-
-const COLLECTION_NAME = 'fix_cache';
-const VECTOR_SIZE = 1024; // BGE-M3 output dimension
-
-async function ensureCollection(client: QdrantClient): Promise<void> {
-  const collections = await client.getCollections();
-  const exists = collections.collections.some(c => c.name === COLLECTION_NAME);
-  if (!exists) {
-    await client.createCollection(COLLECTION_NAME, {
-      vectors: { size: VECTOR_SIZE, distance: 'Cosine' },
-    });
-    // Create payload index for skill-based invalidation
-    await client.createPayloadIndex(COLLECTION_NAME, {
-      field_name: 'skill_name',
-      field_schema: 'keyword',
-    });
-  }
-}
-```
 
 ### BGE-M3 Embedding via Vercel AI SDK
 ```typescript
@@ -307,122 +327,32 @@ async function generateEmbedding(
 
 ### Cache Entry Upsert After Successful Fix
 ```typescript
-// Source: Qdrant JS client docs
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 
 interface CacheEntryPayload {
+  id: string;
   error_signature: string;
   skill_name: string;
-  fix_plan: object;       // Serialized FixPlan
-  diagnosis: string;       // Abbreviated diagnosis text
+  fix_plan: string;        // JSON-serialized FixPlan
+  diagnosis: string;        // Abbreviated diagnosis text
   session_id: string;
-  created_at: string;      // ISO timestamp
-  last_used: string;       // ISO timestamp
+  created_at: string;       // ISO timestamp
+  last_used: string;        // ISO timestamp
   hit_count: number;
   success_count: number;
   fail_count: number;
 }
 
 async function storeCacheEntry(
-  client: QdrantClient,
+  table: lancedb.Table,
   embedding: number[],
-  payload: CacheEntryPayload,
+  payload: Omit<CacheEntryPayload, 'id'>,
 ): Promise<void> {
-  await client.upsert(COLLECTION_NAME, {
-    wait: true,
-    points: [{
-      id: uuidv4(),
-      vector: embedding,
-      payload,
-    }],
-  });
-}
-```
-
-### Skill-Based Cache Invalidation
-```typescript
-// Source: Project SkillRegistry pattern + Node.js crypto
-import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-
-function hashSkillFiles(skillsDir: string): Map<string, string> {
-  const hashes = new Map<string, string>();
-  for (const file of readdirSync(skillsDir)) {
-    if (!file.endsWith('.md')) continue;
-    const content = readFileSync(join(skillsDir, file), 'utf-8');
-    const hash = createHash('sha256').update(content).digest('hex');
-    hashes.set(file, hash);
-  }
-  return hashes;
-}
-
-async function purgeStaleEntries(
-  client: QdrantClient,
-  skillName: string,
-): Promise<void> {
-  await client.delete(COLLECTION_NAME, {
-    filter: {
-      must: [{ key: 'skill_name', match: { value: skillName } }],
-    },
-  });
-}
-```
-
-### Docker Container Lifecycle
-```typescript
-// Source: Project execution/runner.ts pattern
-import { exec as execCb } from 'node:child_process';
-import { promisify } from 'node:util';
-
-const exec = promisify(execCb);
-
-const QDRANT_CONTAINER_NAME = 'infrabrain-qdrant';
-const QDRANT_PORT = 6333;
-const QDRANT_VOLUME = 'infrabrain-qdrant-data';
-
-async function ensureQdrantRunning(): Promise<boolean> {
-  try {
-    // Check if container exists
-    const { stdout } = await exec(
-      `docker inspect --format='{{.State.Running}}' ${QDRANT_CONTAINER_NAME} 2>/dev/null`
-    );
-    if (stdout.trim() === 'true') return true;
-
-    // Container exists but stopped -- start it
-    await exec(`docker start ${QDRANT_CONTAINER_NAME}`);
-    return await waitForHealth();
-  } catch {
-    // Container doesn't exist -- create it
-    try {
-      await exec(
-        `docker run -d --name ${QDRANT_CONTAINER_NAME} ` +
-        `-p ${QDRANT_PORT}:6333 ` +
-        `-v ${QDRANT_VOLUME}:/qdrant/storage ` +
-        `qdrant/qdrant`
-      );
-      return await waitForHealth();
-    } catch {
-      return false; // Graceful degradation
-    }
-  }
-}
-
-async function waitForHealth(maxRetries = 10, delayMs = 500): Promise<boolean> {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const resp = await fetch(`http://localhost:${QDRANT_PORT}/healthz`);
-      if (resp.ok) return true;
-    } catch { /* not ready yet */ }
-    await new Promise(r => setTimeout(r, delayMs));
-  }
-  return false;
-}
-
-async function stopQdrant(): Promise<void> {
-  try {
-    await exec(`docker stop ${QDRANT_CONTAINER_NAME}`);
-  } catch { /* already stopped or doesn't exist */ }
+  await table.add([{
+    vector: embedding,
+    id: randomUUID(),
+    ...payload,
+  }]);
 }
 ```
 
@@ -457,29 +387,27 @@ function computeConfidence(
 
 | Old Approach | Current Approach | When Changed | Impact |
 |--------------|------------------|--------------|--------|
-| Qdrant REST API raw HTTP | @qdrant/js-client-rest typed client | 2024 | Type-safe operations, automatic serialization |
-| Qdrant search() method | Qdrant query() method | Qdrant 1.10+ | Unified search API, replaces separate search/recommend |
+| Qdrant Docker container | LanceDB embedded (in-process) | User decision 2026-04-10 | Zero external dependencies, no Docker/subprocess |
+| @qdrant/js-client-rest | @lancedb/lancedb NAPI bindings | User decision 2026-04-10 | True in-process, no network calls |
 | Manual embedding HTTP calls | Vercel AI SDK embed() | ai@3.2+ | Unified API, provider abstraction, built-in retries |
 | Ollama /api/embeddings | Ollama /v1/embeddings | Ollama 0.1.26+ | OpenAI-compatible endpoint, works with standard SDKs |
-
-**Important:** Use `client.query()` not `client.search()` -- `query()` is the modern unified API in Qdrant 1.10+.
 
 ## Open Questions
 
 1. **Speculative Execution without Phase 18**
    - What we know: CONTEXT.md says "leverages Phase 18 when available, falls back to sequential"
-   - What's unclear: Phase 18 (Parallel Inference) hasn't been built yet. The soft zone (0.75-0.85) needs parallel execution.
-   - Recommendation: Implement with `Promise.allSettled()` using the existing pipeline. Phase 18 is about multi-model parallel inference, not general parallelism. A simple `Promise.allSettled([cachedFixPromise, llmDiagnosisPromise])` works without Phase 18.
+   - Recommendation: Implement with `Promise.allSettled()` using the existing pipeline. A simple `Promise.allSettled([cachedFixPromise, llmDiagnosisPromise])` works without Phase 18.
 
 2. **Cache Write Timing**
    - What we know: Cache entries are written after a successful fix execution
-   - What's unclear: Exact trigger point -- after execution succeeds? After verification passes?
    - Recommendation: Write cache entry after execution verification passes (circuit breaker success), not just after execution. This ensures only verified fixes enter the cache.
 
 3. **Embedding Model Availability at Startup**
    - What we know: BGE-M3 must be pulled in Ollama before embeddings work
-   - What's unclear: Whether to auto-pull or just warn
    - Recommendation: Check on startup, log warning if not available, degrade gracefully (cache disabled). Do NOT auto-pull -- respects air-gap and user control.
+
+4. **LanceDB Cache Directory Location**
+   - Recommendation: Use `{configDir}/cache/fix-cache/` where configDir follows XDG conventions or is configurable. Not in project dir.
 
 ## Validation Architecture
 
@@ -494,9 +422,9 @@ function computeConfidence(
 ### Phase Requirements -> Test Map
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|-------------|
-| CACHE-01 | Qdrant lifecycle (start/stop/health) | unit + integration | `npx vitest run tests/cache/qdrant-lifecycle.test.ts -x` | Wave 0 |
+| CACHE-01 | LanceDB store init + table management | unit | `npx vitest run tests/cache/lance-store.test.ts -x` | Wave 0 |
 | CACHE-02 | BGE-M3 embedding generation | unit | `npx vitest run tests/cache/embedder.test.ts -x` | Wave 0 |
-| CACHE-03 | Cache lookup before diagnosis | unit + integration | `npx vitest run tests/cache/cache-store.test.ts -x` | Wave 0 |
+| CACHE-03 | Cache lookup before diagnosis | unit + integration | `npx vitest run tests/cache/cache-lookup.test.ts -x` | Wave 0 |
 | CACHE-04 | Sub-2s cache hit performance | integration | `npx vitest run tests/cache/performance.test.ts -x` | Wave 0 |
 | CACHE-05 | Skill file invalidation | unit | `npx vitest run tests/cache/invalidation.test.ts -x` | Wave 0 |
 | CACHE-06 | Confidence scoring formula | unit | `npx vitest run tests/cache/confidence.test.ts -x` | Wave 0 |
@@ -510,32 +438,29 @@ function computeConfidence(
 
 ### Wave 0 Gaps
 - [ ] `tests/cache/` directory -- all test files listed above
-- [ ] Mock Qdrant client for unit tests (no Docker dependency in CI)
+- [ ] Mock LanceDB table for unit tests (in-memory, no disk)
 - [ ] Mock embedding function for deterministic test vectors
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [Qdrant Quickstart](https://qdrant.tech/documentation/quickstart/) - Docker setup, TypeScript client API, collection creation, search
-- [Qdrant JS Client GitHub](https://github.com/qdrant/qdrant-js) - Package name, import syntax, Node.js requirements
+- [LanceDB GitHub](https://github.com/lancedb/lancedb) - Architecture, NAPI bindings, platform support
+- [LanceDB Docs](https://docs.lancedb.com/) - API reference, table creation, vector search, filtering
+- [LanceDB npm](https://www.npmjs.com/package/@lancedb/lancedb) - v0.27.x, platform-specific optional deps
 - [Vercel AI SDK embed()](https://ai-sdk.dev/docs/reference/ai-sdk-core/embed) - embed() function signature, return types, usage
 - [BGE-M3 on HuggingFace](https://huggingface.co/BAAI/bge-m3) - 1024 dimensions, 8192 token max input, multilingual
-- [Qdrant Health Endpoints](https://api.qdrant.tech/api-reference/service/healthz) - /healthz, /livez, /readyz on port 6333
 - [Ollama OpenAI Compatibility](https://docs.ollama.com/api/openai-compatibility) - /v1/embeddings endpoint support
 
 ### Secondary (MEDIUM confidence)
-- [Qdrant Collections Docs](https://qdrant.tech/documentation/concepts/collections/) - Distance metrics, payload indexing, on_disk config
-- [@qdrant/js-client-rest npm](https://www.npmjs.com/package/@qdrant/js-client-rest) - Version 1.17.0, latest publish date
-
-### Tertiary (LOW confidence)
-- vLLM BGE-M3 support -- confirmed available in Ollama, vLLM support for BGE-M3 still evolving; Ollama path is safer for this project
+- [LanceDB Review (2026)](https://www.dailyneuraldigest.com/tools-reviews/2026-01-07-lancedb-review/) - Production usage in CLI tools, performance benchmarks
+- AnythingLLM and Continue (VS Code) as production references for LanceDB in desktop tools
 
 ## Metadata
 
 **Confidence breakdown:**
-- Standard stack: HIGH - All libraries verified against official docs; @qdrant/js-client-rest is the official client; Vercel AI SDK embed() documented
-- Architecture: HIGH - Pipeline insertion point clearly identified in existing code; patterns follow established project conventions
-- Pitfalls: MEDIUM - Based on Qdrant community issues and general vector DB experience; some pitfalls (like noise filter drift) are theoretical
+- Standard stack: HIGH - LanceDB verified via official docs and npm; Vercel AI SDK embed() documented; proven in production CLI tools
+- Architecture: HIGH - Pipeline insertion point clearly identified in existing code; LanceDB simplifies architecture (no lifecycle management)
+- Pitfalls: MEDIUM - Distance vs similarity inversion is well-documented; schema evolution is theoretical but addressed
 
 **Research date:** 2026-04-10
 **Valid until:** 2026-05-10 (stable libraries, 30-day window)
