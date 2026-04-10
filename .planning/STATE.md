@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
-status: completed
-stopped_at: Phase 15 context gathered
-last_updated: "2026-04-10T13:04:10.010Z"
-last_activity: 2026-04-10 -- Phase 14 Plan 02 executed (pipeline extraction + debug.ts slimming)
+status: in_progress
+stopped_at: Phase 15 Plan 01 complete
+last_updated: "2026-04-10T13:47:00.000Z"
+last_activity: 2026-04-10 -- Phase 15 Plan 01 executed (token counter + noise filter)
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 100
+  total_plans: 3
+  completed_plans: 3
+  percent: 50
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control -- every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.3 The Intelligence Layer -- Phase 14 (Pipeline Extraction + Parallel Discovery)
+**Current focus:** v1.3 The Intelligence Layer -- Phase 15 (Auto-Compact Context Management)
 
 ## Current Position
 
-Phase: 14 of 19 (Pipeline Extraction + Parallel Discovery)
-Plan: 2 of 2 complete in current phase
-Status: Phase 14 Complete
-Last activity: 2026-04-10 -- Phase 14 Plan 02 executed (pipeline extraction + debug.ts slimming)
+Phase: 15 of 19 (Auto-Compact Context Management)
+Plan: 1 of TBD complete in current phase
+Status: In Progress
+Last activity: 2026-04-10 -- Phase 15 Plan 01 executed (token counter + noise filter)
 
-Progress: [██████████] 100%
+Progress: [█████-----] 50%
 
 ## Performance Metrics
 
@@ -55,6 +55,9 @@ Progress: [██████████] 100%
 - [14-02]: Pipeline covers D-P only -- execution stays in /execute route for EXEC-03 safety
 - [14-02]: Backward-compatible re-exports in debug.ts alongside canonical import updates
 - [14-02]: runDiagnosis returns hallucinationError as data -- HTTP handler translates to 422
+- [15-01]: Plain TypeScript interfaces for context types (not zod) -- internal types
+- [15-01]: Lazy singleton tokenizer pattern for Qwen3 BPE counting
+- [15-01]: Worker model threshold at 10 unrecognized lines per CONTEXT.md decision
 
 ### Pending Todos
 
@@ -68,6 +71,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T13:04:10.008Z
-Stopped at: Phase 15 context gathered
-Resume: Next phase (15 -- Auto-Compact Context)
+Last session: 2026-04-10T13:47:00.000Z
+Stopped at: Completed 15-01-PLAN.md
+Resume: Phase 15 Plan 02 (next plan in auto-compact context)
