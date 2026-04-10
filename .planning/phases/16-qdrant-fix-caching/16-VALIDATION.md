@@ -41,12 +41,12 @@ created: 2026-04-10
 | 16-01-01 | 01 | 1 | CACHE-01 | unit | `npx vitest run tests/cache/lance-store.test.ts -x` | ❌ W0 | ⬜ pending |
 | 16-01-02 | 01 | 1 | CACHE-02 | unit | `npx vitest run tests/cache/embedder.test.ts -x` | ❌ W0 | ⬜ pending |
 | 16-01-03 | 01 | 1 | CACHE-06 | unit | `npx vitest run tests/cache/confidence.test.ts -x` | ❌ W0 | ⬜ pending |
-| 16-01-04 | 01 | 1 | CACHE-07 | unit | `npx vitest run tests/cache/degradation.test.ts -x` | ❌ W0 | ⬜ pending |
 | 16-02-01 | 02 | 2 | CACHE-03 | unit+int | `npx vitest run tests/cache/cache-lookup.test.ts -x` | ❌ W0 | ⬜ pending |
 | 16-02-02 | 02 | 2 | CACHE-05 | unit | `npx vitest run tests/cache/invalidation.test.ts -x` | ❌ W0 | ⬜ pending |
-| 16-02-03 | 02 | 2 | CACHE-08 | unit | `npx vitest run tests/cache/provenance.test.ts -x` | ❌ W0 | ⬜ pending |
-| 16-03-01 | 03 | 3 | CACHE-03 | integration | `npx vitest run tests/cache/pipeline-integration.test.ts -x` | ❌ W0 | ⬜ pending |
-| 16-03-02 | 03 | 3 | CACHE-04 | integration | `npx vitest run tests/cache/performance.test.ts -x` | ❌ W0 | ⬜ pending |
+| 16-02-03 | 02 | 2 | CACHE-07 | unit | `npx vitest run tests/cache/degradation.test.ts -x` | ❌ W0 | ⬜ pending |
+| 16-03-01 | 03 | 3 | CACHE-08 | unit | `npx vitest run tests/cache/provenance.test.ts -x` | ❌ W0 | ⬜ pending |
+| 16-03-02 | 03 | 3 | CACHE-03 | integration | `npx vitest run tests/cache/pipeline-integration.test.ts -x` | ❌ W0 | ⬜ pending |
+| 16-03-03 | 03 | 3 | CACHE-04 | integration | `npx vitest run tests/cache/performance.test.ts -x` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

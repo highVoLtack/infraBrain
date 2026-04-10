@@ -34,15 +34,15 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 - [x] **CTXT-05**: Regex pre-processor filters known noise patterns (healthcheck spam, systemd journal noise) before context injection
 - [x] **CTXT-06**: 9B worker model pre-filters unknown log formats for relevance scoring
 
-### Fix-Caching (Qdrant)
+### Fix-Caching (LanceDB Embedded)
 
-- [ ] **CACHE-01**: Qdrant runs as Docker container with auto-lifecycle management (start/stop with InfraBrain)
-- [ ] **CACHE-02**: Error signature + discovery context embedded via BGE-M3 into Qdrant collection
+- [ ] **CACHE-01**: LanceDB embedded vector store initializes automatically in-process with auto-table management (no external service or Docker required)
+- [ ] **CACHE-02**: Error signature + discovery context embedded via BGE-M3 into LanceDB table
 - [ ] **CACHE-03**: Before LLM diagnosis, similarity search checks for cached fix (threshold > 0.85)
 - [ ] **CACHE-04**: Cached fix returned in <2s vs 113s for LLM reasoning (zero LLM calls for cache hits)
 - [ ] **CACHE-05**: Cache invalidation on skill file updates (stale fixes purged)
 - [ ] **CACHE-06**: Confidence scoring on cached fixes (recency + success rate + similarity score)
-- [ ] **CACHE-07**: Graceful degradation -- InfraBrain works without Qdrant (cache is optimization, not requirement)
+- [ ] **CACHE-07**: Graceful degradation -- InfraBrain works without LanceDB (cache is optimization, not requirement)
 - [ ] **CACHE-08**: Cache hit explainability -- Ink terminal shows provenance indicator when using cached fix ("Based on incident #42 (2026-03-12) -- Cache Hit")
 
 ### Semantic Memory (MemPalace Native TypeScript)
