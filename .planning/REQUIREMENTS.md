@@ -20,10 +20,10 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 
 ### Parallel Execution
 
-- [ ] **EXEC-01**: Discovery commands run in parallel via `Promise.all()` (2-5x speedup)
-- [ ] **EXEC-02**: Per-container mutex (`Map<string, PQueue>`) prevents concurrent docker exec on same container
+- [x] **EXEC-01**: Discovery commands run in parallel via `Promise.all()` (2-5x speedup)
+- [x] **EXEC-02**: Per-container mutex (`Map<string, PQueue>`) prevents concurrent docker exec on same container
 - [ ] **EXEC-03**: Execution steps remain serial with existing safety gates (circuit breaker, damage budget)
-- [ ] **EXEC-04**: Parallel discovery results merge into single discovery context for LLM
+- [x] **EXEC-04**: Parallel discovery results merge into single discovery context for LLM
 
 ### Context Management (Auto-Compact)
 
@@ -101,10 +101,10 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EXEC-01 | Phase 14 | Pending |
-| EXEC-02 | Phase 14 | Pending |
+| EXEC-01 | Phase 14 | Complete |
+| EXEC-02 | Phase 14 | Complete |
 | EXEC-03 | Phase 14 | Pending |
-| EXEC-04 | Phase 14 | Pending |
+| EXEC-04 | Phase 14 | Complete |
 | CTXT-01 | Phase 15 | Pending |
 | CTXT-02 | Phase 15 | Pending |
 | CTXT-03 | Phase 15 | Pending |

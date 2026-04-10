@@ -75,7 +75,7 @@
   3. Execution steps remain serial with circuit breaker and damage budget unchanged (safety preserved)
   4. Parallel discovery results appear as a single merged context block in the LLM diagnosis prompt
   5. debug.ts is under 200 lines with pipeline logic extracted to src/orchestrator/
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 14-01-PLAN.md -- Parallel discovery module with per-container mutex (p-queue)
 - [ ] 14-02-PLAN.md -- Pipeline extraction, diagnosis module, slim debug.ts, fix test imports
@@ -157,7 +157,7 @@ Plans:
 | 12.6 Demo | v1.2 | -- | Validated | 2026-03-15 |
 | 13 | v1.2 | 2/2 | Complete | 2026-03-16 |
 | 13.1 | v1.2 | 3/3 | Complete | 2026-03-17 |
-| 14 | v1.3 | 0/2 | Planned | - |
+| 14 | 1/2 | In Progress|  | - |
 | 15 | v1.3 | TBD | Not started | - |
 | 16 | v1.3 | TBD | Not started | - |
 | 17 | v1.3 | TBD | Not started | - |
