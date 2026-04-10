@@ -69,15 +69,34 @@ The AI diagnoses, plans, and fixes infrastructure problems autonomously while th
 
 **Key architectural innovation:** Engine-First Architecture — shifted command syntax complexity from LLM prompts into deterministic TypeScript code (SQL Rewriter, findDbContainer, stripHostFlag, risk auto-override). The LLM writes only SQL; the engine handles container targeting, TTY sanitization, and auth.
 
-## Current Milestone: v1.2 The Knowledge Layer
+## Milestone: v1.2 The Knowledge Layer — SHIPPED 2026-03-17
 
-**Goal:** Give InfraBrain permanent local memory via Qdrant + BGE-M3 vector search, enabling declarative knowledge retrieval from vendor docs, runbooks, and internal wikis.
+**Goal:** Agnostic Engine architecture, self-healing executor, intelligent routing, and unified multi-backend LLM provider.
+
+**Delivered:**
+- ✓ Dynamic Command Rewriter — skill-driven rewrite rules replace hardcoded TypeScript
+- ✓ Skill-Driven Discovery — zero hardcoded domain knowledge in engine
+- ✓ Docker-Exec-Aware Rewriter — token-walk parser for docker exec flag injection
+- ✓ Universal Expert Skills — linux-expert, postgres-expert, network-expert replace scenario-specific skills
+- ✓ Two-Tier Intelligent Routing — pre-filter + enriched LLM, deterministic for clear prompts
+- ✓ Self-Healing Executor — error→LLM correction→retry, 5/5 Multi-Fault Demo validated
+- ✓ Persistence Verification — detects config changes reverted by restarts
+- ✓ Sanity Checker Tuning — Docker tag whitelist, structured diagnosis exemption
+- ✓ Unified OpenAI-Compatible Provider — vLLM + Ollama via per-role baseURL routing
+- ✓ 7-role model routing: triage, default, strategic, forensic, worker, vision, embedding
+
+**Key architectural innovation:** Agnostic Engine — 100% of domain knowledge lives in Markdown skill files. Adding a new scenario requires zero TypeScript. Self-healing executor compensates for local LLM limitations through error-driven self-correction.
+
+## Current Milestone: v1.3 The Intelligence Layer
+
+**Goal:** Transform InfraBrain from a CLI tool into an intelligent platform with a professional Ink/React terminal UI, parallel execution, context management for local LLMs, and fix-caching via Qdrant vector search.
 
 **Target features:**
-- Qdrant integration as local binary (single-process, air-gap compatible)
-- BGE-M3 embedding pipeline via Ollama (dense + sparse vectors)
-- Knowledge ingestion pipeline (PDF, Markdown → chunking → embedding → Qdrant)
-- RAG-based diagnosis (skills retrieve relevant docs before reasoning)
+- Ink/React terminal renderer — live DPEV tracking, rich dashboards, streaming output, layout system
+- Tool concurrency — discovery commands parallel, execute steps serial (Claude Code pattern)
+- Auto-compact — context window management for local LLMs with automatic summarization
+- Qdrant fix-caching — same error pattern = cached fix in 2s instead of 113s LLM reasoning (embedded default, external server optional)
+- Parallel inference pipeline — 9B models pre-process logs/errors while 122B reasons about diagnosis
 
 ## Context
 

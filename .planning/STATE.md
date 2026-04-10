@@ -1,26 +1,26 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: The Knowledge Layer
-status: completed
-stopped_at: Phase 13.1 COMPLETE (all 3 plans delivered, user-verified)
-last_updated: "2026-03-18T08:45:18.103Z"
-last_activity: 2026-03-17 -- Config example, docs, and user-verified provider swap (Plan 13.1-03)
+milestone: v1.3
+milestone_name: The Intelligence Layer
+status: defining_requirements
+stopped_at: Defining requirements for v1.3
+last_updated: "2026-04-10T10:00:00.000Z"
+last_activity: 2026-04-10 -- Milestone v1.3 started, gathering requirements
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 24
-  completed_plans: 24
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-13)
+See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control — every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.2 The Knowledge Layer
+**Current focus:** v1.3 The Intelligence Layer
 
 ## Current Position
 
