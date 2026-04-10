@@ -83,6 +83,9 @@ InfraBrain remembers every incident it has worked on and uses past experience to
 - Current date/time must be injected into classifier prompt for accurate time reference resolution
 - Response output should be Ink-terminal ready (Chalk formatting, Box components) in anticipation of Phase 19
 
+### Architecture Note: v2.0 LoRA Readiness
+The entity table in LanceDB MUST include a `expert_domain` field (nullable string) on every entity record. This maps infrastructure entities to their expert domain (e.g., entity "SAP HANA" → expert_domain "sap-hana", entity "Cisco IOS" → expert_domain "cisco-ios"). In v1.3 this field is populated but unused. In v2.0 it becomes the trigger for automatic LoRA adapter loading — when InfraBrain detects entities with an expert_domain, it can dynamically load the matching LoRA Expert Pack (PROJECT.md Pillar 1: Skill & LoRA Distribution). Design the schema now so we don't need a migration later.
+
 </specifics>
 
 <deferred>
