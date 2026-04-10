@@ -90,7 +90,11 @@ Plans:
   3. Critical data (container names, port numbers, error codes, discovery facts) survives compaction intact
   4. Healthcheck spam and systemd journal noise are filtered out before reaching the LLM
   5. Context compaction fires exactly once per threshold crossing (no recursive summarization loop)
-**Plans**: TBD
+**Plans:** 3/3 plans (3 waves)
+Plans:
+- [ ] 15-01-PLAN.md -- Token counter, types, and noise filter (foundation)
+- [ ] 15-02-PLAN.md -- Ground truth pinning, compactor, and ContextManager (core logic)
+- [ ] 15-03-PLAN.md -- Pipeline integration, config, and integration tests
 
 ### Phase 16: Qdrant Fix-Caching
 **Goal**: Repeat errors are resolved in under 2 seconds via vector similarity cache lookup, with zero LLM calls for cache hits
@@ -102,7 +106,11 @@ Plans:
   3. InfraBrain starts, diagnoses, and fixes problems normally when Qdrant container is unavailable (graceful degradation)
   4. Updating a skill file invalidates stale cached fixes for that skill's domain
   5. Qdrant container starts and stops automatically with InfraBrain (no manual docker commands)
-**Plans**: TBD
+**Plans:** 3/3 plans (3 waves)
+Plans:
+- [ ] 15-01-PLAN.md -- Token counter, types, and noise filter (foundation)
+- [ ] 15-02-PLAN.md -- Ground truth pinning, compactor, and ContextManager (core logic)
+- [ ] 15-03-PLAN.md -- Pipeline integration, config, and integration tests
 
 ### Phase 17: MemPalace Semantic Memory
 **Goal**: InfraBrain remembers every incident it has worked on and uses past experience to improve future diagnoses
@@ -114,7 +122,11 @@ Plans:
   3. Infrastructure entities (hostnames, service names, IPs) extracted from diagnostic text appear as searchable knowledge graph entries
   4. Recent incidents score higher than old ones at equal semantic similarity (temporal decay observable in search results)
   5. All memory mutations are recorded in a write-ahead log (audit trail for what was remembered and when)
-**Plans**: TBD
+**Plans:** 3/3 plans (3 waves)
+Plans:
+- [ ] 15-01-PLAN.md -- Token counter, types, and noise filter (foundation)
+- [ ] 15-02-PLAN.md -- Ground truth pinning, compactor, and ContextManager (core logic)
+- [ ] 15-03-PLAN.md -- Pipeline integration, config, and integration tests
 
 ### Phase 18: Parallel Inference Pipeline
 **Goal**: 9B models pre-process logs and extract patterns while 122B reasons about diagnosis, cutting total inference time
@@ -125,7 +137,11 @@ Plans:
   2. 9B log pre-processing runs concurrently with 122B reasoning (observable via dev-mode timing logs showing overlapping model calls)
   3. With only a single vLLM backend available, inference falls back to sequential mode transparently (no errors, same results)
   4. Separate vLLM instances serve different model sizes without VRAM contention (health check shows multiple backends)
-**Plans**: TBD
+**Plans:** 3/3 plans (3 waves)
+Plans:
+- [ ] 15-01-PLAN.md -- Token counter, types, and noise filter (foundation)
+- [ ] 15-02-PLAN.md -- Ground truth pinning, compactor, and ContextManager (core logic)
+- [ ] 15-03-PLAN.md -- Pipeline integration, config, and integration tests
 
 ### Phase 19: Ink/React Terminal UI
 **Goal**: Admin interacts with InfraBrain through a rich, reactive terminal interface with live progress tracking, streaming output, and a status dashboard
@@ -137,7 +153,11 @@ Plans:
   3. Approval prompts render as interactive Ink components (Y/N/details) replacing readline
   4. Terminal output adapts correctly to narrow (80-col) and wide (200-col) terminals without truncation or overflow
   5. All existing CLI commands (`/infra:debug`, `/infra:status`, `/infra:history`, `/infra:resume`) work through the Ink renderer with identical behavior
-**Plans**: TBD
+**Plans:** 3/3 plans (3 waves)
+Plans:
+- [ ] 15-01-PLAN.md -- Token counter, types, and noise filter (foundation)
+- [ ] 15-02-PLAN.md -- Ground truth pinning, compactor, and ContextManager (core logic)
+- [ ] 15-03-PLAN.md -- Pipeline integration, config, and integration tests
 
 ## Progress
 
@@ -158,7 +178,7 @@ Plans:
 | 13 | v1.2 | 2/2 | Complete | 2026-03-16 |
 | 13.1 | v1.2 | 3/3 | Complete | 2026-03-17 |
 | 14 | 2/2 | Complete    | 2026-04-10 | - |
-| 15 | v1.3 | TBD | Not started | - |
+| 15 | v1.3 | 0/3 | Planned | - |
 | 16 | v1.3 | TBD | Not started | - |
 | 17 | v1.3 | TBD | Not started | - |
 | 18 | v1.3 | TBD | Not started | - |
