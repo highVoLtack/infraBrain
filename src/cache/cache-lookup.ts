@@ -185,14 +185,20 @@ export async function recordFixOutcome(
   try {
     if (!store) return;
 
+    const existing = await store.getById(entryId);
+    if (!existing) return;
+
+    const currentSuccess = Number(existing.success_count ?? 0);
+    const currentFail = Number(existing.fail_count ?? 0);
+
     const updates: Record<string, unknown> = {
       last_used: new Date().toISOString(),
     };
 
     if (succeeded) {
-      updates.success_count = 1; // Will be incremented relative in a real scenario; for now set to signal intent
+      updates.success_count = currentSuccess + 1;
     } else {
-      updates.fail_count = 1;
+      updates.fail_count = currentFail + 1;
     }
 
     await store.updateStats(entryId, updates as any);

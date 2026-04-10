@@ -182,6 +182,24 @@ export class CacheStore {
   }
 
   /**
+   * Get a single cache entry by ID.
+   * Returns null if not found or on failure (graceful degradation).
+   */
+  async getById(id: string): Promise<Record<string, unknown> | null> {
+    try {
+      if (!(await this.ensureReady())) return null;
+      const results = await this.table!.query()
+        .where(`id = '${id}'`)
+        .limit(1)
+        .toArray();
+      return results.length > 0 ? results[0] : null;
+    } catch (err) {
+      console.error('CacheStore getById failed:', err);
+      return null;
+    }
+  }
+
+  /**
    * Update stats for a cache entry (hit_count, success_count, fail_count, last_used).
    */
   async updateStats(
