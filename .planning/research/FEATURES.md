@@ -1,235 +1,377 @@
-# Feature Research
+# Feature Landscape: v1.3 Intelligence Layer
 
-**Domain:** AI IT Operations Platform (AIOps + Runbook Automation + LLM-Powered Diagnostics)
-**Researched:** 2026-03-07
-**Confidence:** MEDIUM-HIGH
+**Domain:** AI Operations Platform -- Terminal UI, Vector Caching, Semantic Memory, Context Management, Parallel Execution, Parallel Inference
+**Researched:** 2026-03-31
+**Confidence:** MEDIUM-HIGH (most components have production-grade libraries; MemPalace pattern is novel integration)
 
-## Feature Landscape
+---
 
-### Table Stakes (Users Expect These)
+## 1. Ink/React Terminal UI with Live DPEV Tracking
 
-Features users assume exist. Missing these = product feels incomplete or unsafe for production use.
+### Table Stakes
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| **Diagnose-Plan-Execute-Verify loop** | Core workflow every AIOps and runbook tool provides. Dynatrace Davis AI, PagerDuty, StackStorm all have detect-analyze-act-confirm cycles. Without this, it is not an operations tool. | HIGH | This is InfraBrain's central architecture. Must be rock-solid before anything else. Comparable to StackStorm's sensor-trigger-rule-action chain. |
-| **Human-in-the-Loop approval for write operations** | Enterprise non-negotiable. EU AI Act Article 14 mandates human oversight for high-risk AI. Every competitor (Rundeck, Shoreline, PagerDuty) has approval gates. No enterprise buyer will deploy autonomous infra changes without this. | MEDIUM | Risk-based tiers: read-only auto-approves, write operations require explicit Y/N, destructive operations require typed confirmation. Rundeck does this with ACLs per job step. |
-| **Structured audit trail** | SOC 2 Type II requires detailed logs of all processing activities with timestamps. Banks, government, Mittelstand (InfraBrain's target) all need this for compliance. PagerDuty and BigPanda log every incident action. | MEDIUM | Decision log + before/after state diffs + queryable JSON. Must answer: who approved what, when, what changed, what was the outcome. SQLite for queries, files for git-trackability. |
-| **Automatic rollback on failure** | Every mature automation tool has this. Rundeck has error handlers per step. StackStorm has compensating workflows. Without rollback, a failed fix can leave infrastructure in a worse state than before. | HIGH | Capture pre-execution state snapshot. On circuit breaker trip or verification failure, restore to last-known-good. This is the safety net that makes enterprises trust the tool. |
-| **Circuit breaker / damage budget** | StackStorm has retry limits. Rundeck has timeout and error handling. Any tool that executes commands on production infrastructure without blast-radius limits is a liability, not a product. | MEDIUM | Max retries per step, max total changes per fix plan, configurable blast radius (e.g., "only touch containers in namespace X"). Halt and alert when limits are hit. |
-| **CLI interface with clear commands** | InfraBrain is CLI-first. Admins expect predictable command structure, help text, autocompletion, and machine-parseable output (JSON). Rundeck and Ansible both have strong CLI interfaces alongside their UIs. | MEDIUM | Commands like `/infra:debug`, `/infra:status`, `/infra:history`. Must support both interactive and scripted usage. Pipe-friendly JSON output mode. |
-| **Log analysis and pattern recognition** | Every AIOps tool does this. Dynatrace auto-discovers topology. BigPanda correlates events. PagerDuty groups alerts by pattern. An IT ops tool that cannot parse and reason about logs is useless. | MEDIUM | Pre-filter logs (grep, journalctl) to avoid context window overflow, then LLM analyzes filtered output. Must handle common formats: syslog, JSON structured logs, Docker logs, journald. |
-| **Skill/runbook definition system** | Rundeck has job definitions. StackStorm has packs (2000+). Ansible has playbooks. The ability to define reusable operational procedures is fundamental. InfraBrain's Markdown skills are the equivalent. | MEDIUM | Markdown-based skill files with structured sections: description, available tools, prompts, verification steps. Must be versionable (git), composable, and human-readable. |
-| **Execution isolation** | StackStorm runs actions in isolated containers. Rundeck executes over SSH (inherent isolation). Ansible uses per-host execution. Shared execution context is a safety and correctness risk. | HIGH | Sub-agent isolation: separate LLM context window + sandboxed child process. Prevents context contamination across tasks and limits blast radius of any single execution. |
-| **Session state and resumability** | If a multi-step fix plan is interrupted (network drop, admin steps away), the system must know where it left off. PagerDuty and FireHydrant both track incident state across sessions. | MEDIUM | Persist plan state to disk (both human-readable file + SQLite). On reconnect, show status and allow resume/abort. Lock file indicates active session on a target. |
+| Feature | Why Expected | Complexity | InfraBrain Integration |
+|---------|--------------|------------|----------------------|
+| DPEV phase indicator (D/P/E/V) with live transitions | Users need to know which phase is active; current chalk output scrolls off-screen | Low | Replace `formatter.ts` chalk output with Ink `<Box>` layout |
+| Streaming LLM output panel | Diagnosis/planning text arrives token-by-token; must render incrementally | Medium | Hook into AI SDK v6 `streamText` / `streamObject` callbacks |
+| Step progress bar with pass/fail indicators | Execution phase has N steps; users need at-a-glance progress | Low | Map `executePlan()` step loop to Ink `<ProgressBar>` component |
+| Risk-colored command display | Already exists in `formatCommand()` -- must translate to Ink `<Text>` styling | Low | Direct port from chalk color mapping to Ink `<Text color="">` |
+| Static log area (completed output above, live area below) | Prevents re-render from erasing past output; Ink `<Static>` component solves this | Medium | `<Static>` for completed steps; dynamic `<Box>` for current step |
+| Keyboard-driven approval (Y/N/typed confirmation) | Already exists via readline; must port to Ink `useInput()` hook | Medium | Replace `approval.ts` readline prompts with Ink input components |
 
-### Differentiators (Competitive Advantage)
-
-Features that set InfraBrain apart from Rundeck, StackStorm, PagerDuty, Dynatrace, and others.
+### Differentiators
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **100% on-premise with local LLMs** | Critical differentiator. PagerDuty, BigPanda, Dynatrace are all cloud-dependent. Banks, government, and German Mittelstand legally cannot send infrastructure data to cloud AI. No major competitor offers fully local LLM-powered operations. | MEDIUM | Ollama default, pluggable for vLLM/llama.cpp. The trade-off is model quality vs. privacy. Llama-3.3-70B for orchestration is strong enough for planning; Qwen2.5-Coder-7B handles execution. |
-| **Teach-any-system via Markdown skills** | Rundeck needs job definitions in XML/YAML. StackStorm needs Python packs. Ansible needs YAML playbooks with specific module knowledge. InfraBrain's natural-language Markdown skills let non-developers define new capabilities. This solves the B2B customization problem: customers write their own skills instead of requesting custom code. | MEDIUM | This is the "platform" play. The engine is agnostic; skills are the product. Must have clear skill authoring docs, validation, and a "getting started" template. Enterprise value: new hires write a skill file instead of spending months learning internal tooling. |
-| **LLM-powered diagnostic reasoning** | Traditional runbooks are deterministic: if X then Y. InfraBrain's LLM can reason about novel problems it has never seen, combine evidence from multiple sources, and generate hypotheses. No traditional tool does this. Dynatrace Davis AI does causal analysis but only within Dynatrace's own telemetry. | HIGH | The LLM reads skill files + system state + logs and reasons about root cause. This is the core innovation. Risk: LLM hallucination on infrastructure commands. Mitigation: verification step + HITL approval. |
-| **Transparent reasoning chain** | Dynatrace and BigPanda are black boxes. PagerDuty's ML is opaque. InfraBrain shows its full reasoning: "I checked X, found Y, concluded Z, plan to do W." Markdown skills are inspectable. Decision logs are human-readable. This is essential for enterprise trust and regulatory compliance. | LOW | Already built into the architecture. Decision log captures each reasoning step. Skills are plain Markdown anyone can read. This is a sales differentiator: "No black-box AI on your production systems." |
-| **Composable skill inheritance and chaining** | StackStorm has workflow chaining. But InfraBrain can let skills reference other skills, creating composable diagnostic trees. E.g., "debug-nginx" skill can invoke "analyzing-logs" and "check-docker-health" skills as sub-steps. | MEDIUM | Skill files can declare dependencies on other skills. Orchestrator loads the dependency graph. Enables building complex workflows from simple, tested building blocks. |
-| **Progressive autonomy levels** | Emerging industry trend: start with full HITL, gradually increase automation as trust builds. Rather than binary "manual vs autonomous," InfraBrain can offer configurable autonomy per skill, per environment, per risk level. Read operations auto-approve, known-safe fixes semi-auto, novel fixes require full approval. | MEDIUM | Three levels: OBSERVE (read-only, no approval needed), GUIDED (plan shown, step-by-step approval), AUTONOMOUS (pre-approved skills execute without confirmation). Configurable per skill, per target host, per environment. |
-| **Verification-driven remediation (test-driven fixes)** | Inspired by TDD. Before executing a fix, the system writes a health check that currently fails (red). After the fix, the check must pass (green). No competitor requires verification as a first-class concept in the fix workflow. | MEDIUM | Each fix plan step must define a verification command. Execution is: capture state, apply change, run verification. If verification fails, rollback. This catches fixes that "succeed" but do not actually resolve the problem. |
-| **Standalone binary distribution** | Rundeck requires Java. StackStorm requires Python + RabbitMQ + MongoDB. Ansible requires Python. InfraBrain as a standalone binary (via pkg/nexe) means zero runtime dependencies on the target admin workstation. Just download and run. | MEDIUM | Significant DX advantage for enterprise deployment. No "install Node.js first" step. Single binary + Ollama is the entire stack. |
+| Split-panel layout: DPEV status + live output + model info | Dashboard-style view showing phase, model routing role, and streaming output simultaneously | Medium | Yoga Flexbox enables `flexDirection: 'row'` for side-by-side panels |
+| Self-healing retry visualization | Show attempt count, error, LLM correction in real-time during self-heal loop | Medium | Existing `selfHealStep()` emits events; render as Ink state updates |
+| Model routing indicator | Show which model role (triage/forensic/strategic) is active and why | Low | Read from ModelRegistry selection, display in header `<Box>` |
+| Braille spinner with model latency | Current braille spinners exist; add p50/p99 inference timing | Low | Wrap existing spinner logic in Ink `<Spinner>` + timing state |
+| Collapsible detail panels | Expand/collapse diagnostic details, plan steps, execution output on demand | High | Requires focus management with `useFocus()` + toggle state |
 
-### Anti-Features (Commonly Requested, Often Problematic)
+### Anti-Features
 
-Features that seem good but create problems. Deliberately NOT building these.
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Full TUI with mouse support | Over-engineering; InfraBrain users are CLI-native admins, not GUI users | Keyboard-only interaction via `useInput()` |
+| Color themes / customization | Scope creep; enterprise admins want consistent, readable output | Single well-designed color scheme matching existing chalk palette |
+| Animated transitions between phases | Terminal rendering is 60fps max, animations waste cycles and distract | Instant phase transitions with clear visual state change |
+| Web-based alternative renderer | Out of scope per PROJECT.md ("Mobile or web UI" is deferred) | CLI-first; API-first design enables future web layer |
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| **Web UI dashboard** | Looks impressive in demos. Every competitor has one. Stakeholders expect visual interfaces. | Doubles development surface. Creates security surface (auth, sessions, CORS). Splits team focus. CLI-first means the API is the product; a UI is a consumer of the API that can come later. Rundeck's UI is often cited as both its strength and its maintenance burden. | Build a clean REST/gRPC API. CLI is the v1 interface. A web UI is a v2+ feature that consumes the same API. Do not build it until the API is stable and validated. |
-| **Real-time streaming dashboards** | Looks great for monitoring. Competitors like Dynatrace and Datadog have rich visualizations. | Requires WebSocket infrastructure, frontend framework, charting libraries. Massive scope increase for marginal v1 value. InfraBrain is not an observability platform; it is an operations platform that consumes observability data. | Integrate with existing monitoring tools (Prometheus, Grafana) via skills. Do not replicate their dashboards. Output structured data that existing tools can ingest. |
-| **Full autonomous mode (no human approval)** | "Just fix it automatically." Appealing for reducing MTTR to near-zero. SRE teams want self-healing infrastructure. | Existential risk for the product. One autonomous LLM-driven `rm -rf` on production ends the company. EU AI Act requires human oversight. Enterprise buyers will not purchase a tool that acts without approval on production systems. Even mature platforms like Shoreline only auto-remediate pre-approved, deterministic actions. | Progressive autonomy: start with full HITL, allow pre-approved skills to run with reduced oversight. Never fully autonomous for novel/unknown actions. The human always has veto power. |
-| **Public skill marketplace (v1)** | Community-driven skill sharing is the dream. StackStorm has 2000+ community packs. | Requires trust infrastructure (skill signing, review process, versioning), hosting, moderation. Premature before proving the skill model works. Community needs critical mass to be useful. | Ship with a curated "standard library" of skills. Support git-based skill repositories for enterprise. Marketplace is a Phase 5+ feature after community exists. |
-| **Multi-tenant / multi-team (v1)** | Enterprises have multiple teams. Natural request. | Requires auth (OAuth, SAML), RBAC, tenant isolation, permission models. Massive complexity increase. v1 is proving the core loop works. | v1 is single-instance, single-team. Multi-team is a future enterprise feature. Use filesystem permissions and separate instances as a stopgap. |
-| **Cloud-hosted SaaS option** | Easier onboarding. Lower friction. Standard SaaS model. | Directly contradicts the core value proposition (100% on-premise, zero cloud). Banks and government customers will not use it. Splits engineering between two deployment models. | On-premise only. This is a feature, not a limitation. "Your data never leaves your servers" is the pitch. If cloud demand materializes, it is a separate product. |
-| **Natural language everything** | "Just talk to it in plain English." Seems like the ultimate UX. | LLMs are unreliable for parsing ambiguous natural language into precise infrastructure commands. "Fix the server" means different things to different people. Precision matters when touching production. | Structured CLI commands for actions. Natural language for diagnostics and reasoning (where ambiguity is acceptable). Skill files provide the precision layer. Hybrid approach: NL for "what's wrong?" but structured commands for "do this." |
-| **GraphRAG / knowledge graph (v1)** | Better reasoning over complex infrastructure relationships. Neo4j could model dependencies beautifully. | Massive infrastructure requirement (Neo4j). Overkill for v1 where simple JSON/Markdown state is sufficient. Adds operational complexity to a tool meant to reduce operational complexity. | Simple infrastructure state in JSON files + SQLite. Upgrade to graph database when the state model's complexity demands it. Likely v2+ when managing 1000+ node environments. |
+### Architecture Notes
+
+**Ink v6** is ESM-only, requires React >= 19 and Node >= 20. InfraBrain is already ESM (`"type": "module"` in package.json). Key pattern: Ink replaces the entire `cli/formatter.ts` and `cli/repl.ts` layer. The orchestrator and execution engine remain unchanged -- they emit events/state, and Ink components subscribe.
+
+**Migration path:** Keep chalk as fallback for `--json` mode and piped output. Ink renders only when stdout is a TTY. This preserves the existing `--json` envelope contract.
+
+**Key library:** `ink` v6 + `@inkjs/ui` (spinner, select, text-input components). No additional UI framework needed.
+
+---
+
+## 2. Qdrant Fix-Caching via Vector Similarity Search
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | InfraBrain Integration |
+|---------|--------------|------------|----------------------|
+| Embed error signatures using BGE-M3 (already deployed) | Need vector representation of error patterns for similarity search | Low | BGE-M3 is already in the model inventory; call via embedding role |
+| Store fix plans as vector-indexed documents | When a fix succeeds, persist the (error embedding, fix plan) pair | Medium | New `fix-cache/` module alongside existing `state/store.ts` |
+| Similarity threshold for cache hits (configurable) | Too low = wrong fix applied; too high = cache never hits | Low | Config value (0.85 default), adjustable per-skill |
+| Cache invalidation on fix failure | If a cached fix fails on retry, mark it as invalid for this context | Medium | Track success/failure counts per cached fix; auto-invalidate below threshold |
+| Qdrant as sidecar (Docker container, default embedded) | Enterprise needs external Qdrant; solo dev needs zero-config embedded | Medium | Docker Compose for Qdrant sidecar; fallback to Qdrant binary spawned by InfraBrain |
+
+### Differentiators
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| 2-second cached fix vs 113-second LLM reasoning | The core value prop: seen-before errors resolve in <3s | Medium | Bypass DPEV Diagnose+Plan phases when cache confidence > threshold |
+| Context-aware cache keys (host + error + service stack) | Same error on nginx vs postgres needs different fixes | Medium | Composite embedding: error text + service metadata |
+| Cache hit rate dashboard | Show admins how much time the cache is saving | Low | Aggregate stats in SQLite audit log, display in Ink status panel |
+| Semantic cache with Qdrant's built-in mechanism | Qdrant supports semantic caching natively -- reuse query results | Low | Configure Qdrant collection with payload indexing for fast retrieval |
+| Fix evolution tracking | When an LLM improves on a cached fix, update the cache entry | High | Requires comparing fix plan diffs and scoring improvements |
+
+### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Cache-first without verification | Cached fix might be stale (infra changed since cache entry) | Always run Verify phase even on cache hits |
+| Global cache across unrelated systems | Fixes are context-dependent; postgres fix for host A might harm host B | Namespace cache by target host + service fingerprint |
+| Automatic cache population from external sources | Supply-chain risk; only locally-validated fixes enter the cache | Cache only from successful InfraBrain DPEV completions |
+
+### Architecture Notes
+
+**Qdrant deployment:** Two modes. (1) Embedded: InfraBrain spawns `qdrant` binary on startup, stores data in `~/.infrabrain/qdrant/`. (2) External: Point to existing Qdrant server via config. The `@qdrant/qdrant-js` SDK (v1.17.0) supports both REST and gRPC with identical TypeScript interfaces.
+
+**Embedding model:** BGE-M3 is already in the model inventory (embedding role). Produces 1024-dim vectors. Collection schema: `{ id, error_embedding, fix_plan_json, target_host, service_fingerprint, success_count, created_at, last_used_at }`.
+
+**Cache lookup flow:** Error text -> BGE-M3 embedding -> Qdrant search (cosine, threshold 0.85) -> if hit: return cached fix plan (skip Diagnose+Plan) -> Execute -> Verify -> if verify fails: invalidate cache entry, fall through to full DPEV.
+
+---
+
+## 3. MemPalace Semantic Memory (Wings/Rooms/Halls)
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | InfraBrain Integration |
+|---------|--------------|------------|----------------------|
+| Persistent memory of past incidents and resolutions | Without memory, InfraBrain re-diagnoses the same issue from scratch every time | Medium | New `memory/` module, stores incident graphs |
+| Temporal awareness (what was true at time T) | Infrastructure changes over time; a fix valid last week may be wrong today | High | Bi-temporal model (event time + ingestion time) per Zep/Graphiti pattern |
+| Entity extraction from diagnostic output | Automatically identify hosts, services, error codes, config files from DPEV output | Medium | LLM extraction (worker role) from diagnosis text into structured entities |
+| Semantic search over past incidents | "Have we seen this error before?" queries across all past sessions | Medium | Vector embeddings of incident summaries stored in Qdrant |
+
+### Differentiators
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| MemPalace hierarchy: Wings (infrastructure domains) / Rooms (service clusters) / Halls (incident timelines) | Spatial metaphor maps naturally to IT infrastructure topology | High | Novel data model; no off-the-shelf library provides this exact pattern |
+| Causal relationship tracking | "Disk full on host A caused DB crash on host B" -- track cross-host causality | High | Entity-relationship graph with typed edges (caused_by, resolved_by, colocated_with) |
+| Knowledge decay with confidence scoring | Old facts degrade in confidence unless re-confirmed by new incidents | Medium | Decay function on entity confidence scores, reset on re-observation |
+| Incident pattern recognition | Detect recurring patterns: "This postgres OOM happens every Monday at 3am" | High | Temporal pattern analysis over incident timeline data |
+| MemPalace as sidecar service | Keep memory layer independent; can be swapped or upgraded without touching core engine | Medium | Separate process, communicates via REST/gRPC, own data store |
+
+### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Neo4j/graph database dependency | Heavy dependency; InfraBrain targets air-gapped environments where Neo4j is overkill | Use SQLite + Qdrant for graph-like queries; upgrade path to Neo4j for enterprise |
+| Full Graphiti/Zep integration | Python-only (Graphiti); adds Python runtime dependency to TypeScript stack | Build MemPalace as native TypeScript module inspired by Graphiti's temporal model |
+| Automatic fact overwriting | Old facts might still be valid; temporal model preserves history | Invalidate with validity windows, never delete |
+| Memory affecting execution without HITL | "I remember this fix worked before" should suggest, not auto-execute | Memory informs Diagnose phase context, does not bypass approval gates |
+
+### Architecture Notes
+
+**MemPalace data model:**
+
+```
+Wing (infrastructure domain)
+  e.g., "Networking", "Database", "Container Runtime"
+  |
+  +-- Room (service cluster / host group)
+  |     e.g., "Production Postgres Cluster", "Edge Nginx Fleet"
+  |     |
+  |     +-- Hall (incident timeline)
+  |           e.g., "2026-03-15: OOM on pg-primary"
+  |           Contains: entities, relationships, resolution, timestamps
+  |
+  +-- Room ...
+```
+
+**Implementation strategy:** SQLite tables for the hierarchical structure (wings, rooms, halls, entities, relationships). Qdrant for semantic search over entity descriptions and incident summaries. The MemPalace module exposes a TypeScript API that the orchestrator calls during the Diagnose phase to inject relevant historical context.
+
+**Graphiti/Zep inspiration:** Adopt the bi-temporal model (event time T + ingestion time T') and the three-tier subgraph pattern (episode/entity/community), but implement in TypeScript with SQLite+Qdrant instead of Neo4j. The `graphzep` TypeScript port exists but is early-stage and tightly coupled to Neo4j. Building a purpose-built implementation is lower risk.
+
+**Sidecar pattern:** MemPalace runs as a separate process (`infrabrain-memory`) with its own SQLite + Qdrant storage. The main InfraBrain process communicates via local HTTP. This keeps the memory layer independently deployable and upgradeable. For single-machine deployments, it can be spawned as a child process.
+
+---
+
+## 4. Context Window Management (Auto-Compact/Summarization)
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | InfraBrain Integration |
+|---------|--------------|------------|----------------------|
+| Token counting before LLM calls | Must know how close to 32K limit before sending context | Low | Extend existing `token-budget.ts` with running token counter |
+| Observation masking for stale tool outputs | JetBrains research proves this matches summarization quality at half the cost | Low | Replace old step outputs with `[output omitted, see step N]` placeholders |
+| Context budget allocation (system 1.5%, content 62.5%, conversation 23.5%, response 12.5%) | Standard allocation for 32K models prevents response truncation | Low | Configure in `config.json`, enforce in context builder |
+| Automatic compaction trigger at threshold | When context exceeds N% of window, compact before next LLM call | Medium | Check token count before each `generateText`/`generateObject` call |
+
+### Differentiators
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Hybrid compaction (observation masking + selective summarization) | JetBrains NeurIPS 2025: hybrid approach gives 7-11% cost reduction over either alone | Medium | Mask stale outputs first, then summarize only when masking is insufficient |
+| DPEV-phase-aware compaction | Diagnose output is critical during Plan; Plan output is critical during Execute | Medium | Phase-specific retention rules: keep current and previous phase in full, compress older phases |
+| TOON-aware compaction | InfraBrain already uses TOON encoding for token compression; compound with compaction | Low | Apply TOON encoding after compaction for maximum context density |
+| Proactive context waste reduction | Morph FlashCompact principle: reduce waste at source, not after the fact | Medium | Trim verbose command outputs at capture time; store only relevant lines |
+| Rolling context window for self-healing | Self-healer iterates up to 5 times; each attempt adds context; must not overflow | Medium | Existing `RollingContext` class in `execution/context-builder.ts` needs token-aware truncation |
+
+### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| LLM-only summarization | Expensive (requires extra LLM call), can hallucinate file paths and error messages | Use observation masking as primary; LLM summarization only for multi-phase summaries |
+| Aggressive early compaction | Losing context too early degrades diagnostic quality | Compact only when token count exceeds 80% of budget; prefer masking over deletion |
+| Token-level pruning (LLMlingua-style) | Can corrupt code syntax, shell commands, and config file content | Work at message/block level, not token level |
+| One-size-fits-all compaction | Different DPEV phases have different context needs | Phase-aware retention policies |
+
+### Architecture Notes
+
+**Existing hooks:** `token-budget.ts` and `RollingContext` in `execution/context-builder.ts` already track context. The auto-compact system wraps these with a compaction pipeline:
+
+1. **Measure:** Count tokens for all context blocks before LLM call
+2. **Mask:** If over 80% budget, replace stale tool outputs with placeholders (observation masking)
+3. **Compress:** If still over budget after masking, apply TOON encoding to remaining verbose blocks
+4. **Summarize:** If still over budget, LLM-summarize the oldest DPEV phase(s) -- last resort only
+5. **Allocate:** Reserve 12.5% of budget for response generation
+
+**Key research finding:** JetBrains "The Complexity Trap" (NeurIPS 2025 DL4Code workshop) demonstrated that simple observation masking halves cost while matching summarization solve rates on SWE-bench. The hybrid approach (masking + summarization) achieves optimal results. This is the recommended strategy for InfraBrain's 32K context window.
+
+---
+
+## 5. Parallel Tool Execution with Concurrency Safety
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | InfraBrain Integration |
+|---------|--------------|------------|----------------------|
+| Read-only tool calls execute in parallel | Discovery commands (docker ps, systemctl status, cat logs) are safe to parallelize | Medium | Extend `classifyCommand()` READ classification to mark concurrency-safe |
+| Write/destructive tool calls execute serially | Mutations must be ordered; existing damage budget enforces this | Low | Already serial in `executePlan()`; formalize with concurrency-safe flag |
+| Configurable concurrency limit (4-6 default) | Prevent overwhelming target hosts with too many simultaneous SSH sessions | Low | New config value `execution.maxParallelTools` |
+| Result ordering preservation | Parallel results must be presented in logical order, not completion order | Medium | Collect results with index, sort before display |
+
+### Differentiators
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Discovery phase parallelization (2-5x speedup) | Docker inspect + log fetch + systemctl status all run simultaneously | Medium | Partition discovery commands into parallel batch before diagnosis LLM call |
+| Damage budget integration with parallel execution | Parallel writes must collectively respect the damage budget, not just individually | Medium | Shared `DamageBudget` instance with atomic deduction across parallel tasks |
+| Per-target concurrency limits | Host A can handle 6 parallel commands; host B (legacy) only 2 | Low | Config per target host in `config.json` |
+| Progressive result streaming | Show results as they arrive, not after all complete | Medium | Async generator pattern (Claude Code style) with Ink live rendering |
+| Automatic serial fallback on conflict detection | If two parallel commands would touch the same resource, automatically serialize them | High | Resource lock detection heuristics (same file path, same service name) |
+
+### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Parallel execution of fix steps | Fix steps often have dependencies (stop service -> modify config -> start service) | Keep fix execution serial; only parallelize discovery/read operations |
+| Unlimited concurrency | Can overwhelm target hosts, trigger rate limits, exhaust SSH connections | Hard cap at configurable limit (default 6) |
+| Parallel execution across different targets without isolation | Cross-target parallel execution risks cascading failures | Parallelize within one target's discovery; serialize across targets |
+
+### Architecture Notes
+
+**Claude Code pattern adoption:** The `partitionToolCalls()` pattern classifies each tool call as concurrency-safe or not. InfraBrain already has `classifyCommand()` in `safety/classifier.ts` with `RiskLevel.READ` classification. Extend this with a `isConcurrencySafe(): boolean` method.
+
+**Implementation:**
+```
+Discovery phase (parallel):
+  Promise.allSettled([
+    runCommand("docker ps --format json"),
+    runCommand("journalctl -u nginx --since '1h ago'"),
+    runCommand("systemctl status postgresql"),
+    runCommand("df -h"),
+  ]) -> aggregate results -> feed to Diagnose LLM
+
+Execution phase (serial, unchanged):
+  for step of plan.steps:
+    await executeStep(step)  // existing safety pipeline
+```
+
+**Damage budget thread safety:** The existing `DamageBudget` class uses synchronous methods. For parallel execution, wrap budget checks in a mutex (Node.js is single-threaded, so `Promise` sequencing suffices -- no actual mutex needed, just ensure budget check + deduction is atomic within a single microtask).
+
+---
+
+## 6. Parallel Inference Pipeline (Multi-Model)
+
+### Table Stakes
+
+| Feature | Why Expected | Complexity | InfraBrain Integration |
+|---------|--------------|------------|----------------------|
+| Small model pre-processes while large model reasons | 9B Qwen worker extracts log structure while 32B infrabrain diagnoses | Medium | Orchestrator dispatches parallel LLM calls via different model roles |
+| Non-blocking inference queue | LLM calls should not block each other when targeting different models | Medium | Separate request queues per model backend (vLLM slots) |
+| Model health monitoring | Detect when a model is overloaded or unresponsive, route around it | Low | Extend existing health check in `/infra:health` command |
+
+### Differentiators
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Speculative pre-processing pipeline | 9B model starts log analysis immediately; 32B model starts diagnosis when pre-processing completes | High | Requires pipeline orchestration with dependency tracking between model outputs |
+| P-EAGLE speculative decoding (vLLM v0.16+) | 2-3x inference speedup at low concurrency using draft model | Medium | vLLM config: enable P-EAGLE with Qwen3-Coder 30B head; pre-trained heads available on HuggingFace |
+| Multi-model routing with load balancing | Distribute inference across multiple GPU instances if available | High | Extend `UnifiedProvider` with round-robin or least-loaded routing |
+| Cascading inference (fast model first, escalate if uncertain) | 7B worker attempts diagnosis; if confidence low, escalate to 32B; then to 70B strategic | Medium | Already exists conceptually in self-healing escalation (worker -> strategic -> forensic) |
+
+### Anti-Features
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Speculative decoding at high concurrency (>10 requests) | Performance gains diminish; may hurt throughput at high batch sizes | Enable only for single-user inference; disable for batch workloads |
+| Mandatory multi-GPU requirement | InfraBrain targets single RTX 5090 as reference hardware | Design for single GPU with optional multi-GPU; pipeline parallelism only with 2+ GPUs |
+| Tight coupling to vLLM-specific features | Provider interface must remain abstracted (Ollama, vLLM, llama.cpp) | Expose parallel inference as optional capability; gracefully degrade to serial on Ollama |
+
+### Architecture Notes
+
+**Existing infrastructure:** The `UnifiedProvider` (OpenAI-compatible) already routes to different models by role. Parallel inference means issuing multiple role-based calls concurrently:
+
+```
+Parallel inference pipeline:
+  t=0: worker(9B) starts log parsing         | triage(9B) starts error classification
+  t=2: worker completes, feeds structured logs to...
+  t=2: default(32B) starts diagnosis with structured input
+  t=8: default(32B) completes diagnosis
+  Total: ~10s (vs ~15s serial)
+```
+
+**vLLM parallel capacity:** With 32GB VRAM on RTX 5090, running 32B (main) + 7B (worker) simultaneously requires careful VRAM management. vLLM's continuous batching handles this if both models are loaded. Alternative: time-slice -- worker model runs first, unloads, main model runs.
+
+**Speculative decoding:** P-EAGLE (vLLM v0.16+) uses a small draft head to generate K tokens in one forward pass, verified by the target model in parallel. Pre-trained heads exist for Qwen3-Coder 30B. This is a vLLM config flag, not application code. Enable when using vLLM backend; gracefully unavailable on Ollama.
+
+---
 
 ## Feature Dependencies
 
 ```
-[CLI Interface]
-    |
-    +--requires--> [REST/gRPC API Backend]
-    |                  |
-    |                  +--requires--> [LLM Provider Interface (Ollama)]
-    |                  |
-    |                  +--requires--> [Skill Loading System]
-    |                                     |
-    |                                     +--requires--> [Skill File Format Spec]
-    |
-    +--requires--> [Session State Management]
+[Ink/React UI] -----> independent, no prerequisites
+     |
+     +-- enables --> [DPEV phase tracking visualization]
+     +-- enables --> [Self-heal retry visualization]
+     +-- enables --> [Progressive result streaming from parallel tools]
 
-[Diagnose-Plan-Execute-Verify Loop]
-    |
-    +--requires--> [LLM Provider Interface]
-    +--requires--> [Skill Loading System]
-    +--requires--> [Sub-Agent Execution Isolation]
-    |                  |
-    |                  +--requires--> [Process Sandboxing]
-    |                  +--requires--> [LLM Context Isolation]
-    |
-    +--requires--> [Verification System (Test-Driven)]
-    +--requires--> [Human-in-the-Loop Approval]
+[Qdrant Fix-Caching] -----> requires BGE-M3 (already deployed)
+     |
+     +-- enables --> [MemPalace semantic search layer]
 
-[Automatic Rollback]
-    |
-    +--requires--> [State Snapshot Capture]
-    +--requires--> [Circuit Breaker / Damage Budget]
+[Auto-Compact] -----> requires token-budget.ts extension (already exists)
+     |
+     +-- required by --> [Self-healing loop (5 attempts generate context)]
+     +-- required by --> [MemPalace context injection into Diagnose phase]
 
-[Audit Trail]
-    |
-    +--requires--> [Decision Logger]
-    +--requires--> [State Diff Engine]
-    +--requires--> [SQLite Storage]
+[Parallel Tool Execution] -----> requires classifyCommand() extension
+     |
+     +-- enhanced by --> [Ink/React UI for progressive results]
+     +-- requires --> [Damage Budget thread safety]
 
-[Progressive Autonomy]
-    |
-    +--requires--> [Human-in-the-Loop Approval]  (to selectively bypass)
-    +--requires--> [Risk Classification per Skill]
-    +--requires--> [Audit Trail]  (to log autonomous decisions)
+[Parallel Inference] -----> requires UnifiedProvider concurrent call support
+     |
+     +-- enhanced by --> [vLLM P-EAGLE speculative decoding]
+     +-- optional --> [Multi-GPU load balancing]
 
-[Log Analysis Skill]
-    +--enhances--> [Diagnose-Plan-Execute-Verify Loop]
-
-[Infrastructure Mapping Skill]
-    +--enhances--> [Diagnose-Plan-Execute-Verify Loop]
-
-[Composable Skill Chaining]
-    +--requires--> [Skill Loading System]
-    +--enhances--> [Diagnose-Plan-Execute-Verify Loop]
+[MemPalace] -----> requires Qdrant (from fix-caching)
+     |            +-- requires Auto-Compact (memory injection adds context)
+     +-- enhanced by --> [Parallel Tool Execution for discovery enrichment]
 ```
 
-### Dependency Notes
+---
 
-- **CLI requires API Backend:** CLI is a thin client over the API. API must exist first so CLI and future clients share the same interface.
-- **Diagnose-Plan-Execute-Verify requires Sub-Agent Isolation:** Without isolation, multi-step plans contaminate context windows and create blast-radius risks. This is architecturally foundational.
-- **Automatic Rollback requires State Snapshots:** Cannot roll back without knowing the pre-change state. Snapshot capture must happen before every write operation.
-- **Progressive Autonomy requires HITL + Risk Classification + Audit Trail:** You can only relax human approval when you have risk-based classification (to know what is safe) and audit logging (to prove what happened).
-- **Composable Skill Chaining enhances the core loop:** Not required for v1, but dramatically increases the platform's power. Skills that call other skills create exponential capability growth.
+## MVP Recommendation
 
-## MVP Definition
+### Phase 1: Foundation (do first, enables everything visual)
+1. **Ink/React Terminal UI** -- Replaces chalk/formatter layer. Unlocks live DPEV tracking, streaming output, and progressive results for all subsequent features.
+2. **Auto-Compact** -- Critical for 32K context window. Without this, MemPalace context injection and self-healing loops will overflow the context. Low complexity, high leverage.
 
-### Launch With (v1)
+### Phase 2: Performance (immediate user-visible speedup)
+3. **Parallel Tool Execution** -- Discovery phase goes from serial to parallel. 2-5x speedup on diagnosis. Leverages existing `classifyCommand()` READ classification.
+4. **Qdrant Fix-Caching** -- Repeat errors resolve in 2s instead of 113s. BGE-M3 already deployed. Qdrant adds one sidecar container.
 
-Minimum viable product: prove the Diagnose-Plan-Execute-Verify loop works end-to-end on a real scenario (Docker/Nginx 502 fix).
+### Phase 3: Intelligence (long-term learning)
+5. **Parallel Inference Pipeline** -- vLLM-specific optimization. 9B pre-processes while 32B reasons. Optional P-EAGLE for 2-3x speedup.
+6. **MemPalace Semantic Memory** -- Most complex feature. Depends on Qdrant and Auto-Compact. Novel data model requires careful design. Build last, iterate longest.
 
-- [ ] **LLM Provider Interface (Ollama)** -- foundation for all AI capabilities
-- [ ] **Skill file format spec + loader** -- the platform's extensibility model
-- [ ] **Core planning skill** -- LLM decomposes problems into fix plans
-- [ ] **Core verification skill** -- test-driven fix validation
-- [ ] **Log analysis skill** -- parse and reason about logs
-- [ ] **Sub-agent execution with process isolation** -- safe command execution
-- [ ] **Human-in-the-Loop approval (risk-based)** -- enterprise trust requirement
-- [ ] **Circuit breaker + damage budget** -- safety guardrails
-- [ ] **Automatic rollback on safety halt** -- safety net
-- [ ] **Structured audit trail (decision log + diffs)** -- compliance foundation
-- [ ] **CLI interface with core commands** -- user interaction layer
-- [ ] **REST API backend** -- enables CLI and future clients
-- [ ] **Session state persistence (file + SQLite)** -- resumability
-- [ ] **Docker/Nginx 502 POC scenario** -- the proof point
+### Defer
+- **MemPalace incident pattern recognition** (temporal pattern analysis): Defer until enough incident data exists to validate patterns.
+- **Multi-GPU load balancing**: Defer until multi-GPU deployments exist in the field.
+- **Fix evolution tracking**: Defer until fix cache has enough entries to compare.
 
-### Add After Validation (v1.x)
-
-Features to add once the core loop is proven and initial users provide feedback.
-
-- [ ] **Infrastructure mapping skill** -- when users need multi-host diagnostics
-- [ ] **Progressive autonomy levels** -- when users trust the system enough to want less friction
-- [ ] **Composable skill chaining** -- when users write enough skills that composition becomes valuable
-- [ ] **Additional standard library skills** (database troubleshooting, security auditing) -- driven by user demand
-- [ ] **Standalone binary distribution** -- when shipping to users who do not have Node.js
-- [ ] **Lock-based concurrency (multi-target)** -- when users manage multiple hosts simultaneously
-
-### Future Consideration (v2+)
-
-Features to defer until product-market fit is established.
-
-- [ ] **Web UI** -- only after API is stable and validated by CLI users
-- [ ] **Multi-team / RBAC** -- enterprise feature, requires auth infrastructure
-- [ ] **Private skill repositories (git integration)** -- enterprise deployment at scale
-- [ ] **Public skill marketplace** -- requires community critical mass
-- [ ] **GraphRAG / Neo4j** -- when infrastructure state complexity demands it
-- [ ] **ChatOps integration (Slack/Teams)** -- collaboration layer for larger teams
-- [ ] **Event-driven automation (sensor/trigger model)** -- StackStorm-style reactive automation
-
-## Feature Prioritization Matrix
-
-| Feature | User Value | Implementation Cost | Priority |
-|---------|------------|---------------------|----------|
-| Diagnose-Plan-Execute-Verify loop | HIGH | HIGH | P1 |
-| LLM Provider Interface (Ollama) | HIGH | MEDIUM | P1 |
-| Skill file format + loader | HIGH | MEDIUM | P1 |
-| Human-in-the-Loop approval | HIGH | MEDIUM | P1 |
-| Circuit breaker + damage budget | HIGH | MEDIUM | P1 |
-| Automatic rollback | HIGH | HIGH | P1 |
-| Structured audit trail | HIGH | MEDIUM | P1 |
-| Sub-agent execution isolation | HIGH | HIGH | P1 |
-| CLI interface | HIGH | MEDIUM | P1 |
-| REST API backend | HIGH | MEDIUM | P1 |
-| Log analysis skill | HIGH | MEDIUM | P1 |
-| Core planning + verification skills | HIGH | MEDIUM | P1 |
-| Session state persistence | MEDIUM | LOW | P1 |
-| Transparent reasoning chain | HIGH | LOW | P1 |
-| Verification-driven remediation | HIGH | MEDIUM | P1 |
-| Progressive autonomy levels | MEDIUM | MEDIUM | P2 |
-| Infrastructure mapping skill | MEDIUM | MEDIUM | P2 |
-| Composable skill chaining | MEDIUM | MEDIUM | P2 |
-| Standalone binary | MEDIUM | MEDIUM | P2 |
-| Lock-based concurrency | MEDIUM | MEDIUM | P2 |
-| Additional standard library skills | MEDIUM | LOW per skill | P2 |
-| Web UI | MEDIUM | HIGH | P3 |
-| Multi-team / RBAC | MEDIUM | HIGH | P3 |
-| ChatOps integration | LOW | MEDIUM | P3 |
-| Private skill repos | MEDIUM | MEDIUM | P3 |
-| GraphRAG | LOW | HIGH | P3 |
-| Public marketplace | LOW | HIGH | P3 |
-
-**Priority key:**
-- P1: Must have for launch -- proves the core loop and earns enterprise trust
-- P2: Should have, add after v1 validation -- expands capability and user base
-- P3: Nice to have, future consideration -- enterprise scale and community features
-
-## Competitor Feature Analysis
-
-| Feature | Rundeck | StackStorm | PagerDuty AIOps | Dynatrace Davis AI | BigPanda | InfraBrain Approach |
-|---------|---------|------------|-----------------|-------------------|----------|-------------------|
-| **Runbook/skill system** | XML/YAML job definitions, GUI editor | Python packs (2000+ community) | Automated workflows | Built-in causal AI rules | Event correlation rules | Markdown skill files -- human-readable, git-versionable, no code required |
-| **Execution model** | SSH/WinRM to targets, no agents | Actions in isolated containers | Cloud-based orchestration | Agent-based (OneAgent) | Cloud SaaS | Sub-agent with process isolation, fully local |
-| **Human approval** | ACL-based per job step | Rule-based gates | Escalation policies | Automatic (limited HITL) | Automatic | Risk-based HITL: read auto-approves, write needs Y/N, destructive needs typed confirmation |
-| **Audit trail** | Job execution logs | Action execution history | Incident timeline | Session replay | Incident history | Decision log + state diffs + queryable SQLite + human-readable files |
-| **AI/ML capabilities** | None (deterministic) | None (deterministic) | ML alert grouping, noise reduction | Causal AI (Davis), predictive AI, generative AI (CoPilot) | ML event correlation, generative AI summaries | Local LLM reasoning -- diagnoses novel problems, generates fix plans, reasons about evidence |
-| **Rollback** | Error handlers per step | Compensating workflows | Manual | Automatic (within Dynatrace scope) | N/A | Automatic rollback to pre-change state snapshot on any failure or safety limit breach |
-| **Deployment** | Self-hosted (Java) or SaaS | Self-hosted (Python + RabbitMQ + MongoDB) | Cloud SaaS only | Agent + SaaS | Cloud SaaS only | Standalone binary + Ollama, fully on-premise, zero cloud dependencies |
-| **Extensibility** | Plugins (Java/Groovy) | Packs (Python) | Limited integrations | Extensions API | Integrations | Markdown skill files -- anyone can write one in natural language |
-| **Privacy** | Self-hosted option | Self-hosted option | Cloud only, data leaves your network | Agent collects data, sends to cloud | Cloud only | 100% on-premise, zero telemetry, all data stays local |
-| **Collaboration** | Shared job library, RBAC | Shared pack library | War room, ChatOps | Shared dashboards | Shared incident view | v1: single admin, lock-based concurrency. v2+: multi-team |
+---
 
 ## Sources
 
-- [Deepchecks - Top 10 AIOps Tools for 2026](https://www.deepchecks.com/top-10-aiops-tools-2025/)
-- [Aisera - Top 8 AIOps Vendors in 2026](https://aisera.com/blog/top-aiops-platforms/)
-- [Softstrix - Rundeck vs StackStorm](https://softstrix.com/rundeck-vs-stackstorm/)
-- [DevOpsSchool - Top 10 Runbook Automation Tools](https://www.devopsschool.com/blog/top-10-runbook-automation-tools-features-pros-cons-comparison/)
-- [Unite.AI - Agentic SRE: Self-Healing Infrastructure 2026](https://www.unite.ai/agentic-sre-how-self-healing-infrastructure-is-redefining-enterprise-aiops-in-2026/)
-- [BigID - Agentic Remediation Guide 2026](https://bigid.com/blog/agentic-remediation-guide/)
-- [SiliconANGLE - Human-in-the-loop has hit the wall](https://siliconangle.com/2026/01/18/human-loop-hit-wall-time-ai-oversee-ai/)
-- [Medium - Human-in-the-Loop, Guardrails & Safe AI Operations](https://medium.com/cloudops-insider/human-in-the-loop-guardrails-safe-ai-operations-d072145f4c64)
-- [Incident.io - Automated post-mortems comparison 2025](https://incident.io/blog/incident-io-vs-firehydrant-vs-pagerduty-automated-postmortems-2025)
-- [FireHydrant - AI-Enriched Incident Management](https://firehydrant.com/ai/)
-- [Engini.io - Runbook Automation in 2025](https://engini.io/blog/runbook-automation/)
-- [Atlassian - ChatOps for incident management](https://www.atlassian.com/incident-management/devops/chatops)
-- [Venn - SOC 2 Compliance in 2026](https://www.venn.com/learn/soc2-compliance/)
-- [Adyog - Rundeck vs StackStorm Comprehensive Comparison](https://blog.adyog.com/rundeck-vs-stackstorm-a-comprehensive-open-source-automation-comparison/)
-- [StackGen - 2026 Forecast: Autonomous Enterprise](https://stackgen.com/blog/2026-forecast-the-autonomous-enterprise-and-the-four-pillars-of-platform-control)
+### Ink/React Terminal UI
+- [Ink GitHub Repository](https://github.com/vadimdemedes/ink) -- React for interactive CLI apps
+- [LogRocket: Ink UI with React](https://blog.logrocket.com/using-ink-ui-react-build-interactive-custom-clis/) -- Patterns and component architecture
+- [oclif, Ink, Rust: Framework Decision](https://levelup.gitconnected.com/oclif-ink-rust-and-the-framework-decision-that-shapes-everything-13f2c18539ec) -- Framework comparison 2026
 
----
-*Feature research for: AI IT Operations Platform (InfraBrain)*
-*Researched: 2026-03-07*
+### Qdrant Fix-Caching
+- [Qdrant JS SDK](https://github.com/qdrant/qdrant-js) -- TypeScript SDK v1.17.0
+- [Qdrant Semantic Caching](https://medium.com/@benitomartin/balancing-accuracy-and-speed-with-qdrant-hyperparameters-hydrid-search-and-semantic-caching-part-84b26037e594) -- Semantic cache implementation patterns
+- [Qdrant Edge](https://qdrant.tech/edge/) -- Embedded deployment option
+
+### MemPalace / Temporal Knowledge Graphs
+- [Zep: Temporal Knowledge Graph Architecture (arXiv)](https://arxiv.org/abs/2501.13956) -- Three-tier temporal graph model
+- [Graphiti: Open Source Temporal KG](https://github.com/getzep/graphiti) -- Python framework for temporal knowledge graphs
+- [GraphZep: TypeScript Port](https://github.com/aexy-io/graphzep) -- TypeScript implementation of Graphiti concepts
+- [State of AI Agent Memory 2026](https://mem0.ai/blog/state-of-ai-agent-memory-2026) -- Market overview
+
+### Context Window Management
+- [JetBrains: The Complexity Trap (NeurIPS 2025)](https://blog.jetbrains.com/research/2025/12/efficient-context-management/) -- Observation masking vs summarization
+- [FlashCompact: Compaction Methods Compared](https://www.morphllm.com/flashcompact) -- All 8 compaction methods analyzed
+- [Claude Code Auto-Compact](https://www.morphllm.com/claude-code-auto-compact) -- Production auto-compact patterns
+- [Anthropic: Automatic Context Compaction](https://platform.claude.com/cookbook/tool-use-automatic-context-compaction) -- Official compaction cookbook
+
+### Parallel Tool Execution
+- [Parallel Tool Execution: Agentic Systems Series](https://gerred.github.io/building-an-agentic-system/parallel-tool-execution.html) -- partitionToolCalls pattern
+- [Claude Code: Tool Orchestration](https://kenhuangus.substack.com/p/claude-code-pattern-5-tool-orchestration) -- Read-only vs write classification
+- [How Claude Code Works](https://code.claude.com/docs/en/how-claude-code-works) -- Official architecture docs
+
+### Parallel Inference
+- [P-EAGLE: Parallel Speculative Decoding in vLLM](https://aws.amazon.com/blogs/machine-learning/p-eagle-faster-llm-inference-with-parallel-speculative-decoding-in-vllm/) -- vLLM v0.16+ integration
+- [Speculative Decoding: 2-3x Faster Inference](https://blog.premai.io/speculative-decoding-2-3x-faster-llm-inference-2026/) -- Production deployment guide
+- [vLLM Documentation](https://docs.vllm.ai/en/latest/) -- Official docs

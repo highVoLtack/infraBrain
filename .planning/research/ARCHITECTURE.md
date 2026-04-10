@@ -1,507 +1,786 @@
-# Architecture Patterns
+# Architecture: v1.3 Intelligence Layer Integration
 
-**Domain:** AI IT Operations Platform (multi-agent, local-first, CLI-driven)
-**Researched:** 2026-03-07
+**Domain:** AI IT Operations Platform -- 6 new feature areas integrating with existing DPEV engine
+**Researched:** 2026-03-31
+**Overall confidence:** MEDIUM-HIGH
 
-## Recommended Architecture
-
-InfraBrain follows a **hub-and-spoke orchestration pattern** with a central Orchestrator Agent coordinating isolated Sub-Agents through a sequential Plan-and-Execute workflow. This is the dominant pattern for IT operations use cases where actions must be deterministic, auditable, and human-approved -- not the collaborative "group chat" pattern used in creative/analytical contexts.
-
-The architecture has seven layers, from user-facing to infrastructure:
+## Current Architecture Baseline
 
 ```
- CLI Layer (user commands, HITL prompts)
-    |
- API Server (REST, command routing, session management)
-    |
- Orchestrator (reasoning agent: diagnose, plan, delegate)
-    |
- Skill Loader (dynamic Markdown skill resolution)
-    |
- Sub-Agent Pool (isolated child processes with fresh LLM contexts)
-    |
- Safety Layer (circuit breaker, damage budget, rollback, locks)
-    |
- State & Persistence (SQLite + .infrabrain/ files + audit log)
-    |
- LLM Abstraction (Ollama default, pluggable providers)
+index.ts (bootstrap)
+  |
+  +-- loadConfig() -> InfraBrainConfig (Zod-validated)
+  +-- createModelRegistry() -> ModelRegistry (7 roles, per-role baseURL)
+  +-- createProvider() -> LLMProvider (wraps registry)
+  +-- SkillRegistry.populate() -> loads Markdown skill files
+  +-- createServer(deps) -> Express app on :3000
+  |     |
+  |     +-- POST /debug   (DPEV orchestration: triage -> discovery -> diagnosis -> plan)
+  |     +-- POST /execute (executor: lock -> snapshot -> approve -> run -> verify)
+  |     +-- GET  /health, /status, /history, /resume
+  |
+  +-- registerCommands() -> Commander.js program
+  +-- startRepl() -> readline loop, routes /infra:* to Commander
+        |
+        Commander actions call fetch() to Express routes internally
 ```
 
-### Component Boundaries
+Key files by size and role:
+- `src/api/routes/debug.ts` -- ~686 lines (DPEV orchestration, the heart of the system)
+- `src/cli/commands.ts` -- 654 lines (Commander.js command definitions)
+- `src/cli/formatter.ts` -- 502 lines (chalk-based output formatting)
+- `src/execution/executor.ts` -- ~466 lines (fix plan execution with safety pipeline)
+- `src/cli/repl.ts` -- 171 lines (readline-based REPL loop)
+- `src/cli/approval.ts` -- 125 lines (readline-based approval prompts)
 
-| Component | Responsibility | Communicates With | Process Boundary |
-|-----------|---------------|-------------------|------------------|
-| **CLI** | Parse commands, render output, HITL approval prompts | API Server (HTTP/IPC) | Main process |
-| **API Server** | Route commands, manage sessions, expose REST endpoints | CLI, Orchestrator | Main process |
-| **Orchestrator** | Diagnose problems, load skills, generate fix plans, delegate tasks | API Server, Skill Loader, Sub-Agent Pool, Safety Layer, State Layer | Main process |
-| **Skill Loader** | Resolve which skill files to load, parse Markdown skill definitions, inject into LLM context | Orchestrator, filesystem (`skills/`) | In-process module |
-| **Sub-Agent Runner** | Spawn isolated child processes, inject task + skill context, collect results | Orchestrator (via IPC/stdio), LLM Abstraction, Safety Layer | **Separate child process per task** |
-| **Safety System** | Enforce circuit breaker thresholds, track damage budget, trigger rollback, manage locks | Orchestrator, Sub-Agent Runner, State Layer | In-process module (cross-cutting) |
-| **State Manager** | Dual-write to SQLite (structured queries) and `.infrabrain/` files (human-readable, git-trackable) | All components that persist data | In-process module |
-| **Audit Logger** | Append-only decision log with before/after diffs, queryable JSON | State Manager (writes to SQLite + files) | In-process module |
-| **LLM Provider** | Abstract interface to local LLM backends (Ollama, vLLM, llama.cpp) | Orchestrator, Sub-Agent Runner | HTTP client to local LLM server |
+Key architectural facts:
+- **Single execution path**: ALL operations flow through Express REST API, even from CLI
+- **Discovery runs sequentially**: `runDiscovery()` loops with `for...of` over skill commands
+- **Executor is serial**: Steps run one-at-a-time with snapshot/approve/run/rollback gates
+- **AI SDK**: Uses `@ai-sdk/openai-compatible` with `generateText` / `generateObject` from `ai`
+- **RollingContext**: Already does token-aware compression of step history (80% budget threshold)
+
+---
+
+## v1.3 Architecture (Target)
+
+```
+CLI Layer (Commander.js args -> Ink/React renderer)
+    | HTTP fetch() + SSE
+API Server (Express 5, REST routes + SSE streaming endpoints)
+    |
+Orchestrator (router.ts -> context.ts -> planner.ts -> parallel-pipeline.ts)
+    |                                                       |
+    |                                             MemPalace (MCP sidecar)
+    |                                             via stdio / JSON-RPC 2.0
+Execution Engine (executor.ts -> self-healer.ts -> runner.ts)
+    |
+Safety Layer (circuit-breaker, damage-budget, rollback, locks) -- UNCHANGED
+    |
+State & Persistence (SQLite + .infrabrain/ files) -- UNCHANGED
+    |
+LLM Abstraction (openai-compat.ts -> ModelRegistry, 7 roles)
+    |                   |
+    |         Auto-Compact (context manager middleware)
+    |
+Vector Cache (Qdrant Docker -> @qdrant/js-client-rest)
+```
+
+---
+
+## Feature 1: Ink/React Terminal Renderer
+
+### What Changes
+
+Replace `repl.ts` (readline) and `formatter.ts` (chalk) with Ink components. The Express API stays -- CLI still calls API. This is a **rendering layer swap**, not an architecture change.
+
+### Component-Level Integration
+
+| Existing Component | Action | Rationale |
+|-----------|--------|-----------|
+| `src/cli/repl.ts` | **REPLACED** by `src/ui/layouts/ReplLayout.tsx` | Ink owns the terminal |
+| `src/cli/formatter.ts` | **DEPRECATED** -> formatting moves into Ink components | Chalk inside Ink causes double-escaped ANSI |
+| `src/cli/commands.ts` | **MODIFY** | Keep Commander.js for one-shot/arg parsing; each action calls `render(<Component>)` |
+| `src/cli/approval.ts` | **REPLACED** by `src/ui/components/ApprovalPrompt.tsx` | Ink handles keyboard input |
+| `src/api/server.ts` | **NO CHANGE** | Express keeps serving REST; Ink fetches from it |
+| `src/index.ts` | **MODIFY** | Conditional: one-shot = Commander, interactive = `render(<App />)` |
+
+### New Components
+
+```
+src/ui/                          # NEW directory
+  App.tsx                        # Root Ink component, manages app state
+  components/
+    DPEVTracker.tsx              # Live phase indicator (D->P->E->V with timing)
+    DiagnosisView.tsx            # Structured diagnosis table
+    ApprovalPrompt.tsx           # Interactive approval (replaces approval.ts)
+    ExecutionStream.tsx          # Step-by-step execution with live output
+    HealthDashboard.tsx          # Backend status, model inventory
+    SessionBrowser.tsx           # History viewer
+    Spinner.tsx                  # Replaces createSpinner() in commands.ts
+  hooks/
+    useApi.ts                    # fetch() wrapper to Express REST API
+    useStreaming.ts              # SSE subscription for live DPEV progress
+    useApproval.ts               # Keyboard input handling for Y/N/typed confirmation
+  layouts/
+    ReplLayout.tsx               # Main REPL shell (input + output)
+    DebugLayout.tsx              # Debug session view (DPEV tracker + output)
+  theme.ts                       # Color palette, spacing constants
+```
+
+### Architecture Decision: Express API Stays
+
+The CLI-calls-API pattern is correct and must not change. Reasons:
+1. **API-first**: Future web UI, integrations, CI/CD all use same API
+2. **Testing**: API routes have independent test coverage (620+ tests)
+3. **Separation**: UI rendering vs business logic stay decoupled
+4. **Streaming**: Add SSE endpoints to Express for live DPEV progress (Ink subscribes)
+
+### SSE Endpoints Needed
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /debug/stream?sessionId=xxx` (SSE) | Stream DPEV phases, discovery output, diagnosis in real-time |
+| `GET /execute/stream?sessionId=xxx` (SSE) | Stream step execution progress, self-heal attempts |
+
+The current POST /debug returns a monolithic JSON response after DPEV completes. For live UI, add Server-Sent Events endpoints that emit phase transitions as they happen. The existing POST endpoints remain for one-shot/`--json` mode.
+
+```typescript
+// Events emitted:
+// { phase: 'triage', data: { skill: 'linux-expert', reasoning: '...' } }
+// { phase: 'discovery', data: { label: 'Running containers', output: '...' } }
+// { phase: 'diagnosis', data: { rootCause: '...', structuredDiagnosis: {...} } }
+// { phase: 'plan', data: { fixPlan: {...} } }
+```
+
+### CI/Non-interactive Fallback
+
+```typescript
+if (process.env.CI || flags.json) {
+  // Use existing JSON envelope, no Ink
+} else {
+  render(<DebugView ... />);
+}
+```
+
+### Ink + Express Coexistence
+
+Ink runs in the same Node.js process as Express. This works because:
+- Ink uses `yoga-layout` for terminal rendering (no DOM, no browser)
+- Ink intercepts `console.log` to render above the UI (no interference with Express logs)
+- Express listens on a port; Ink writes to stdout. No conflict.
+
+**Confidence: HIGH** -- Claude Code, Warp, and other production AI CLI tools run Ink + background services in one process.
+
+### Incremental Migration Path
+
+Don't rewrite all 502 lines of `formatter.ts` at once. Start with `DPEVTracker` (highest-value component), then migrate commands one by one. Old chalk formatting can coexist with Ink during transition.
+
+---
+
+## Feature 2: Qdrant Fix-Caching
+
+### What Changes
+
+New `src/cache/` module that intercepts the DPEV pipeline. Before running full LLM diagnosis, check if a similar error pattern already has a cached fix. If yes, skip diagnosis entirely and return the cached plan (~2s vs ~113s).
+
+### Component-Level Integration
+
+| Existing Component | Action | Rationale |
+|-----------|--------|-----------|
+| `src/api/routes/debug.ts` | **MODIFY** | Cache-check BEFORE DPEV, cache-write AFTER successful fix |
+| `src/execution/executor.ts` | **MODIFY** | After successful execution+verification, trigger cache write |
+| `src/config/types.ts` | **MODIFY** | Add `fixCache` config section |
+| `src/api/server.ts` | **MODIFY** | Initialize Qdrant on startup (background, non-blocking) |
+| `src/index.ts` | **MODIFY** | Create QdrantClient, pass to server deps |
+
+### New Components
+
+```
+src/cache/
+  qdrant-client.ts               # Qdrant connection manager (wraps @qdrant/js-client-rest)
+  embedder.ts                    # Generate embeddings via ModelRegistry 'embedding' role (bge-m3)
+  fix-cache.ts                   # Core: search similar errors, store fix results
+  docker-lifecycle.ts            # Auto-start/health-check Qdrant container
+  types.ts                       # CacheEntry, CacheSearchResult, CacheConfig
+```
 
 ### Data Flow
 
-**The Core Loop: Diagnose, Plan, Execute, Verify**
-
 ```
-1. COMMAND INTAKE
-   User -> CLI -> API Server -> Orchestrator
-   Example: `/infra:debug "Nginx returning 502"`
-
-2. DIAGNOSIS (Orchestrator + large model)
-   Orchestrator:
-     a. Loads relevant skills via Skill Loader
-        (skills/analyzing-logs.md, skills/mapping-infrastructure.md)
-     b. Sends diagnostic prompt to LLM (Llama-3.3-70B)
-     c. LLM reasons about possible root causes
-     d. Orchestrator forms hypotheses
-     e. May spawn read-only Sub-Agents to gather system data
-        (docker ps, nginx error logs, journalctl)
-
-3. PLANNING (Orchestrator + large model)
-   Orchestrator:
-     a. Generates FIX_PLAN.md with ordered tasks
-     b. Each task: description, risk level, expected outcome, rollback step
-     c. Safety Layer validates plan against damage budget
-     d. Plan presented to user via CLI for approval
-     e. State Manager persists plan to .infrabrain/plans/
-
-4. EXECUTION (Sub-Agents + small model, isolated)
-   For each task in plan:
-     a. Sub-Agent Runner spawns child process
-     b. Child receives: task description + relevant skill + tool permissions
-     c. Child uses small model (Qwen2.5-Coder-7B) for execution reasoning
-     d. HITL gate: CLI prompts user [Y/N/M] for write operations
-     e. Child executes command in sandboxed environment
-     f. Result + stdout/stderr returned to Orchestrator via IPC
-     g. Safety Layer tracks cumulative actions against damage budget
-     h. Audit Logger records: command, before-state, after-state, decision
-     i. Lock Manager ensures exclusive access to target resource
-
-5. VERIFICATION (Orchestrator + Sub-Agent)
-   Orchestrator:
-     a. Spawns verification Sub-Agent with health-check skill
-     b. Runs test defined in plan (e.g., curl localhost:80)
-     c. Compares actual vs expected outcome
-     d. If PASS: mark task complete, proceed to next
-     e. If FAIL: circuit breaker increments, retry or escalate
-     f. If CIRCUIT BREAK: halt execution, trigger rollback
-
-6. COMPLETION
-   Orchestrator:
-     a. Summarizes results to user via CLI
-     b. State Manager persists final state
-     c. Lock Manager releases target lock
-     d. Audit trail finalized
+POST /debug (prompt arrives)
+  |
+  1. Skill selection (triage) -- unchanged
+  2. Discovery -- unchanged
+  3. ** NEW: Cache lookup **
+  |    embedder.embed(prompt + discoveryContext)
+  |    fixCache.search(embedding, threshold: 0.92)
+  |    if (hit && hit.score > threshold):
+  |      return cached fixPlan (skip diagnosis+plan LLM calls)
+  |      log "[CACHE HIT] Returning cached fix in {N}ms"
+  |
+  4. Diagnosis (LLM) -- only if cache miss
+  5. Plan generation -- only if cache miss
+  6. ** NEW: Cache write (deferred) **
+  |    After executor reports success + verification passes:
+  |    fixCache.store(embedding, fixPlan, metadata)
 ```
 
-**Information Flow Direction (strict):**
+### Qdrant Deployment Model
+
+Qdrant does NOT have an embedded/in-process mode for Node.js (only Python has local mode via `qdrant-client`). For InfraBrain:
+
+- **Default**: Run Qdrant as a Docker container (`docker run -d -p 6333:6333 -v ./data/qdrant:/qdrant/storage qdrant/qdrant`)
+- **Auto-lifecycle**: `docker-lifecycle.ts` checks health, auto-starts container if missing
+- **Config**: `fixCache.qdrantPort: 6333` in config.json
+- **Graceful degradation**: If Qdrant is unreachable, skip caching silently. Cache is an optimization, not a requirement.
+
+### Cache Schema (Qdrant Collection)
 
 ```
-CLI  -->  API Server  -->  Orchestrator  -->  Sub-Agents
-                                |                  |
-                          Skill Loader        LLM Provider
-                                |                  |
-                          Safety Layer    (returns via IPC)
-                                |
-                          State Manager
-                           /        \
-                     SQLite      .infrabrain/ files
-```
-
-- Data flows **inward** (CLI to Orchestrator) for commands
-- Data flows **outward** (Orchestrator to CLI) for results and HITL prompts
-- Sub-Agents **never** communicate with each other directly
-- Sub-Agents **never** access State Manager directly -- results pass through Orchestrator
-- Safety Layer is **cross-cutting**: both Orchestrator and Sub-Agent Runner check it
-
-## Patterns to Follow
-
-### Pattern 1: Hub-and-Spoke Orchestration
-
-**What:** A central Orchestrator Agent receives all commands, reasons about them, delegates execution to isolated Sub-Agents, and aggregates results. Sub-Agents never talk to each other.
-
-**When:** Always. This is the core architectural pattern for InfraBrain.
-
-**Why:** IT operations require deterministic, auditable action chains. Hub-and-spoke gives a single coordination point for safety checks, HITL gates, and audit logging. The Orchestrator is the "brain" that maintains the full picture while Sub-Agents are disposable "hands" with narrow context.
-
-**Example:**
-```typescript
-interface Orchestrator {
-  diagnose(input: UserCommand): Promise<Diagnosis>;
-  plan(diagnosis: Diagnosis): Promise<FixPlan>;
-  execute(plan: FixPlan): Promise<ExecutionResult>;
-  verify(plan: FixPlan, result: ExecutionResult): Promise<VerificationResult>;
-}
-
-interface SubAgentRunner {
-  // Spawns isolated child process with fresh LLM context
-  spawn(task: PlanTask, skills: Skill[], permissions: ToolPermissions): Promise<TaskResult>;
-  // Kills child process if safety limits hit
-  terminate(agentId: string): void;
+Collection: "fix_cache"
+Vector dimension: 1024 (BGE-M3 output)
+Payload: {
+  errorPattern: string,      // Original error description
+  skillName: string,         // Which skill resolved it
+  fixPlan: FixPlan,          // The complete fix plan (JSON)
+  target: string,            // Target system type
+  successRate: number,       // How often this fix works (updated over time)
+  createdAt: string,
+  lastUsedAt: string,
+  usageCount: number,
 }
 ```
 
-**Confidence:** HIGH -- This maps directly to Microsoft's documented "sequential orchestration" pattern and aligns with GSD's sub-agent isolation approach.
+### Embedding Strategy
 
-### Pattern 2: Process Isolation for Sub-Agents
-
-**What:** Each Sub-Agent runs in a separate Node.js child process with its own LLM context window. The child process receives only the task description, relevant skill content, and a restricted set of tool permissions. It returns structured results via IPC (stdio JSON).
-
-**When:** Every execution task. Diagnosis and planning happen in the Orchestrator's own process.
-
-**Why:** Two critical benefits:
-1. **Context isolation** -- prevents context contamination between tasks (the GSD "anti-context-rot" principle). Each Sub-Agent gets a fresh, focused context window.
-2. **Blast radius containment** -- a misbehaving Sub-Agent can be killed without affecting the Orchestrator or other tasks. The child process boundary is also the security boundary.
-
-**Example:**
+Use the existing `embedding` role in ModelRegistry (bge-m3 already provisioned):
 ```typescript
-// Orchestrator spawns sub-agent as child process
-import { fork } from 'child_process';
+import { embed } from 'ai';
+const { embedding } = await embed({
+  model: registry.get('embedding'),
+  value: `${prompt}\n${discoveryContext}`
+});
+```
 
-function spawnSubAgent(task: PlanTask, skillContent: string): Promise<TaskResult> {
-  return new Promise((resolve, reject) => {
-    const child = fork('./sub-agent-runner.js', [], {
-      env: { ...restrictedEnv },
-      stdio: ['pipe', 'pipe', 'pipe', 'ipc']
-    });
+### Cache Invalidation
 
-    child.send({
-      type: 'execute',
-      task: task,
-      skill: skillContent,
-      permissions: task.riskLevel === 'read-only' ? READ_ONLY : WRITE_WITH_APPROVAL,
-      llmConfig: { model: 'qwen2.5-coder:7b', provider: 'ollama' }
-    });
+Cache entries include skill version hash. Stale entries degrade gracefully (lower similarity score), expire after 30 days. No eager invalidation on skill changes -- too aggressive.
 
-    child.on('message', (result: TaskResult) => resolve(result));
-    child.on('exit', (code) => {
-      if (code !== 0) reject(new Error(`Sub-agent crashed: exit ${code}`));
-    });
+**Confidence: HIGH** -- Qdrant JS client is stable, bge-m3 is already provisioned, AI SDK has `embed()`.
 
-    // Safety timeout
-    setTimeout(() => { child.kill(); reject(new Error('Sub-agent timeout')); }, 120_000);
+---
+
+## Feature 3: Auto-Compact Context Management
+
+### What Changes
+
+New `src/context/` module that monitors token usage across the DPEV pipeline and automatically summarizes/compacts when approaching model context limits. Critical for local models with 32K context windows.
+
+### Component-Level Integration
+
+| Existing Component | Action | Rationale |
+|-----------|--------|-----------|
+| `src/execution/context-builder.ts` | **MODIFY** | Extend RollingContext with LLM-based compaction |
+| `src/llm/token-budget.ts` | **MODIFY** | Add window-aware threshold (83% trigger) |
+| `src/api/routes/debug.ts` | **MODIFY** | Wrap prompt building with context manager |
+| `src/config/types.ts` | **MODIFY** | Add `contextWindow` per model role in ModelMap |
+
+### New Components
+
+```
+src/context/
+  manager.ts                     # ContextManager: tracks token usage, triggers compaction
+  compactor.ts                   # Summarize old context using worker model (7B)
+  token-counter.ts               # Fast token estimation (progressive sampling for large inputs)
+  types.ts                       # CompactionResult, ContextBudget
+```
+
+### Three-Tier Compaction Design
+
+```
+Tier 1 (existing): RollingContext compresses step outputs within a fix plan (80% budget)
+Tier 2 (new):      Session-level compaction across DPEV phases
+Tier 3 (new):      Cross-session compaction for resumed sessions
+```
+
+**Tier 2 detail:** When total messages approach 83% of model's context window (e.g., ~27K of 32K tokens for Qwen 32B):
+
+1. Summarize Discovery findings into key facts (container names, IPs, error patterns)
+2. Preserve Diagnosis root cause and structured diagnosis
+3. Compress Plan to step list without full reasoning
+4. Keep last 2 execution step results in full (same pattern as existing RollingContext)
+
+### Token Budget for 32K Context
+
+```
+System prompt + skill instructions:  6.4K tokens (20%)
+Current turn (user + assistant):     9.6K tokens (30%)
+Conversation history:               16.0K tokens (50%)
+  - Compaction trigger at:          12.8K tokens (80% of history budget)
+  - Compact oldest 50% into:        2.0K token summary via worker model
+```
+
+### Where Summarization Lives
+
+`compactor.ts` uses the `worker` model (7B, fast) for summarization:
+```typescript
+import { generateText } from 'ai';
+
+async function compactContext(
+  messages: Message[],
+  workerModel: LanguageModel,
+  preserveRecent: number = 2
+): Promise<CompactionResult> {
+  // Keep last N messages verbatim
+  // Summarize older messages via worker model
+  // Return compacted message array + summary
+}
+```
+
+### Context Window Per Model
+
+Extend ModelMapEntry:
+```json
+{
+  "modelMap": {
+    "default": { "model": "infrabrain", "baseUrl": "...", "contextWindow": 32768 },
+    "worker": { "model": "qwen2.5-coder:7b", "baseUrl": "...", "contextWindow": 32768 },
+    "forensic": { "model": "deepseek-r1:32b", "baseUrl": "...", "contextWindow": 65536 }
+  }
+}
+```
+
+**Confidence: HIGH** -- RollingContext already does primitive compaction. This extends it with LLM summarization and window-aware thresholds. Well-understood pattern (Claude Code uses identical approach at 83% threshold).
+
+---
+
+## Feature 4: Tool Concurrency (Parallel Discovery)
+
+### What Changes
+
+Discovery commands currently run sequentially in a `for...of` loop in `runDiscovery()`. Change to `Promise.all()` for read-only discovery commands. Execution steps remain serial (safety gates require sequential approval).
+
+### Component-Level Integration
+
+| Existing Component | Action | Rationale |
+|-----------|--------|-----------|
+| `src/api/routes/debug.ts` | **MODIFY** | `runDiscovery()` uses Promise.all instead of sequential loop |
+| `src/execution/executor.ts` | **NO CHANGE** | Execution MUST stay serial (lock -> snapshot -> approve -> run) |
+| `src/safety/classifier.ts` | **MODIFY** (optional) | Add `isConcurrencySafe()` as defense-in-depth |
+
+### Implementation
+
+The change is surgical -- only `runDiscovery()` needs modification:
+
+```typescript
+// BEFORE (v1.2): Sequential
+async function runDiscovery(skill: SkillFile) {
+  for (const { command, label } of commands) {
+    const result = await runCommand(command);  // one at a time
+    results[label] = result;
+  }
+}
+
+// AFTER (v1.3): Parallel with safety gate
+async function runDiscovery(skill: SkillFile) {
+  const promises = commands.map(async ({ command, label }) => {
+    const result = needsShell(command)
+      ? await runShellCommand(command, { timeout: 15_000 })
+      : await runCommand(...parseCommand(command), { timeout: 10_000 });
+    return { label, result };
   });
+  const resolved = await Promise.all(promises);
+  for (const { label, result } of resolved) {
+    results[label] = result.stdout.trim() || result.stderr.trim() || '(empty)';
+  }
 }
 ```
 
-**Confidence:** HIGH -- Node.js `child_process.fork()` is battle-tested for process isolation. GSD uses the same sub-agent isolation pattern.
+### Data Flow Change
 
-### Pattern 3: Skill-as-Context-Injection
+```
+Before: discovery1 -> discovery2 -> discovery3 -> diagnosis (total: sum of latencies)
+After:  discovery1 -+
+        discovery2 -+-> all complete -> diagnosis (total: max of latencies)
+        discovery3 -+
+```
 
-**What:** Skills are Markdown files that get parsed and injected into the LLM prompt as system context. The Skill Loader resolves which skills are relevant based on the task and composes them into the prompt. Skills are NOT code -- they are instructions and tool-call definitions in natural language.
+For a typical 3-command discovery (~2-3s each), reduces from ~8s to ~3s.
 
-**When:** Before every LLM call (both Orchestrator reasoning and Sub-Agent execution).
+### What Stays Serial (Non-Negotiable)
 
-**Why:** This is the obra/superpowers pattern adapted for IT operations. Skills define WHAT the AI can do (available tools, procedures, constraints) without hardcoding capabilities. New IT systems are supported by adding a Markdown file, not writing code.
+Everything in `executePlan()`:
+- Lock acquisition, snapshot before each step, human approval per step, command execution, damage budget check, rolling context update, persistence verification
 
-**Example:**
+This is not a limitation -- it is a safety requirement.
+
+**Confidence: HIGH** -- 20-line change in one function. Promise.all on independent read-only commands. No architectural risk.
+
+---
+
+## Feature 5: Parallel Inference Pipeline
+
+### What Changes
+
+During DPEV, run lightweight models (7B worker) in parallel with heavyweight models (32B default). While the 32B model reasons about diagnosis, the 7B model pre-processes logs and classifies error patterns.
+
+### Component-Level Integration
+
+| Existing Component | Action | Rationale |
+|-----------|--------|-----------|
+| `src/api/routes/debug.ts` | **MODIFY** | Orchestrate parallel LLM calls during DPEV phases |
+| `src/llm/openai-compat.ts` | **NO CHANGE** | Already supports multiple providers with different baseURLs |
+| `src/llm/types.ts` | **MODIFY** | Add `ParallelTask` type |
+
+### How AI SDK Handles Concurrent Calls
+
+`generateText` and `generateObject` return Promises. Parallel inference is `Promise.allSettled()`:
+
 ```typescript
-interface Skill {
-  name: string;           // e.g., "analyzing-logs"
-  path: string;           // e.g., "skills/analyzing-logs.md"
-  triggers: string[];     // keywords/patterns that activate this skill
-  content: string;        // raw Markdown content injected into prompt
-  tools: ToolDefinition[]; // tool calls this skill enables
-  riskLevel: 'read-only' | 'write' | 'destructive';
-}
-
-interface SkillLoader {
-  // Resolve which skills are relevant for a given context
-  resolve(context: DiagnosticContext): Skill[];
-  // Parse a skill Markdown file into structured Skill object
-  parse(filePath: string): Skill;
-  // Compose multiple skills into a single prompt section
-  compose(skills: Skill[]): string;
-}
+const [diagnosis, logSummary, cacheEmbedding] = await Promise.allSettled([
+  // 32B default: full diagnosis
+  generateObject({
+    model: registry.get('default'),
+    schema: StructuredDiagnosisSchema,
+    prompt: enrichedPrompt,
+    system: systemPrompt,
+  }),
+  // 7B worker: pre-process logs
+  generateText({
+    model: registry.get('worker'),
+    prompt: `Summarize error patterns:\n${discoveryRaw['Recent logs']}`,
+  }),
+  // bge-m3: generate embedding for cache
+  embed({
+    model: registry.get('embedding'),
+    value: prompt,
+  }),
+]);
 ```
 
-**Confidence:** HIGH -- Directly from obra/superpowers architecture, validated in production by the Claude Code ecosystem.
+Use `Promise.allSettled` (not `Promise.all`) because if pre-processing fails, the main diagnosis can still proceed.
 
-### Pattern 4: Dual-State Persistence (SQLite + Files)
+### Parallelization Opportunities by DPEV Phase
 
-**What:** All state is written to BOTH SQLite (for structured queries, aggregation, dashboards) and `.infrabrain/` directory files (for human readability, git tracking, manual inspection).
+| Phase | Parallel Tasks | Models |
+|-------|---------------|--------|
+| Discovery | All discovery commands + cache embedding | runner + embedding |
+| Diagnosis | Main diagnosis + log pre-filtering + memory recall | default + worker + embedding |
+| Plan | Sequential (needs diagnosis output) | default |
+| Execution | Step run + next step context prep (limited) | runner + worker |
 
-**When:** Every state mutation -- plans, execution results, audit entries, system snapshots.
+### New Component
 
-**Why:** Enterprise IT teams need two things: (1) the ability to `SELECT * FROM audit_log WHERE target='nginx' AND risk_level='high'` for compliance, and (2) the ability to `cat .infrabrain/plans/2026-03-07-nginx-502.md` to understand what happened in human terms. Neither alone is sufficient.
+```
+src/llm/
+  parallel.ts                    # ParallelInference: orchestrate concurrent model calls
+```
 
-**Example:**
 ```typescript
-interface StateManager {
-  // Writes to both SQLite and file system atomically
-  persist(entry: StateEntry): Promise<void>;
-  // Query structured data from SQLite
-  query<T>(sql: string, params?: unknown[]): Promise<T[]>;
-  // Read human-readable state from filesystem
-  readFile(relativePath: string): Promise<string>;
+interface ParallelTask<T> {
+  name: string;
+  execute: () => Promise<T>;
+  required: boolean;  // If false, failure doesn't abort pipeline
+  timeoutMs?: number;
 }
 
-// Directory structure:
-// .infrabrain/
-//   plans/          -- FIX_PLAN.md files
-//   audit/          -- decision log entries (JSON + human summary)
-//   snapshots/      -- before/after state diffs
-//   locks/          -- active lock files
-//   config.yaml     -- runtime configuration
+async function runParallel<T>(tasks: ParallelTask<T>[]): Promise<Map<string, T | Error>> {
+  const results = await Promise.allSettled(
+    tasks.map(t => withTimeout(t.execute(), t.timeoutMs ?? 30000))
+  );
+  // Required tasks that failed -> throw
+  // Optional tasks that failed -> log warning, return Error in map
+}
 ```
 
-**Confidence:** HIGH -- AgentFS (Turso) validates the SQLite-for-agents pattern. The dual-write approach is InfraBrain-specific but well-justified by the enterprise compliance requirement.
+### Backend Isolation Requirement
 
-### Pattern 5: Traffic-Light HITL Approval
+Parallel inference requires that models run on SEPARATE backends or that the backend handles concurrent requests:
+- **vLLM**: Handles concurrent requests natively (batched inference) -- preferred
+- **Ollama**: Sequential by default. Multiple concurrent requests queue.
 
-**What:** Every action is classified by risk level. Green (read-only) auto-approves. Yellow (moderate write) notifies. Red (destructive/critical) requires explicit human approval before execution.
+The existing `ModelMap` already supports per-role `baseUrl`, so routing to different backends is already wired:
 
-**When:** Before every Sub-Agent tool invocation that affects the target system.
+```json
+{
+  "modelMap": {
+    "default": { "model": "infrabrain", "baseUrl": "http://gpu1:11434/v1" },
+    "worker": { "model": "qwen2.5-coder:7b", "baseUrl": "http://gpu2:11434/v1" },
+    "embedding": { "model": "bge-m3", "baseUrl": "http://gpu2:11434/v1" }
+  }
+}
+```
 
-**Why:** Enterprise IT cannot tolerate autonomous destructive actions. But requiring approval for `docker ps` would be unusable. The traffic-light system balances safety with usability.
+**Confidence: MEDIUM** -- AI SDK supports this trivially via Promise.allSettled. The real constraint is the backend: Ollama serializes per model, vLLM batches natively. Per-role baseUrl config already exists.
 
-**Example:**
+---
+
+## Feature 6: MemPalace Semantic Memory
+
+### What Changes
+
+New `src/memory/` module acts as an MCP client to a MemPalace sidecar. After DPEV completes, auto-files learnings. Before diagnosis, recalls relevant past experiences.
+
+### Component-Level Integration
+
+| Existing Component | Action | Rationale |
+|-----------|--------|-----------|
+| `src/api/routes/debug.ts` | **MODIFY** | recall() BEFORE diagnosis, store() AFTER successful fix |
+| `src/execution/executor.ts` | **MODIFY** | store() outcome (success/failure/rollback) post-execution |
+| `src/orchestrator/context.ts` | **MODIFY** | Inject recalled memories into LLM system prompt |
+| `src/config/types.ts` | **MODIFY** | Add `mempalace` config section |
+| `src/index.ts` | **MODIFY** | Initialize MCP client, pass to server deps |
+| `skills/` | **ADD** | New `memory-recall.md` skill (optional) |
+
+### New Components
+
+```
+src/memory/
+  mcp-client.ts                  # MCP client using @modelcontextprotocol/sdk
+  mempalace-lifecycle.ts         # Spawn/restart/shutdown sidecar process
+  auto-filer.ts                  # Hooks into DPEV lifecycle, auto-files learnings
+  recall.ts                      # Query memories relevant to current diagnosis
+  types.ts                       # MemoryEntry, RecallResult, MemPalaceConfig
+```
+
+### MCP Transport Decision: stdio
+
+Use **stdio transport** (MemPalace runs as a child process):
+- Single client (InfraBrain is the only consumer)
+- No network config needed
+- Starts/stops with InfraBrain process
+- Aligns with local/on-premise constraint
+
 ```typescript
-type RiskLevel = 'green' | 'yellow' | 'red';
+import { Client } from '@modelcontextprotocol/sdk/client';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio';
 
-interface HITLGate {
-  // Determines approval requirement based on command risk
-  classify(command: SystemCommand): RiskLevel;
-  // Prompts user if needed, returns decision
-  requestApproval(command: SystemCommand, risk: RiskLevel): Promise<'approve' | 'reject' | 'modify'>;
-}
-
-// Risk classification examples:
-// GREEN (auto-approve): cat, grep, docker ps, systemctl status, curl
-// YELLOW (notify + auto): docker restart, systemctl restart
-// RED (explicit approval): rm, docker rm, config file edits, iptables changes
+const transport = new StdioClientTransport({
+  command: 'mempalace-server',  // or 'python -m mempalace.mcp_server'
+  args: ['--storage', '.infrabrain/memory']
+});
+const client = new Client({ name: 'infrabrain', version: '1.3.0' });
+await client.connect(transport);
 ```
 
-**Confidence:** HIGH -- Multiple sources document traffic-light approval hierarchies for AI agent safety.
+### Memory Integration Points
+
+| Event | Action | Timing |
+|-------|--------|--------|
+| Before diagnosis | `recall(errorDescription)` -- fetch relevant past fixes | Synchronous (blocks diagnosis, enriches context) |
+| After successful fix | `store(fixSummary + metadata)` -- save for future recall | Async (fire-and-forget) |
+| After failed fix | `store(failureReport)` -- learn what does NOT work | Async (fire-and-forget) |
+| Session start | `recall(targetDescription)` -- fetch infrastructure context | Synchronous (enriches initial context) |
+
+### Memory Injection into LLM Prompt
+
+In `src/orchestrator/context.ts`:
+```typescript
+const memories = await recall.search(prompt, { limit: 3, timeoutMs: 5000 });
+if (memories.length > 0) {
+  systemPrompt += `\n\n--- PAST EXPERIENCES ---\n${formatMemories(memories)}\n--- END PAST EXPERIENCES ---`;
+}
+```
+
+### Qdrant Sharing Strategy
+
+Fix-cache and MemPalace both need vector storage. Two approaches:
+
+**Recommended: Separate concerns**
+- Fix-cache = direct `@qdrant/js-client-rest` calls, `fix_cache` collection
+- MemPalace = MCP server manages its own storage (may use Qdrant, ChromaDB, or SQLite internally)
+- If MemPalace uses Qdrant, point it at the same instance, different collection
+
+**Why not route fix-cache through MemPalace MCP?**
+Fix-cache is a simple embedding lookup. Adding MCP overhead (JSON-RPC round-trip, process boundary) for a hot-path optimization is unnecessary complexity.
+
+### Config Extension
+
+```typescript
+mempalace: {
+  enabled: true,
+  command: 'python',
+  args: ['-m', 'mempalace.mcp_server'],
+  vaultDir: '.infrabrain/mempalace',
+  startupTimeoutMs: 10000,
+  recallTimeoutMs: 5000,
+}
+```
+
+**Graceful degradation:** If Python is not installed, MemPalace fails to start, or recall times out, InfraBrain continues without semantic memory. All calls wrapped in try/catch.
+
+**Confidence: MEDIUM** -- MCP SDK is stable. MemPalace server implementation details (ChromaDB vs Qdrant, Python dependency) affect integration complexity. Auto-filing hooks are straightforward.
+
+---
+
+## Integrated Data Flow: v1.3 DPEV Pipeline
+
+```
+User types command in Ink UI (or one-shot CLI)
+  |
+  Ink <App> calls fetch() to Express API (or Commander calls directly)
+  |
+  POST /debug (prompt)
+  |
+  1. Triage (skill selection) -- unchanged
+  |
+  2. PARALLEL: [                             // Features 4 + 5
+       Discovery commands (Promise.all),      // Tool concurrency
+       Cache embedding generation,            // Fix-caching prep
+       Memory recall query                    // MemPalace recall
+     ]
+  |
+  3. Cache check (Qdrant similarity search)   // Feature 2
+     |
+     if HIT (score > 0.92) -> return cached fixPlan (skip steps 4-5)
+     |
+  4. Context budget check                     // Feature 3
+     |  if > 83% window: compact via worker model
+     |
+  5. PARALLEL: [                              // Feature 5
+       Diagnosis (32B default model),
+       Log pre-processing (7B worker model)
+     ]
+     |  Merge: inject log summary into diagnosis
+     |
+  6. Plan generation -- sequential (needs diagnosis output)
+  |
+  7. Stream results via SSE to Ink UI         // Feature 1
+  |
+  POST /execute (fixPlan)
+  |
+  8. Serial execution (unchanged safety gates)
+  |
+  9. POST-EXECUTION HOOKS (async): [
+       Cache write (if execution succeeded),   // Feature 2
+       Memory auto-file (diagnosis + outcome)  // Feature 6
+     ]
+```
+
+---
+
+## Component Boundaries Summary
+
+### New Directories
+
+| Directory | Purpose | Key Dependencies |
+|-----------|---------|-----------------|
+| `src/ui/` | Ink/React terminal components | `ink`, `@inkjs/ui`, Express API |
+| `src/cache/` | Qdrant fix-caching | `@qdrant/js-client-rest`, `ai` (embed) |
+| `src/memory/` | MemPalace MCP sidecar | `@modelcontextprotocol/sdk` |
+| `src/context/` | Auto-compact context management | `src/llm/token-budget.ts` |
+
+### Hot Path: Files Modified by Multiple Features
+
+| File | Features Touching It |
+|------|---------------------|
+| `src/api/routes/debug.ts` | Cache lookup (2), memory recall (6), parallel discovery (4), parallel inference (5), SSE streaming (1), context compaction (3) |
+| `src/index.ts` | Ink render (1), Qdrant init (2), MCP client init (6) |
+| `src/execution/executor.ts` | Cache write (2), memory auto-file (6) |
+| `src/config/types.ts` | All features add config sections |
+
+**Risk: debug.ts contention.** This 686-line file is the integration nexus. Consider extracting DPEV pipeline into `src/orchestrator/pipeline.ts` to reduce modification surface.
+
+### Unchanged Core (Safety-Critical)
+
+| Directory | Why Unchanged |
+|-----------|---------------|
+| `src/safety/` | Safety gates are serial by design. No feature changes them. |
+| `src/skills/` | Skill files and registry unchanged. New skills are additive. |
+| `src/state/` | SQLite + file storage unchanged. MemPalace is separate from operational state. |
+| `src/locks/` | Lock system unchanged. |
+| `src/audit/` | Audit logging unchanged (new events are additive). |
+
+---
+
+## Suggested Build Order
+
+Dependencies between the 6 features determine build order:
+
+```
+Phase 1: Tool Concurrency (Feature 4)
+  - No external dependencies
+  - 20-line change in runDiscovery()
+  - Immediate performance win (discovery 2-5x faster)
+  - Testable in isolation with current CLI + test suite
+
+Phase 2: Auto-Compact (Feature 3)
+  - No external dependencies
+  - Extends existing RollingContext + token-budget
+  - Foundation: all other features benefit from context management
+  - Required before parallel inference (more concurrent context = needs compaction)
+
+Phase 3: Parallel Inference (Feature 5)
+  - Benefits from Phase 2 context management
+  - Requires: vLLM backend or multiple Ollama instances for true parallelism
+  - New src/llm/parallel.ts module
+
+Phase 4: Qdrant Fix-Caching (Feature 2)
+  - Depends on: Qdrant Docker container
+  - Depends on: embedding model (already wired -- bge-m3 in registry)
+  - New src/cache/ module
+  - Proves vector infrastructure before MemPalace
+
+Phase 5: MemPalace Sidecar (Feature 6)
+  - Depends on: MCP server implementation (Python sidecar)
+  - May share Qdrant instance with fix-cache
+  - New src/memory/ module + auto-filing hooks
+
+Phase 6: Ink/React Terminal UI (Feature 1)
+  - Depends on: SSE endpoints (can be added incrementally in earlier phases)
+  - Largest surface area change (new src/ui/ directory, delete repl.ts + formatter.ts)
+  - Build LAST so all backend features are stable before UI wraps them
+```
+
+### Rationale
+
+1. **Quick wins first**: Tool concurrency is trivial, measurable, zero risk
+2. **Foundation before complexity**: Auto-compact protects against context overflow before parallel inference
+3. **Prove infrastructure incrementally**: Direct Qdrant (fix-cache) before MCP-mediated Qdrant (MemPalace)
+4. **Backend before frontend**: All data pipeline features before UI. Building UI over shifting APIs causes churn.
+5. **UI last**: Ink components need stable APIs. Once backend is stable, UI is a rendering exercise.
+
+---
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Shared LLM Context Between Tasks
+### Anti-Pattern 1: Ink Bypassing Express API
+**What:** Having Ink components import orchestrator/executor directly
+**Why bad:** Breaks API-first architecture. Makes future web UI impossible. Duplicates validation.
+**Instead:** Ink calls Express REST/SSE endpoints only. All logic stays behind the API.
 
-**What:** Reusing the same LLM conversation/context across multiple execution tasks.
+### Anti-Pattern 2: Blocking Startup on External Services
+**What:** Making InfraBrain startup wait for Qdrant or MemPalace initialization
+**Why bad:** First run takes 30+ seconds. Breaks the "instant CLI" feel.
+**Instead:** Start both in background. Features unavailable for first few seconds. Never block the main DPEV path.
 
-**Why bad:** Context contamination. Task 2's execution is influenced by Task 1's irrelevant details, leading to hallucinated connections, wrong tool selections, and unpredictable behavior. This is the "context rot" problem that both GSD and obra/superpowers explicitly solve.
+### Anti-Pattern 3: Synchronous Cache Write in Response Path
+**What:** Writing to fix-cache before returning the debug response
+**Why bad:** Adds latency to every request.
+**Instead:** Deferred cache write: store embedding + plan after executor reports success.
 
-**Instead:** Fresh child process with fresh LLM context per task. The Orchestrator summarizes relevant prior results into a compact handoff, not the raw conversation.
+### Anti-Pattern 4: Routing Fix-Cache Through MemPalace MCP
+**What:** Using MCP as the interface for simple embedding lookups
+**Why bad:** Adds JSON-RPC overhead, process boundary hop, timeout risk on a hot path
+**Instead:** Fix-cache uses Qdrant client directly. MemPalace uses MCP for richer semantic operations.
 
-### Anti-Pattern 2: Sub-Agents Communicating Directly
+### Anti-Pattern 5: Parallelizing Write Commands
+**What:** Running write/destructive commands in parallel for speed
+**Why bad:** Race conditions on shared state. Violates safety guarantees.
+**Instead:** Only READ-risk commands run in parallel. Write commands always serial with approval gates.
 
-**What:** Letting Sub-Agents send messages to each other or share state without going through the Orchestrator.
+### Anti-Pattern 6: Multiple MemPalace Instances
+**What:** Spawning a new MemPalace process per DPEV session or per command
+**Why bad:** Database locking errors. Data corruption risk.
+**Instead:** Single MemPalace sidecar process for the entire InfraBrain lifecycle.
 
-**Why bad:** Loses the single coordination point for safety, auditing, and HITL. If Sub-Agent A tells Sub-Agent B to do something, the safety layer and audit log are bypassed. The Orchestrator cannot reason about what is happening.
+### Anti-Pattern 7: Chalk Inside Ink Components
+**What:** Using `chalk.red()` inside Ink `<Text>` components
+**Why bad:** Double-escaped ANSI codes. Garbled output.
+**Instead:** Use Ink's `<Text color="red">`. Keep Chalk for non-Ink paths only.
 
-**Instead:** All inter-task communication flows through the Orchestrator. Sub-Agents are fire-and-forget workers that return results.
-
-### Anti-Pattern 3: Monolithic Safety Checks
-
-**What:** Running all safety checks (circuit breaker, damage budget, locks, HITL) as a single middleware blob.
-
-**Why bad:** Different safety mechanisms trigger at different points in the lifecycle. Circuit breaker triggers after failed verification. Damage budget is checked before AND after execution. HITL is checked before execution. Locks are acquired before and released after. Cramming these into one check creates timing bugs and bypass opportunities.
-
-**Instead:** Safety as a cross-cutting concern with distinct check points:
-- **Pre-plan:** Damage budget validates plan is within limits
-- **Pre-execution:** Lock acquired, HITL approval obtained
-- **During execution:** Timeout enforcement via child process kill
-- **Post-execution:** Circuit breaker evaluation, damage budget decrement
-- **On failure:** Rollback trigger, lock release
-
-### Anti-Pattern 4: Storing Only Structured Data (SQLite-Only)
-
-**What:** Skipping the human-readable file system and putting everything in SQLite.
-
-**Why bad:** When an admin SSHes into the server at 3 AM during an incident, they need to `cat` a plan file, not write SQL queries. Human-readable state files are a debugging and trust requirement for enterprise IT teams. They also enable git-tracking of all state changes.
-
-**Instead:** Always dual-write. SQLite is the query engine. Files are the human interface.
-
-### Anti-Pattern 5: Hardcoding IT Domain Knowledge
-
-**What:** Building Docker-specific, Nginx-specific, or any system-specific logic into the core engine.
-
-**Why bad:** Destroys the platform's universality. Every new system requires code changes. The entire value proposition of InfraBrain is that the core engine is agnostic and skills teach it new systems.
-
-**Instead:** All IT domain knowledge lives in `skills/` Markdown files. The core engine only knows how to: load skills, reason with an LLM, execute tool calls, and verify results.
-
-## Detailed Component Designs
-
-### LLM Abstraction Layer
-
-```typescript
-interface LLMProvider {
-  name: string;  // 'ollama', 'vllm', 'llamacpp'
-
-  // Core completion interface
-  complete(request: CompletionRequest): Promise<CompletionResponse>;
-
-  // Streaming for long-running diagnosis
-  stream(request: CompletionRequest): AsyncIterable<CompletionChunk>;
-
-  // Structured output (JSON schema enforcement)
-  completeStructured<T>(request: CompletionRequest, schema: JSONSchema): Promise<T>;
-
-  // Health check
-  isAvailable(): Promise<boolean>;
-
-  // Model info
-  listModels(): Promise<ModelInfo[]>;
-}
-
-interface CompletionRequest {
-  model: string;           // e.g., 'llama3.3:70b' or 'qwen2.5-coder:7b'
-  systemPrompt: string;    // Composed from skills + task context
-  messages: Message[];     // Conversation history (minimal for sub-agents)
-  temperature: number;     // Low for execution (0.1), moderate for diagnosis (0.4)
-  maxTokens: number;
-  responseFormat?: 'json' | 'text';
-}
-
-// Model routing strategy:
-// - Orchestrator (diagnosis, planning): Llama-3.3-70B (strong reasoning)
-// - Sub-Agents (execution): Qwen2.5-Coder-7B (fast, code-focused)
-// - Verification: Qwen2.5-Coder-7B (fast checks)
-```
-
-The abstraction must handle Ollama's HTTP API (`POST /api/generate`, `POST /api/chat`) as the default, with the interface designed so vLLM (OpenAI-compatible API) and llama.cpp server can be dropped in as alternative providers.
-
-**Confidence:** HIGH -- Ollama's API is stable and well-documented. The provider pattern is standard.
-
-### Safety System (Circuit Breaker + Damage Budget + Rollback)
-
-```typescript
-interface CircuitBreaker {
-  state: 'closed' | 'open' | 'half-open';
-  failureCount: number;
-  failureThreshold: number;     // e.g., 3 consecutive failures
-  resetTimeout: number;          // e.g., 300_000ms (5 min)
-
-  recordSuccess(): void;
-  recordFailure(): void;
-  canProceed(): boolean;          // false if circuit is open
-  reset(): void;
-}
-
-interface DamageBudget {
-  maxWriteOperations: number;     // per fix plan, e.g., 10
-  maxRestarts: number;            // per fix plan, e.g., 3
-  maxConfigEdits: number;         // per fix plan, e.g., 5
-  currentUsage: DamageBudgetUsage;
-
-  canExecute(action: SystemAction): boolean;
-  record(action: SystemAction): void;
-  isExhausted(): boolean;
-}
-
-interface RollbackManager {
-  // Capture state before execution
-  snapshot(target: string): Promise<StateSnapshot>;
-  // Restore to snapshot
-  rollback(snapshot: StateSnapshot): Promise<RollbackResult>;
-  // List available snapshots
-  listSnapshots(target: string): Promise<StateSnapshot[]>;
-}
-
-// Safety flow:
-// 1. Plan created -> DamageBudget.validate(plan) -- reject if plan exceeds budget
-// 2. Before each task -> CircuitBreaker.canProceed() -- halt if circuit open
-// 3. Before each task -> RollbackManager.snapshot(target) -- capture before-state
-// 4. After task failure -> CircuitBreaker.recordFailure()
-// 5. If circuit opens -> RollbackManager.rollback(lastGoodSnapshot)
-// 6. Alert user via CLI with full context
-```
-
-**Confidence:** HIGH -- Circuit breaker is a well-established resilience pattern. Damage budget is a newer AI-safety concept validated by multiple sources.
-
-### Lock Manager
-
-```typescript
-interface LockManager {
-  // Acquire exclusive lock on a target (e.g., "nginx-server-01")
-  acquire(target: string, owner: string, ttl: number): Promise<Lock | null>;
-  // Release lock
-  release(lockId: string): Promise<void>;
-  // Force-release (admin override)
-  forceRelease(lockId: string, reason: string): Promise<void>;
-  // Check lock status
-  status(target: string): Promise<LockStatus>;
-  // List all active locks
-  listActive(): Promise<Lock[]>;
-}
-
-interface Lock {
-  id: string;
-  target: string;         // e.g., "nginx-server-01", "docker-compose-stack-a"
-  owner: string;          // session ID of the fix operation
-  acquiredAt: Date;
-  ttl: number;            // auto-release after TTL (prevents zombie locks)
-  state: 'active' | 'expired' | 'released';
-}
-```
-
-For v1, locks are stored in SQLite + `.infrabrain/locks/` files. This is single-instance only. If multi-instance becomes needed later, this evolves to file-based advisory locks (flock) or SQLite WAL-based locking. No Redis or distributed locking needed for v1.
-
-**Confidence:** HIGH -- Lock-based concurrency for single-instance is straightforward in Node.js.
-
-## Scalability Considerations
-
-| Concern | v1 (single admin, single target) | Future (multi-admin, multi-target) |
-|---------|----------------------------------|-------------------------------------|
-| Concurrent fixes | Lock prevents conflicts; one fix at a time per target | Queue-based with priority; multiple targets in parallel |
-| LLM throughput | Ollama serves one request at a time | vLLM with batching, or multiple Ollama instances |
-| State storage | SQLite handles thousands of entries easily | SQLite remains viable to millions of rows; shard by date if needed |
-| Audit log growth | Append-only SQLite table; rotate/archive monthly | Same, with optional export to external SIEM |
-| Skill library size | Tens of skills; loaded on-demand | Hundreds of skills; add indexing/tagging for fast resolution |
-| Sub-agent count | Sequential, one at a time | Parallel execution with configurable concurrency limit |
-
-## Suggested Build Order (Dependencies)
-
-The architecture has clear dependency chains that dictate build order:
-
-```
-Phase 1: Foundation (no dependencies)
-  1. LLM Abstraction Layer    -- everything depends on talking to models
-  2. State Manager (SQLite + files) -- everything needs persistence
-  3. Basic CLI shell           -- need a way to interact
-
-Phase 2: Core Engine (depends on Phase 1)
-  4. Skill Loader + Parser     -- Orchestrator needs skills before it can reason
-  5. Orchestrator (diagnose + plan) -- the brain, uses LLM + Skills + State
-  6. Audit Logger              -- captures Orchestrator decisions
-
-Phase 3: Execution (depends on Phase 2)
-  7. Sub-Agent Runner (process isolation) -- needs Orchestrator to delegate to
-  8. HITL Gate (traffic-light approval)   -- needed before Sub-Agents execute
-  9. Lock Manager                         -- needed before concurrent targets
-
-Phase 4: Safety (depends on Phase 3)
-  10. Circuit Breaker           -- needs execution results to evaluate
-  11. Damage Budget             -- needs execution tracking
-  12. Rollback Manager          -- needs snapshots from before execution
-
-Phase 5: Integration (depends on all above)
-  13. API Server (REST)         -- wraps everything for programmatic access
-  14. Full CLI commands         -- polished user experience
-  15. End-to-end POC scenario   -- Docker/Nginx 502 demo
-```
-
-**Critical path:** LLM Abstraction -> Skill Loader -> Orchestrator -> Sub-Agent Runner -> Safety System. This chain must be built sequentially. The CLI and API Server can be developed in parallel with the core engine using stubs.
-
-**Build order rationale:**
-- LLM Abstraction first because literally every component needs to talk to models
-- State Manager early because it is used by everything for persistence
-- Skill Loader before Orchestrator because the Orchestrator is useless without skills to reason with
-- Sub-Agent Runner before Safety because safety mechanisms react to execution events
-- API Server late because the CLI can call the Orchestrator directly in early phases; the API layer is a formalization, not a prerequisite
+---
 
 ## Sources
 
-- [AI Agent Orchestration Patterns - Microsoft Azure Architecture Center](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns) -- HIGH confidence, authoritative source for orchestration patterns (sequential, concurrent, hub-and-spoke)
-- [obra/superpowers - GitHub](https://github.com/obra/superpowers) -- HIGH confidence, direct inspiration for skill-as-Markdown architecture
-- [GSD (Get-Shit-Done) - GitHub](https://github.com/gsd-build/get-shit-done) -- HIGH confidence, direct inspiration for sub-agent isolation and context engineering
-- [AgentFS - Turso](https://turso.tech/blog/agentfs) -- MEDIUM confidence, validates SQLite-as-agent-state pattern
-- [AI Agent Safety: Circuit Breakers for Autonomous Systems - Syntaxia](https://www.syntaxia.com/post/ai-agent-safety-circuit-breakers-for-autonomous-systems) -- MEDIUM confidence, validates circuit breaker + damage budget patterns
-- [AI Agent Kill Switches - Pedowitz Group](https://www.pedowitzgroup.com/ai-agent-kill-switches-practical-safeguards-that-work) -- MEDIUM confidence, validates traffic-light approval and rollback patterns
-- [Ollama API Documentation](https://github.com/ollama/ollama/blob/main/docs/api.md) -- HIGH confidence, official API reference
-- [Network-AI TypeScript Multi-Agent Orchestrator - GitHub](https://github.com/jovanSAPFIONEER/Network-AI) -- LOW confidence, reference implementation for shared-state agent coordination in TypeScript
-- [Architecting AI Agents with TypeScript](https://apeatling.com/articles/architecting-ai-agents-with-typescript/) -- MEDIUM confidence, validates TypeScript agent patterns
+- [Ink GitHub - React for interactive CLIs](https://github.com/vadimdemedes/ink)
+- [Ink UI components library](https://github.com/vadimdemedes/ink-ui)
+- [Claude Code TUI architecture (Ink-based)](https://deepwiki.com/mehmoodosman/claude-code/8.2-core-ui-components)
+- [TypeScript conquering AI agent TUIs (Feb 2026)](https://thamizhelango.medium.com/from-browser-to-terminal-how-typescript-the-webs-darling-quietly-conquered-the-ai-agent-tui-d93a4eda62a5)
+- [oclif + Ink framework comparison (Mar 2026)](https://levelup.gitconnected.com/oclif-ink-rust-and-the-framework-decision-that-shapes-everything-13f2c18539ec)
+- [Qdrant JS client](https://github.com/qdrant/qdrant-js)
+- [Qdrant Edge for embedded AI](https://qdrant.tech/blog/qdrant-edge/)
+- [Qdrant quickstart / Docker deployment](https://qdrant.tech/documentation/quickstart/)
+- [Qdrant installation docs](https://qdrant.tech/documentation/guides/installation/)
+- [AI SDK generateText reference](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text)
+- [AI SDK workflow patterns (parallel)](https://ai-sdk.dev/docs/agents/workflows)
+- [AI SDK parallel tool calls cookbook](https://ai-sdk.dev/cookbook/node/call-tools-in-parallel)
+- [AI SDK provider management](https://ai-sdk.dev/docs/ai-sdk-core/provider-management)
+- [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk)
+- [MCP Specification 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25)
+- [MCP Developer Guide 2026](https://lushbinary.com/blog/mcp-model-context-protocol-developer-guide-2026/)
+- [Claude Code auto-compact architecture](https://platform.claude.com/docs/en/build-with-claude/compaction)
+- [Context compaction patterns (10x extension)](https://dev.to/amitksingh1490/how-we-extended-llm-conversations-by-10x-with-intelligent-context-compaction-4h0a)
+- [Context window management techniques](https://agenta.ai/blog/top-6-techniques-to-manage-context-length-in-llms)
+- [Context packing (Docker blog)](https://www.docker.com/blog/context-packing-context-window/)
