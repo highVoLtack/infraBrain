@@ -57,7 +57,7 @@
 ## v1.3 The Intelligence Layer
 
 - [x] **Phase 14: Pipeline Extraction + Parallel Discovery** - Extract debug.ts into pipeline orchestrator, run discovery commands in parallel with safety mutex (completed 2026-04-10)
-- [ ] **Phase 15: Auto-Compact Context Management** - Token counting and automatic context compaction at 83% threshold with ground truth pinning
+- [x] **Phase 15: Auto-Compact Context Management** - Token counting and automatic context compaction at 83% threshold with ground truth pinning (completed 2026-04-10)
 - [ ] **Phase 16: Qdrant Fix-Caching** - Vector similarity search returns cached fixes in 2s instead of 113s LLM reasoning
 - [ ] **Phase 17: MemPalace Semantic Memory** - Native TypeScript incident memory with temporal knowledge graph and semantic search
 - [ ] **Phase 18: Parallel Inference Pipeline** - Concurrent 9B pre-processing + 122B reasoning via Promise.allSettled
@@ -90,7 +90,7 @@ Plans:
   3. Critical data (container names, port numbers, error codes, discovery facts) survives compaction intact
   4. Healthcheck spam and systemd journal noise are filtered out before reaching the LLM
   5. Context compaction fires exactly once per threshold crossing (no recursive summarization loop)
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [ ] 15-01-PLAN.md -- Token counter, types, and noise filter (foundation)
 - [ ] 15-02-PLAN.md -- Ground truth pinning, compactor, and ContextManager (core logic)
@@ -178,7 +178,7 @@ Plans:
 | 13 | v1.2 | 2/2 | Complete | 2026-03-16 |
 | 13.1 | v1.2 | 3/3 | Complete | 2026-03-17 |
 | 14 | 2/2 | Complete    | 2026-04-10 | - |
-| 15 | 2/3 | In Progress|  | - |
+| 15 | 3/3 | Complete   | 2026-04-10 | - |
 | 16 | v1.3 | TBD | Not started | - |
 | 17 | v1.3 | TBD | Not started | - |
 | 18 | v1.3 | TBD | Not started | - |

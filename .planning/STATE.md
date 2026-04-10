@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
 status: executing
-stopped_at: Completed 15-02-PLAN.md
-last_updated: "2026-04-10T13:54:10.307Z"
-last_activity: 2026-04-10 -- Phase 15 Plan 02 executed (ContextManager, ground truth, compactor)
+stopped_at: Completed 15-03-PLAN.md
+last_updated: "2026-04-10T13:58:59.485Z"
+last_activity: 2026-04-10 -- Phase 15 Plan 03 executed (pipeline integration with context management)
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
-  percent: 98
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 15 of 19 (Auto-Compact Context Management)
-Plan: 2 of 3 complete in current phase
-Status: In Progress
-Last activity: 2026-04-10 -- Phase 15 Plan 02 executed (ContextManager, ground truth, compactor)
+Plan: 3 of 3 complete in current phase
+Status: Complete
+Last activity: 2026-04-10 -- Phase 15 Plan 03 executed (pipeline integration with context management)
 
 Progress: [██████████] 98%
 
@@ -61,6 +61,9 @@ Progress: [██████████] 98%
 - [Phase 15-02]: Eviction priority by type: IPs first, then ports, containers, custom, error_codes last
 - [Phase 15-02]: Tier 3 fallback: aggressive 1-line compression + drop oldest when no worker model
 - [Phase 15-02]: Synchronous saveSnapshot (writeFileSync) for guaranteed audit trail before eviction
+- [Phase 15-03]: ContextManager replaces ad-hoc GROUND TRUTH string in pipeline prompt assembly
+- [Phase 15-03]: contextWindow defaults to 32768 matching Qwen3 context size
+- [Phase 15-03]: checkBudget uses accurate BPE counter; estimateTokens kept as heuristic fallback
 
 ### Pending Todos
 
@@ -74,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T13:54:10.305Z
-Stopped at: Completed 15-02-PLAN.md
-Resume: Phase 15 Plan 03 (next plan in auto-compact context)
+Last session: 2026-04-10T13:58:59.484Z
+Stopped at: Completed 15-03-PLAN.md
+Resume: Phase 15 complete -- next phase 16 (Qdrant Fix Caching)
