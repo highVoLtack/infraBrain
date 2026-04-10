@@ -63,6 +63,7 @@ const InfraBrainConfigSchemaInner = z.object({
     correctionTimeoutMs: z.number().default(15000),
     restartVerificationDelayMs: z.number().default(3000),
   }).default({ maxAttempts: 5, correctionTimeoutMs: 15000, restartVerificationDelayMs: 3000 }),
+  contextWindow: z.number().default(32768),
 });
 
 // Backwards-compatible schema: maps legacy ollamaBaseUrl to defaultBaseUrl

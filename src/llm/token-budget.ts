@@ -1,4 +1,8 @@
 import type { TaskBudget, TokenUsage } from './types.js';
+import { countTokens as countTokensAccurate } from '../context/token-counter.js';
+
+/** Re-export accurate BPE token counter for external consumers. */
+export { countTokens } from '../context/token-counter.js';
 
 export interface BudgetCheck {
   allowed: boolean;
@@ -10,6 +14,8 @@ export interface BudgetCheck {
 /**
  * Estimate token count for a text string.
  * Uses 4-chars-per-token heuristic for ASCII, 2-chars-per-token for non-ASCII.
+ *
+ * Heuristic fallback. Prefer countTokens from context/token-counter for accurate BPE counting.
  */
 export function estimateTokens(text: string): number {
   if (text.length === 0) return 0;
@@ -39,7 +45,7 @@ export function checkBudget(
   systemPrompt: string,
   budget: TaskBudget,
 ): BudgetCheck {
-  const estimatedTokens = estimateTokens(prompt + systemPrompt);
+  const estimatedTokens = countTokensAccurate(prompt + systemPrompt);
 
   if (estimatedTokens <= budget.maxTokens) {
     return {

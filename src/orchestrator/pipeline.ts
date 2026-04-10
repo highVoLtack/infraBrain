@@ -17,6 +17,8 @@ import { findDbContainer } from '../execution/runner.js';
 import { toolsToRewriteRules } from '../execution/dynamic-rewriter.js';
 import { runParallelDiscovery } from './discovery.js';
 import { encodeForLLM, measureSavings } from '../llm/toon-encoder.js';
+import { ContextManager } from '../context/context-manager.js';
+import { filterNoise } from '../context/noise-filter.js';
 import {
   enforceDPEVSequence,
   preFilterIfLogHeavy,
@@ -154,7 +156,40 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   const { system } = buildMessages(selection.skill, prompt);
   systemPrompt = system;
 
-  // Build enriched prompt with discovery context injected as GROUND TRUTH
+  // --- Context Management: noise filter + ContextManager ---
+  const workerModel = provider.registry?.get?.('worker');
+  const skillNoisePatterns = selection.skill.frontmatter.noise_patterns ?? [];
+  const { filtered: filteredRaw, removedCount, workerModelUsed } = await filterNoise(discoveryRaw, skillNoisePatterns, workerModel);
+
+  if (DEV_MODE) {
+    console.log(`[NOISE] Filtered ${removedCount} noise lines`);
+    if (workerModelUsed) console.log(`[NOISE] Worker model used for relevance scoring`);
+  }
+
+  const contextManager = new ContextManager(
+    {
+      windowSize: input.config?.contextWindow ?? 32768,
+      threshold: 0.83,
+      target: 0.60,
+      groundTruthCap: 0.20,
+    },
+    input.config?.sessionDir,
+    input.sessionId,
+  );
+
+  contextManager.ingestDiscovery(filteredRaw);
+
+  if (DEV_MODE) {
+    const usage = contextManager.getUsage();
+    console.log(`[CONTEXT] ${(usage.percentage * 100).toFixed(1)}% used (${usage.tokens} tokens)`);
+  }
+
+  const compactionResult = await contextManager.maybeCompact(workerModel);
+  if (DEV_MODE && compactionResult) {
+    console.log(`[CONTEXT] Compaction fired: ${compactionResult.tokensBefore} -> ${compactionResult.tokensAfter} tokens (${compactionResult.tiersUsed} tiers)`);
+  }
+
+  // Build enriched prompt using ContextManager (replaces ad-hoc GROUND TRUTH block)
   let rollingContext = '';
   const idleDetail = discoveryRaw['Idle connections detail'];
   if (idleDetail && idleDetail !== '(empty)') {
@@ -166,8 +201,9 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
     }
   }
 
-  const enrichedPrompt = discoveryContext
-    ? `${prompt}\n\n--- GROUND TRUTH - USE ONLY THESE NAMES ---\n${discoveryContext}\n--- END GROUND TRUTH ---${rollingContext}\n\nMANDATORY: Use ONLY the container names, IPs, PIDs, and values shown in GROUND TRUTH above. Do NOT invent, guess, or substitute any names. If a value is not in GROUND TRUTH, run a command to discover it.`
+  const contextBlock = contextManager.buildContext();
+  const enrichedPrompt = contextBlock
+    ? `${prompt}\n\n${contextBlock}${rollingContext}\n\nMANDATORY: Use ONLY the container names, IPs, PIDs, and values shown in Ground Truth above. Do NOT invent, guess, or substitute any names.`
     : prompt;
 
   // Pre-filter log-heavy prompts before LLM call to save tokens
