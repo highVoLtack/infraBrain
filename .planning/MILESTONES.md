@@ -1,5 +1,27 @@
 # Milestones
 
+## v1.2 The Knowledge Layer (Shipped: 2026-03-17)
+
+**Phases completed:** 9 phases + demo, 24 plans | 620 tests | 60+ source files | 6 universal skills
+**Timeline:** 4 days (2026-03-14 → 2026-03-17)
+**Requirements:** All satisfied | Multi-Fault Demo 5/5 validated
+
+**Key accomplishments:**
+1. Agnostic Engine — 100% of domain knowledge in Markdown skill files, zero TypeScript per scenario
+2. Dynamic Command Rewriter — skill-driven rewrite rules, docker-exec-aware token-walk parser
+3. Universal Expert Skills — linux-expert, postgres-expert, network-expert replace 4 scenario-specific skills
+4. Two-Tier Intelligent Routing — pre-filter + LLM, deterministic for clear prompts, single-candidate shortcut
+5. Self-Healing Executor — error→LLM correction→retry, worker→strategic→forensic escalation, 5 max attempts
+6. Multi-Fault Demo validated: 5/5 faults fixed across 3 debug→execute cycles (4 fully autonomous)
+7. Persistence Verification — detects config changes reverted by container restarts
+8. Sanity Checker Tuning — Docker tag whitelist, structured diagnosis exemption
+9. Unified OpenAI-Compatible Provider — vLLM + Ollama via per-role baseURL routing
+10. 7-role model routing: triage, default, strategic, forensic, worker, vision, embedding
+
+**Key architectural innovation:** Agnostic Engine + Self-Healing Executor — the system compensates for local LLM limitations through error-driven self-correction. Adding a new scenario requires zero TypeScript.
+
+---
+
 ## v1.1 The Scenario Factory (Shipped: 2026-03-13)
 
 **Phases completed:** 4 phases, 10 plans | 440 tests | 59 source files | 6 skills
