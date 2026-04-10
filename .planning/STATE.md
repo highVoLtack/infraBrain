@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
-status: completed
-stopped_at: Phase 16 context gathered
-last_updated: "2026-04-10T17:34:56.143Z"
-last_activity: 2026-04-10 -- Phase 15 Plan 03 executed (pipeline integration with context management)
+status: in-progress
+stopped_at: Phase 16 Plan 01 executed
+last_updated: "2026-04-10T18:29:15.000Z"
+last_activity: 2026-04-10 -- Phase 16 Plan 01 executed (cache foundation with LanceDB, embedder, confidence scoring)
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
-  percent: 98
+  total_plans: 8
+  completed_plans: 6
+  percent: 75
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control -- every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.3 The Intelligence Layer -- Phase 15 (Auto-Compact Context Management)
+**Current focus:** v1.3 The Intelligence Layer -- Phase 16 (Qdrant Fix Caching)
 
 ## Current Position
 
-Phase: 15 of 19 (Auto-Compact Context Management)
-Plan: 3 of 3 complete in current phase
-Status: Complete
-Last activity: 2026-04-10 -- Phase 15 Plan 03 executed (pipeline integration with context management)
+Phase: 16 of 19 (Qdrant Fix Caching)
+Plan: 1 of 3 complete in current phase
+Status: In Progress
+Last activity: 2026-04-10 -- Phase 16 Plan 01 executed (cache foundation with LanceDB, embedder, confidence scoring)
 
-Progress: [██████████] 98%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
@@ -64,6 +64,9 @@ Progress: [██████████] 98%
 - [Phase 15-03]: ContextManager replaces ad-hoc GROUND TRUTH string in pipeline prompt assembly
 - [Phase 15-03]: contextWindow defaults to 32768 matching Qwen3 context size
 - [Phase 15-03]: checkBudget uses accurate BPE counter; estimateTokens kept as heuristic fallback
+- [16-01]: LanceDB seed-row-then-delete for schema-inferred table creation
+- [16-01]: CacheStore singleton keyed by dataDir with lazy init promise deduplication
+- [16-01]: All cache store operations gracefully degrade (return null/empty, never throw)
 
 ### Pending Todos
 
@@ -77,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T17:34:56.141Z
-Stopped at: Phase 16 context gathered
-Resume: Phase 15 complete -- next phase 16 (Qdrant Fix Caching)
+Last session: 2026-04-10T18:29:15Z
+Stopped at: Phase 16 Plan 01 executed
+Resume: Execute Phase 16 Plan 02 (pipeline integration)

@@ -36,12 +36,12 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 
 ### Fix-Caching (LanceDB Embedded)
 
-- [ ] **CACHE-01**: LanceDB embedded vector store initializes automatically in-process with auto-table management (no external service or Docker required)
-- [ ] **CACHE-02**: Error signature + discovery context embedded via BGE-M3 into LanceDB table
+- [x] **CACHE-01**: LanceDB embedded vector store initializes automatically in-process with auto-table management (no external service or Docker required)
+- [x] **CACHE-02**: Error signature + discovery context embedded via BGE-M3 into LanceDB table
 - [ ] **CACHE-03**: Before LLM diagnosis, similarity search checks for cached fix (threshold > 0.85)
 - [ ] **CACHE-04**: Cached fix returned in <2s vs 113s for LLM reasoning (zero LLM calls for cache hits)
 - [ ] **CACHE-05**: Cache invalidation on skill file updates (stale fixes purged)
-- [ ] **CACHE-06**: Confidence scoring on cached fixes (recency + success rate + similarity score)
+- [x] **CACHE-06**: Confidence scoring on cached fixes (recency + success rate + similarity score)
 - [ ] **CACHE-07**: Graceful degradation -- InfraBrain works without LanceDB (cache is optimization, not requirement)
 - [ ] **CACHE-08**: Cache hit explainability -- Ink terminal shows provenance indicator when using cached fix ("Based on incident #42 (2026-03-12) -- Cache Hit")
 
@@ -111,12 +111,12 @@ Deferred to future release. Tracked but not in current roadmap.
 | CTXT-04 | Phase 15 | Complete |
 | CTXT-05 | Phase 15 | Complete |
 | CTXT-06 | Phase 15 | Complete |
-| CACHE-01 | Phase 16 | Pending |
-| CACHE-02 | Phase 16 | Pending |
+| CACHE-01 | Phase 16 | Complete |
+| CACHE-02 | Phase 16 | Complete |
 | CACHE-03 | Phase 16 | Pending |
 | CACHE-04 | Phase 16 | Pending |
 | CACHE-05 | Phase 16 | Pending |
-| CACHE-06 | Phase 16 | Pending |
+| CACHE-06 | Phase 16 | Complete |
 | CACHE-07 | Phase 16 | Pending |
 | CACHE-08 | Phase 16 | Pending |
 | MEM-01 | Phase 17 | Pending |
