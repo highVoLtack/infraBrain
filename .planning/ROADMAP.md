@@ -56,7 +56,7 @@
 
 ## v1.3 The Intelligence Layer
 
-- [ ] **Phase 14: Pipeline Extraction + Parallel Discovery** - Extract debug.ts into pipeline orchestrator, run discovery commands in parallel with safety mutex
+- [x] **Phase 14: Pipeline Extraction + Parallel Discovery** - Extract debug.ts into pipeline orchestrator, run discovery commands in parallel with safety mutex (completed 2026-04-10)
 - [ ] **Phase 15: Auto-Compact Context Management** - Token counting and automatic context compaction at 83% threshold with ground truth pinning
 - [ ] **Phase 16: Qdrant Fix-Caching** - Vector similarity search returns cached fixes in 2s instead of 113s LLM reasoning
 - [ ] **Phase 17: MemPalace Semantic Memory** - Native TypeScript incident memory with temporal knowledge graph and semantic search
@@ -75,7 +75,7 @@
   3. Execution steps remain serial with circuit breaker and damage budget unchanged (safety preserved)
   4. Parallel discovery results appear as a single merged context block in the LLM diagnosis prompt
   5. debug.ts is under 200 lines with pipeline logic extracted to src/orchestrator/
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 14-01-PLAN.md -- Parallel discovery module with per-container mutex (p-queue)
 - [ ] 14-02-PLAN.md -- Pipeline extraction, diagnosis module, slim debug.ts, fix test imports
@@ -157,7 +157,7 @@ Plans:
 | 12.6 Demo | v1.2 | -- | Validated | 2026-03-15 |
 | 13 | v1.2 | 2/2 | Complete | 2026-03-16 |
 | 13.1 | v1.2 | 3/3 | Complete | 2026-03-17 |
-| 14 | 1/2 | In Progress|  | - |
+| 14 | 2/2 | Complete   | 2026-04-10 | - |
 | 15 | v1.3 | TBD | Not started | - |
 | 16 | v1.3 | TBD | Not started | - |
 | 17 | v1.3 | TBD | Not started | - |

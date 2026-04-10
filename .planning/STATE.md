@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
 status: executing
-stopped_at: Completed 14-01-PLAN.md
-last_updated: "2026-04-10T12:34:43.555Z"
-last_activity: 2026-04-10 -- Phase 14 Plan 01 executed (parallel discovery module)
+stopped_at: Completed 14-02-PLAN.md (Phase 14 complete)
+last_updated: "2026-04-10T12:40:49.000Z"
+last_activity: 2026-04-10 -- Phase 14 Plan 02 executed (pipeline extraction + debug.ts slimming)
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 100
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 14 of 19 (Pipeline Extraction + Parallel Discovery)
-Plan: 1 of 2 complete in current phase
-Status: Executing
-Last activity: 2026-04-10 -- Phase 14 Plan 01 executed (parallel discovery module)
+Plan: 2 of 2 complete in current phase
+Status: Phase 14 Complete
+Last activity: 2026-04-10 -- Phase 14 Plan 02 executed (pipeline extraction + debug.ts slimming)
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -52,6 +52,9 @@ Progress: [█████░░░░░] 50%
 - [v1.3]: Extract debug.ts pipeline before feature work (prevents merge conflicts)
 - [v1.3]: Build backend features before UI (Ink last over stable APIs)
 - [14-01]: PQueue concurrency:1 per container via lazy-init Map for discovery mutex
+- [14-02]: Pipeline covers D-P only -- execution stays in /execute route for EXEC-03 safety
+- [14-02]: Backward-compatible re-exports in debug.ts alongside canonical import updates
+- [14-02]: runDiagnosis returns hallucinationError as data -- HTTP handler translates to 422
 
 ### Pending Todos
 
@@ -65,6 +68,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T12:34:42.730Z
-Stopped at: Completed 14-01-PLAN.md
-Resume: `/gsd:execute-phase 14` (Plan 02 -- pipeline integration)
+Last session: 2026-04-10T12:40:49.000Z
+Stopped at: Completed 14-02-PLAN.md (Phase 14 complete)
+Resume: Next phase (15 -- Auto-Compact Context)
