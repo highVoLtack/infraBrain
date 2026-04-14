@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
 status: executing
-stopped_at: Completed 17-03-PLAN.md
-last_updated: "2026-04-14T11:51:00.000Z"
-last_activity: 2026-04-14 -- Plan 03 complete (memory search, wake-up context, pipeline integration)
+stopped_at: Completed 17-04-PLAN.md (Phase 17 complete)
+last_updated: "2026-04-14T12:04:00.000Z"
+last_activity: 2026-04-14 -- Plan 04 complete (intent classifier, memory skill, auto-filing) -- Phase 17 complete
 progress:
   total_phases: 6
   completed_phases: 3
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 17 of 19 (MemPalace Semantic Memory)
-Plan: 3 of 4 executed
-Status: Executing -- Plan 03 complete, Plan 04 next
-Last activity: 2026-04-14 -- Plan 03 complete (memory search, wake-up context, pipeline integration)
+Plan: 4 of 4 executed
+Status: Phase 17 complete -- all 4 plans executed
+Last activity: 2026-04-14 -- Plan 04 complete (intent classifier, memory skill, auto-filing)
 
 Progress: [██████████] 100%
 
@@ -87,6 +87,10 @@ Progress: [██████████] 100%
 - [Phase 17-03]: L3 conditional trigger uses best (max) L2 similarity vs threshold, not average
 - [Phase 17-03]: Token budget truncates L3 first (less valuable), then L2 line-by-line
 - [Phase 17-03]: Memory mocks required in all test files exercising pipeline (same pattern as cache mocks)
+- [Phase 17-04]: Intent classifier uses generateObject with workerModel for structured LLM output (same pattern as router/planner)
+- [Phase 17-04]: root_cause sourced from structuredDiagnosis.rootCause (not req.body.diagnosis) for distinct embedding input
+- [Phase 17-04]: Memory filing in execute route is non-critical: wrapped in try-catch, never affects response
+- [Phase 17-04]: Memory mocks required in all test files importing execute.ts (wal, entity-extractor, memory-search, embedder)
 
 ### Pending Todos
 
@@ -100,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T11:51:00.000Z
-Stopped at: Completed 17-03-PLAN.md
-Resume: Execute Plan 04 (incident auto-filing, memory skill routing)
+Last session: 2026-04-14T12:04:00.000Z
+Stopped at: Completed 17-04-PLAN.md (Phase 17 complete)
+Resume: Phase 18 (Parallel Inference) planning

@@ -59,7 +59,7 @@
 - [x] **Phase 14: Pipeline Extraction + Parallel Discovery** - Extract debug.ts into pipeline orchestrator, run discovery commands in parallel with safety mutex (completed 2026-04-10)
 - [x] **Phase 15: Auto-Compact Context Management** - Token counting and automatic context compaction at 83% threshold with ground truth pinning (completed 2026-04-10)
 - [x] **Phase 16: Qdrant Fix-Caching** - Vector similarity search returns cached fixes in 2s instead of 113s LLM reasoning (completed 2026-04-10)
-- [ ] **Phase 17: MemPalace Semantic Memory** - Native TypeScript incident memory with temporal knowledge graph and semantic search
+- [x] **Phase 17: MemPalace Semantic Memory** - Native TypeScript incident memory with temporal knowledge graph and semantic search (completed 2026-04-14)
 - [ ] **Phase 18: Parallel Inference Pipeline** - Concurrent 9B pre-processing + 122B reasoning via Promise.allSettled
 - [ ] **Phase 19: Ink/React Terminal UI** - Full terminal renderer with live DPEV tracking, streaming output, and rich dashboard
 
@@ -122,12 +122,12 @@ Plans:
   3. Infrastructure entities (hostnames, service names, IPs) extracted from diagnostic text appear as searchable knowledge graph entries
   4. Recent incidents score higher than old ones at equal semantic similarity (temporal decay observable in search results)
   5. All memory mutations are recorded in a write-ahead log (audit trail for what was remembered and when)
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 Plans:
-- [ ] 17-01-PLAN.md -- Types, config schema, and write-ahead log (foundation contracts)
-- [ ] 17-02-PLAN.md -- IncidentStore, EntityStore, entity extractor, memory scoring (data layer)
-- [ ] 17-03-PLAN.md -- Memory search, wake-up context, pipeline [MEMORY] integration
-- [ ] 17-04-PLAN.md -- Intent classifier, memory skill, incident auto-filing
+- [x] 17-01-PLAN.md -- Types, config schema, and write-ahead log (foundation contracts)
+- [x] 17-02-PLAN.md -- IncidentStore, EntityStore, entity extractor, memory scoring (data layer)
+- [x] 17-03-PLAN.md -- Memory search, wake-up context, pipeline [MEMORY] integration
+- [x] 17-04-PLAN.md -- Intent classifier, memory skill, incident auto-filing
 
 ### Phase 18: Parallel Inference Pipeline
 **Goal**: 9B models pre-process logs and extract patterns while 122B reasons about diagnosis, cutting total inference time
@@ -173,10 +173,10 @@ Plans:
 | 14 | v1.3 | 2/2 | Complete | 2026-04-10 |
 | 15 | v1.3 | 3/3 | Complete | 2026-04-10 |
 | 16 | v1.3 | 4/4 | Complete | 2026-04-10 |
-| 17 | 3/4 | In Progress|  | - |
+| 17 | v1.3 | 4/4 | Complete | 2026-04-14 |
 | 18 | v1.3 | TBD | Not started | - |
 | 19 | v1.3 | TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-04-11 -- Phase 17 planned (4 plans, 3 waves)*
+*Last updated: 2026-04-14 -- Phase 17 complete (4/4 plans executed)*
