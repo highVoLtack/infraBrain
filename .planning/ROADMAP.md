@@ -138,7 +138,10 @@ Plans:
   2. 9B log pre-processing runs concurrently with 122B reasoning (observable via dev-mode timing logs showing overlapping model calls)
   3. With only a single vLLM backend available, inference falls back to sequential mode transparently (no errors, same results)
   4. Separate vLLM instances serve different model sizes without VRAM contention (health check shows multiple backends)
-**Plans:** [To be planned]
+**Plans:** 2 plans
+Plans:
+- [ ] 18-01-PLAN.md -- InferenceScheduler types, backend probe, parallel dispatch, timing instrumentation
+- [ ] 18-02-PLAN.md -- Pipeline parallel inference integration, health route enhancement
 
 ### Phase 19: Ink/React Terminal UI
 **Goal**: Admin interacts with InfraBrain through a rich, reactive terminal interface with live progress tracking, streaming output, and a status dashboard
@@ -173,10 +176,10 @@ Plans:
 | 14 | v1.3 | 2/2 | Complete | 2026-04-10 |
 | 15 | v1.3 | 3/3 | Complete | 2026-04-10 |
 | 16 | v1.3 | 4/4 | Complete | 2026-04-10 |
-| 17 | v1.3 | Complete    | 2026-04-14 | 2026-04-14 |
-| 18 | v1.3 | TBD | Not started | - |
+| 17 | v1.3 | 4/4 | Complete | 2026-04-14 |
+| 18 | v1.3 | 0/2 | Planned | - |
 | 19 | v1.3 | TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-04-14 -- Phase 17 complete (4/4 plans executed)*
+*Last updated: 2026-04-14 -- Phase 18 planned (2 plans in 2 waves)*
