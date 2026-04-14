@@ -38,6 +38,25 @@ vi.mock('../../src/cache/lance-store.js', () => ({
     search: vi.fn().mockResolvedValue([]),
   })),
 }));
+// Mock memory modules to prevent real LanceDB init attempts
+vi.mock('../../src/memory/incident-store.js', () => ({
+  getIncidentStore: vi.fn(() => ({
+    search: vi.fn().mockResolvedValue([]),
+    getRecent: vi.fn().mockResolvedValue([]),
+    getStats: vi.fn().mockResolvedValue({ totalIncidents: 0, topDomains: [], successRate: 0 }),
+    init: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+vi.mock('../../src/memory/entity-store.js', () => ({
+  getEntityStore: vi.fn(() => ({
+    searchByEntities: vi.fn().mockResolvedValue([]),
+    searchByType: vi.fn().mockResolvedValue([]),
+    init: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+vi.mock('../../src/memory/wake-up.js', () => ({
+  buildWakeUpContext: vi.fn().mockResolvedValue({ pinned: '', evictable: '' }),
+}));
 
 import { runDPEV } from '../../src/orchestrator/pipeline.js';
 import { selectSkill } from '../../src/orchestrator/router.js';

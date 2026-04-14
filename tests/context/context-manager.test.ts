@@ -173,4 +173,66 @@ describe('ContextManager', () => {
       expect(usage.percentage).toBeLessThanOrEqual(config.target + 0.05); // small tolerance for token counting
     }
   });
+
+  // --- Memory integration tests ---
+
+  it('injectMemory() stores pinned and evictable blocks', () => {
+    const mgr = new ContextManager(DEFAULT_CONFIG, sessionDir, 'test-session');
+    const tokensBefore = mgr.getUsage().tokens;
+    mgr.injectMemory('## Memory\n### Identity\nYou have resolved 10 incidents.', '### Similar\nSome past incident');
+    const tokensAfter = mgr.getUsage().tokens;
+    expect(tokensAfter).toBeGreaterThan(tokensBefore);
+  });
+
+  it('buildContext() includes [MEMORY] section between ground truth and observations', () => {
+    const mgr = new ContextManager(DEFAULT_CONFIG, sessionDir, 'test-session');
+    mgr.ingestDiscovery({
+      'Running containers': 'nginx\nredis',
+    });
+    mgr.injectMemory('## Memory\n### Identity\nYou have resolved 10 incidents.', '### Similar\nPast OOM incident');
+
+    const ctx = mgr.buildContext();
+
+    // Order: Ground Truth ... Memory ... Observations
+    const gtIdx = ctx.indexOf('## Ground Truth');
+    const memIdx = ctx.indexOf('## Memory');
+    const obsIdx = ctx.indexOf('## Observations');
+
+    expect(gtIdx).toBeGreaterThanOrEqual(0);
+    expect(memIdx).toBeGreaterThan(gtIdx);
+    expect(obsIdx).toBeGreaterThan(memIdx);
+    expect(ctx).toContain('You have resolved 10 incidents');
+    expect(ctx).toContain('Past OOM incident');
+  });
+
+  it('buildContext() works without memory (backward compatible)', () => {
+    const mgr = new ContextManager(DEFAULT_CONFIG, sessionDir, 'test-session');
+    mgr.ingestDiscovery({
+      'Running containers': 'nginx',
+    });
+    // No injectMemory call
+    const ctx = mgr.buildContext();
+    expect(ctx).toContain('## Ground Truth');
+    expect(ctx).toContain('## Observations');
+    expect(ctx).not.toContain('## Memory');
+  });
+
+  it('reset() clears memory blocks', () => {
+    const mgr = new ContextManager(DEFAULT_CONFIG, sessionDir, 'test-session');
+    mgr.injectMemory('## Memory\nSome pinned content', 'Some evictable content');
+    expect(mgr.getUsage().tokens).toBeGreaterThan(0);
+    mgr.reset();
+    expect(mgr.getUsage().tokens).toBe(0);
+    // After reset, buildContext should not include memory
+    const ctx = mgr.buildContext();
+    expect(ctx).not.toContain('Some pinned content');
+  });
+
+  it('getUsage() includes memory tokens', () => {
+    const mgr = new ContextManager(DEFAULT_CONFIG, sessionDir, 'test-session');
+    const usageBefore = mgr.getUsage();
+    mgr.injectMemory('Some pinned memory content here', 'Some evictable memory content');
+    const usageAfter = mgr.getUsage();
+    expect(usageAfter.tokens).toBeGreaterThan(usageBefore.tokens);
+  });
 });

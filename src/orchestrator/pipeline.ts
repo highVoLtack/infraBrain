@@ -11,6 +11,10 @@ import { checkCache } from '../cache/cache-lookup.js';
 import { getCacheStore } from '../cache/lance-store.js';
 import type { CacheStore } from '../cache/lance-store.js';
 import { DEFAULT_CACHE_CONFIG, DEFAULT_CONFIDENCE_CONFIG } from '../cache/types.js';
+import { getIncidentStore } from '../memory/incident-store.js';
+import { getEntityStore } from '../memory/entity-store.js';
+import { buildWakeUpContext } from '../memory/wake-up.js';
+import type { MemoryConfig } from '../memory/types.js';
 
 import { selectSkill } from './router.js';
 import { generateFixPlan, generatePlanMarkdown, formatPlanTable } from './planner.js';
@@ -236,6 +240,17 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
     ? [dbContainer, ...allContainers.filter(c => c !== dbContainer)]
     : allContainers;
 
+  // --- Resolve embedding model config (shared by cache check + memory enrichment) ---
+  const embeddingEntry = input.config?.modelMap?.embedding as ModelMapEntry | undefined;
+  const embeddingBaseURL = typeof embeddingEntry === 'object' && embeddingEntry !== null
+    ? (embeddingEntry as { baseUrl: string }).baseUrl
+    : (input.config?.defaultBaseUrl ?? 'http://localhost:11434/v1');
+  const embeddingModelId = typeof embeddingEntry === 'string'
+    ? embeddingEntry
+    : typeof embeddingEntry === 'object' && embeddingEntry !== null
+      ? (embeddingEntry as { model: string }).model
+      : 'bge-m3';
+
   // --- Cache check: between noise filter and diagnosis ---
   if (!input.noCache) {
     let cacheStore: CacheStore | null = null;
@@ -246,17 +261,6 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
         await cacheStore.init();
       } catch { cacheStore = null; }
     }
-
-    // Resolve embedding model config from modelMap
-    const embeddingEntry = input.config?.modelMap?.embedding as ModelMapEntry | undefined;
-    const embeddingBaseURL = typeof embeddingEntry === 'object' && embeddingEntry !== null
-      ? (embeddingEntry as { baseUrl: string }).baseUrl
-      : (input.config?.defaultBaseUrl ?? 'http://localhost:11434/v1');
-    const embeddingModelId = typeof embeddingEntry === 'string'
-      ? embeddingEntry
-      : typeof embeddingEntry === 'object' && embeddingEntry !== null
-        ? (embeddingEntry as { model: string }).model
-        : 'bge-m3';
 
     const cacheResult = await checkCache({
       prompt,
@@ -311,6 +315,41 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
     // Cache miss: proceed normally (existing code path unchanged)
   }
   // Cache write happens in execution route after fix verification -- see storeFixInCache()
+
+  // --- Memory enrichment: wake-up context (non-blocking) ---
+  const memoryEnabled = input.config?.memory?.enabled !== false;
+  if (memoryEnabled) {
+    try {
+      const memDataDir = input.config?.memory?.dataDir ?? '.infrabrain/memory';
+      const incidentStore = getIncidentStore(memDataDir);
+      const entityStore = getEntityStore(memDataDir);
+
+      const memoryConfig: MemoryConfig = {
+        enabled: true,
+        dataDir: memDataDir,
+        decayLambda: input.config?.memory?.decayLambda ?? 0.02,
+        l2SimilarityThreshold: input.config?.memory?.l2SimilarityThreshold ?? 0.7,
+        l2Limit: input.config?.memory?.l2Limit ?? 3,
+        tokenBudgets: input.config?.memory?.tokenBudgets ?? { l0: 100, l1: 500, l2l3: 1000 },
+      };
+
+      const wakeUp = await buildWakeUpContext({
+        currentPrompt: prompt,
+        memoryConfig,
+        embeddingParams: { baseURL: embeddingBaseURL, modelId: embeddingModelId },
+        incidentStore,
+        entityStore,
+      });
+
+      if (wakeUp.pinned || wakeUp.evictable) {
+        contextManager.injectMemory(wakeUp.pinned, wakeUp.evictable);
+        if (DEV_MODE) console.log(`[MEMORY] Wake-up context injected (pinned: ${wakeUp.pinned.length > 0}, evictable: ${wakeUp.evictable.length > 0})`);
+      }
+    } catch (memErr) {
+      // Memory unavailable -- proceed without enrichment
+      if (DEV_MODE) console.error('[MEMORY] Wake-up context failed:', memErr);
+    }
+  }
 
   // DPEV: enforce discovery before diagnosis
   enforceDPEVSequence('diagnosis', completedPhases);

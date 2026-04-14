@@ -23,6 +23,10 @@ export class ContextManager {
   private observations: Observation[] = [];
   private totalTokens = 0;
   private compactionFired = false;
+  private memoryPinned = '';
+  private memoryEvictable = '';
+  private memoryPinnedTokens = 0;
+  private memoryEvictableTokens = 0;
 
   constructor(
     private readonly config: ContextManagerConfig,
@@ -67,6 +71,19 @@ export class ContextManager {
       });
     }
 
+    this.recalculateTokens();
+  }
+
+  /**
+   * Inject memory context from wake-up layers.
+   * Pinned tokens count toward the pinned budget (like ground truth).
+   * Evictable tokens are tracked separately (like observations).
+   */
+  injectMemory(pinned: string, evictable: string): void {
+    this.memoryPinned = pinned;
+    this.memoryEvictable = evictable;
+    this.memoryPinnedTokens = pinned ? countTokens(pinned) : 0;
+    this.memoryEvictableTokens = evictable ? countTokens(evictable) : 0;
     this.recalculateTokens();
   }
 
@@ -128,12 +145,24 @@ export class ContextManager {
 
   /**
    * Build the full context string for LLM injection.
-   * Format: Ground Truth section + separator + Observations section.
+   * Format: Ground Truth + [MEMORY] + Observations.
+   * The [MEMORY] block sits between Ground Truth and Observations per CONTEXT.md.
    */
   buildContext(): string {
     const gtSection = this.groundTruthManager.buildSection();
     const obsSection = '## Observations\n' +
       this.observations.map((o) => o.content).join('\n\n');
+
+    // Insert memory block between ground truth and observations if available
+    const hasMemory = this.memoryPinned || this.memoryEvictable;
+    if (hasMemory) {
+      const memoryParts: string[] = [];
+      if (this.memoryPinned) memoryParts.push(this.memoryPinned);
+      if (this.memoryEvictable) memoryParts.push(this.memoryEvictable);
+      const memorySection = memoryParts.join('\n\n');
+
+      return `${gtSection}\n\n---\n\n${memorySection}\n\n---\n\n${obsSection}`;
+    }
 
     return `${gtSection}\n\n---\n\n${obsSection}`;
   }
@@ -149,6 +178,10 @@ export class ContextManager {
     this.observations = [];
     this.totalTokens = 0;
     this.compactionFired = false;
+    this.memoryPinned = '';
+    this.memoryEvictable = '';
+    this.memoryPinnedTokens = 0;
+    this.memoryEvictableTokens = 0;
   }
 
   // ---------------------------------------------------------------------------
@@ -157,6 +190,7 @@ export class ContextManager {
 
   private recalculateTokens(): void {
     const obsTokens = this.observations.reduce((sum, o) => sum + o.tokens, 0);
-    this.totalTokens = this.groundTruthManager.getTokens() + obsTokens;
+    this.totalTokens = this.groundTruthManager.getTokens() + obsTokens
+      + this.memoryPinnedTokens + this.memoryEvictableTokens;
   }
 }
