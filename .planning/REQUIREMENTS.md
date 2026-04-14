@@ -54,8 +54,8 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 - [ ] **MEM-05**: Memory skill (`skills/memory.md`) routes "what did we decide" / "when did this happen" queries
 - [ ] **MEM-06**: Infrastructure entity detection from diagnostic text (hostnames, service names, container IDs, IPs)
 - [ ] **MEM-07**: Temporal decay weighting -- recent incidents score higher than old ones at equal similarity
-- [ ] **MEM-08**: Wings/Rooms organizational hierarchy: wing_incidents, wing_config, wing_runbooks, wing_user
-- [ ] **MEM-09**: Write-ahead log for all memory mutations (audit trail for memory changes)
+- [x] **MEM-08**: Wings/Rooms organizational hierarchy: wing_incidents, wing_config, wing_runbooks, wing_user
+- [x] **MEM-09**: Write-ahead log for all memory mutations (audit trail for memory changes)
 
 ### Parallel Inference
 
@@ -126,8 +126,8 @@ Deferred to future release. Tracked but not in current roadmap.
 | MEM-05 | Phase 17 | Pending |
 | MEM-06 | Phase 17 | Pending |
 | MEM-07 | Phase 17 | Pending |
-| MEM-08 | Phase 17 | Pending |
-| MEM-09 | Phase 17 | Pending |
+| MEM-08 | Phase 17 | Complete |
+| MEM-09 | Phase 17 | Complete |
 | INFER-01 | Phase 18 | Pending |
 | INFER-02 | Phase 18 | Pending |
 | INFER-03 | Phase 18 | Pending |

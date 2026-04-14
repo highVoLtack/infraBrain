@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
-status: completed
-stopped_at: Phase 17 context gathered
-last_updated: "2026-04-10T21:23:16.154Z"
-last_activity: 2026-04-10 -- Phase 16 Plan 04 executed (recordFixOutcome read-then-increment fix, gap closure)
+status: executing
+stopped_at: Completed 17-01-PLAN.md
+last_updated: "2026-04-14T11:22:15.111Z"
+last_activity: 2026-04-14 -- Plan 01 complete (types, config schema, WAL)
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 13
+  completed_plans: 10
   percent: 100
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control -- every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.3 The Intelligence Layer -- Phase 16 (Qdrant Fix Caching)
+**Current focus:** v1.3 The Intelligence Layer -- Phase 17 (MemPalace Semantic Memory)
 
 ## Current Position
 
-Phase: 16 of 19 (Qdrant Fix Caching)
-Plan: 4 of 4 complete in current phase (includes gap closure plan 04)
-Status: Phase Complete
-Last activity: 2026-04-10 -- Phase 16 Plan 04 executed (recordFixOutcome read-then-increment fix, gap closure)
+Phase: 17 of 19 (MemPalace Semantic Memory)
+Plan: 1 of 4 executed
+Status: Executing -- Plan 01 complete, Plan 02 next
+Last activity: 2026-04-14 -- Plan 01 complete (types, config schema, WAL)
 
 Progress: [██████████] 100%
 
@@ -38,7 +38,7 @@ Progress: [██████████] 100%
 - v1.0: 7 phases, 22 plans (6 days)
 - v1.1: 4 phases, 10 plans (1 day)
 - v1.2: 9 phases, 24 plans (4 days)
-- v1.3: 6 phases, TBD plans
+- v1.3: 6 phases, 13+ plans (4 planned for Phase 17)
 
 **Recent Trend:** Stable -- phases complete in 1-2 sessions each
 
@@ -76,6 +76,9 @@ Progress: [██████████] 100%
 - [16-03]: Cache write in execute route is non-critical (try-catch, never affects response)
 - [16-03]: Startup invalidation + embedding check run after skill registry with graceful degradation
 - [16-04]: Read-then-increment pattern for counter updates in LanceDB (getById before updateStats)
+- [Phase 17-01]: WAL uses synchronous appendFileSync for guaranteed write-before-mutation audit trail
+- [Phase 17-01]: Memory decayLambda defaults to 0.02 (5x slower than cache 0.1) for long-lived architectural knowledge
+- [Phase 17-01]: WAL rotation renames to .wal.1.jsonl (single archive) for simplicity
 
 ### Pending Todos
 
@@ -89,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T21:23:16.152Z
-Stopped at: Phase 17 context gathered
+Last session: 2026-04-14T11:22:15.108Z
+Stopped at: Completed 17-01-PLAN.md
 Resume: Plan Phase 17 (MemPalace Semantic Memory) or next milestone phase
