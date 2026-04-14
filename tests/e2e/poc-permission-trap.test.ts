@@ -23,6 +23,51 @@ vi.mock('../../src/orchestrator/planner.js', async (importOriginal) => {
 vi.mock('../../src/orchestrator/context.js', () => ({
   buildMessages: vi.fn(() => ({ system: 'You are a diagnostic specialist.', messages: [] })),
 }));
+vi.mock('../../src/cache/cache-lookup.js', () => ({
+  checkCache: vi.fn().mockResolvedValue({ type: 'miss' }),
+}));
+vi.mock('../../src/cache/lance-store.js', () => ({
+  getCacheStore: vi.fn(() => ({
+    init: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+vi.mock('../../src/memory/incident-store.js', () => ({
+  getIncidentStore: vi.fn(() => ({
+    search: vi.fn().mockResolvedValue([]),
+    getRecent: vi.fn().mockResolvedValue([]),
+    getStats: vi.fn().mockResolvedValue({ totalIncidents: 0, topDomains: [], successRate: 0 }),
+    init: vi.fn().mockResolvedValue(undefined),
+    add: vi.fn().mockResolvedValue('inc-001'),
+  })),
+}));
+vi.mock('../../src/memory/entity-store.js', () => ({
+  getEntityStore: vi.fn(() => ({
+    searchByEntities: vi.fn().mockResolvedValue([]),
+    searchByType: vi.fn().mockResolvedValue([]),
+    init: vi.fn().mockResolvedValue(undefined),
+    add: vi.fn().mockResolvedValue('ent-001'),
+  })),
+}));
+vi.mock('../../src/memory/wake-up.js', () => ({
+  buildWakeUpContext: vi.fn().mockResolvedValue({ pinned: '', evictable: '' }),
+}));
+vi.mock('../../src/memory/wal.js', () => ({
+  getMemoryWAL: vi.fn(() => ({
+    append: vi.fn().mockReturnValue(true),
+    read: vi.fn().mockReturnValue([]),
+  })),
+}));
+vi.mock('../../src/memory/entity-extractor.js', () => ({
+  extractEntitiesForGraph: vi.fn().mockReturnValue([]),
+}));
+vi.mock('../../src/memory/memory-search.js', () => ({
+  searchWithDecay: vi.fn().mockResolvedValue([]),
+  formatIncidentEmbeddingInput: vi.fn().mockReturnValue('formatted embedding input'),
+}));
+vi.mock('../../src/cache/embedder.js', () => ({
+  generateEmbedding: vi.fn().mockResolvedValue(null),
+  formatEmbeddingInput: vi.fn().mockReturnValue('formatted'),
+}));
 
 import type { Express } from 'express';
 import { createServer } from '../../src/api/server.js';

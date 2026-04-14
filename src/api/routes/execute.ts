@@ -13,6 +13,12 @@ import { toolsToRewriteRules } from '../../execution/dynamic-rewriter.js';
 import { storeFixInCache, recordFixOutcome } from '../../cache/cache-lookup.js';
 import { getCacheStore } from '../../cache/lance-store.js';
 import { DEFAULT_CACHE_CONFIG } from '../../cache/types.js';
+import { getIncidentStore } from '../../memory/incident-store.js';
+import { getEntityStore } from '../../memory/entity-store.js';
+import { getMemoryWAL } from '../../memory/wal.js';
+import { extractEntitiesForGraph } from '../../memory/entity-extractor.js';
+import { formatIncidentEmbeddingInput } from '../../memory/memory-search.js';
+import { generateEmbedding } from '../../cache/embedder.js';
 
 export interface ExecuteRouteDeps {
   auditLogger: AuditLogger;
@@ -223,6 +229,99 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
         // Cache write failure is non-critical -- log and continue
         if (process.env.NODE_ENV !== 'production') {
           console.error('[CACHE] Post-execution cache write failed:', cacheErr);
+        }
+      }
+
+      // Memory filing: store incident after successful execution (MEM-01)
+      // Memory operations are non-critical -- wrapped in try-catch per CONTEXT.md constraint
+      try {
+        const memoryEnabled = deps.config.memory?.enabled !== false;
+        if (memoryEnabled && result.status === 'completed') {
+          const memDataDir = deps.config.memory?.dataDir ?? '.infrabrain/memory';
+          const incidentStore = getIncidentStore(memDataDir);
+          const entityStore = getEntityStore(memDataDir);
+          const wal = getMemoryWAL(memDataDir);
+
+          // Resolve embedding params (same pattern as cache block above)
+          const embeddingEntry = deps.config.modelMap?.embedding as ModelMapEntry | undefined;
+          const memEmbeddingBaseURL = typeof embeddingEntry === 'object' && embeddingEntry !== null
+            ? (embeddingEntry as { baseUrl: string }).baseUrl
+            : (deps.config.defaultBaseUrl ?? 'http://localhost:11434/v1');
+          const memEmbeddingModelId = typeof embeddingEntry === 'string'
+            ? embeddingEntry
+            : typeof embeddingEntry === 'object' && embeddingEntry !== null
+              ? (embeddingEntry as { model: string }).model
+              : 'bge-m3';
+
+          // Use structured rootCause from DPEVResult when available.
+          // req.body.diagnosis is the full free-text diagnosis -- use it for the diagnosis field.
+          // structuredDiagnosis.rootCause is a one-sentence root cause -- use it for root_cause field.
+          // Fallback: planResult.data.summary (fix description) if no structured diagnosis provided.
+          const structuredDiag = req.body.structuredDiagnosis;
+          const rootCause = structuredDiag?.rootCause ?? planResult.data.summary;
+          const diagnosisText = req.body.diagnosis ?? '';
+          const services = req.body.containers ? JSON.stringify(req.body.containers) : '[]';
+
+          // Format for embedding: rootCause and diagnosis are now semantically distinct
+          const embeddingText = formatIncidentEmbeddingInput(rootCause, services, diagnosisText);
+          const vector = await generateEmbedding(embeddingText, memEmbeddingBaseURL, memEmbeddingModelId);
+
+          if (vector) {
+            // WAL first, then store (MEM-09: audit trail before mutation)
+            wal.append({
+              type: 'incident_add',
+              timestamp: new Date().toISOString(),
+              sessionId: String(sessionId),
+              details: { skillName: String(skillName), outcome: result.status },
+            });
+
+            const incidentId = await incidentStore.add({
+              session_id: String(sessionId),
+              wing: 'wing_incidents',
+              prompt: req.body.prompt ?? '',
+              diagnosis: diagnosisText,
+              root_cause: rootCause,
+              fix_summary: planResult.data.summary,
+              outcome: result.status as 'completed' | 'halted' | 'failed',
+              skill_name: String(skillName),
+              created_at: new Date().toISOString(),
+              containers: JSON.stringify(req.body.containers ?? []),
+              services: services,
+              error_codes: '[]',
+              expert_domain: '',
+            }, vector);
+
+            // Extract and file entities for knowledge graph (MEM-03, MEM-06)
+            if (incidentId) {
+              const discoveryCtx = req.body.discoveryContext ?? {};
+              const entities = extractEntitiesForGraph(
+                typeof discoveryCtx === 'object' ? discoveryCtx : {},
+                diagnosisText,
+                incidentId,
+              );
+
+              for (const entity of entities) {
+                wal.append({
+                  type: 'entity_add',
+                  timestamp: new Date().toISOString(),
+                  sessionId: String(sessionId),
+                  details: { entityType: entity.entity_type, entityValue: entity.entity_value, incidentId },
+                });
+
+                // Embed entity with context for richer vectors (per RESEARCH.md open question 2)
+                const entityText = `${entity.entity_type}: ${entity.entity_value} (${entity.relationship_type} incident)`;
+                const entityVector = await generateEmbedding(entityText, memEmbeddingBaseURL, memEmbeddingModelId);
+                if (entityVector) {
+                  await entityStore.add(entity, entityVector);
+                }
+              }
+            }
+          }
+        }
+      } catch (memErr) {
+        // Memory filing failure is non-critical -- log and continue
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[MEMORY] Incident filing failed:', memErr);
         }
       }
 

@@ -38,6 +38,43 @@ vi.mock('../../src/execution/rollback.js', () => ({
   rollbackStep: vi.fn().mockResolvedValue({ success: true }),
 }));
 
+// Mock cache and memory modules to prevent real LanceDB init
+vi.mock('../../src/cache/cache-lookup.js', () => ({
+  storeFixInCache: vi.fn().mockResolvedValue(undefined),
+  recordFixOutcome: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('../../src/cache/lance-store.js', () => ({
+  getCacheStore: vi.fn(() => ({
+    init: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+vi.mock('../../src/memory/incident-store.js', () => ({
+  getIncidentStore: vi.fn(() => ({
+    add: vi.fn().mockResolvedValue('inc-001'),
+    init: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+vi.mock('../../src/memory/entity-store.js', () => ({
+  getEntityStore: vi.fn(() => ({
+    add: vi.fn().mockResolvedValue('ent-001'),
+    init: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+vi.mock('../../src/memory/wal.js', () => ({
+  getMemoryWAL: vi.fn(() => ({
+    append: vi.fn().mockReturnValue(true),
+  })),
+}));
+vi.mock('../../src/memory/entity-extractor.js', () => ({
+  extractEntitiesForGraph: vi.fn().mockReturnValue([]),
+}));
+vi.mock('../../src/memory/memory-search.js', () => ({
+  formatIncidentEmbeddingInput: vi.fn().mockReturnValue('formatted'),
+}));
+vi.mock('../../src/cache/embedder.js', () => ({
+  generateEmbedding: vi.fn().mockResolvedValue(null),
+}));
+
 import { executePlan } from '../../src/execution/executor.js';
 import { runCommand } from '../../src/execution/runner.js';
 

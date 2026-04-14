@@ -160,16 +160,17 @@ describe('loadSkillDirectory', () => {
 describe('loadSkillDirectory (real skills)', () => {
   const SKILLS_DIR = join(import.meta.dirname, '..', '..', 'skills');
 
-  it('loads all 6 universal expert skills from the real skills directory', () => {
+  it('loads all 7 skills from the real skills directory', () => {
     const result = loadSkillDirectory(SKILLS_DIR);
 
     expect(result.errors).toHaveLength(0);
-    expect(result.skills).toHaveLength(6);
+    expect(result.skills).toHaveLength(7);
 
     const names = result.skills.map((s) => s.frontmatter.name).sort();
     expect(names).toEqual([
       'linux-expert',
       'log-analysis',
+      'memory',
       'network-expert',
       'planning',
       'postgres-expert',

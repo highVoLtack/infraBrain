@@ -52,6 +52,23 @@ vi.mock('../../src/memory/entity-store.js', () => ({
 vi.mock('../../src/memory/wake-up.js', () => ({
   buildWakeUpContext: vi.fn().mockResolvedValue({ pinned: '', evictable: '' }),
 }));
+vi.mock('../../src/memory/wal.js', () => ({
+  getMemoryWAL: vi.fn(() => ({
+    append: vi.fn().mockReturnValue(true),
+    read: vi.fn().mockReturnValue([]),
+  })),
+}));
+vi.mock('../../src/memory/entity-extractor.js', () => ({
+  extractEntitiesForGraph: vi.fn().mockReturnValue([]),
+}));
+vi.mock('../../src/memory/memory-search.js', () => ({
+  searchWithDecay: vi.fn().mockResolvedValue([]),
+  formatIncidentEmbeddingInput: vi.fn().mockReturnValue('formatted embedding input'),
+}));
+vi.mock('../../src/cache/embedder.js', () => ({
+  generateEmbedding: vi.fn().mockResolvedValue(null),
+  formatEmbeddingInput: vi.fn().mockReturnValue('formatted'),
+}));
 
 describe('GET /health', () => {
   it('returns 200 with backend connected when backend is reachable', async () => {
