@@ -122,7 +122,7 @@ Plans:
   3. Infrastructure entities (hostnames, service names, IPs) extracted from diagnostic text appear as searchable knowledge graph entries
   4. Recent incidents score higher than old ones at equal semantic similarity (temporal decay observable in search results)
   5. All memory mutations are recorded in a write-ahead log (audit trail for what was remembered and when)
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 Plans:
 - [ ] 17-01-PLAN.md -- Types, config schema, and write-ahead log (foundation contracts)
 - [ ] 17-02-PLAN.md -- IncidentStore, EntityStore, entity extractor, memory scoring (data layer)
@@ -173,7 +173,7 @@ Plans:
 | 14 | v1.3 | 2/2 | Complete | 2026-04-10 |
 | 15 | v1.3 | 3/3 | Complete | 2026-04-10 |
 | 16 | v1.3 | 4/4 | Complete | 2026-04-10 |
-| 17 | 1/4 | In Progress|  | - |
+| 17 | 2/4 | In Progress|  | - |
 | 18 | v1.3 | TBD | Not started | - |
 | 19 | v1.3 | TBD | Not started | - |
 

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
 status: executing
-stopped_at: Completed 17-01-PLAN.md
-last_updated: "2026-04-14T11:22:15.111Z"
-last_activity: 2026-04-14 -- Plan 01 complete (types, config schema, WAL)
+stopped_at: Completed 17-02-PLAN.md
+last_updated: "2026-04-14T11:32:09.264Z"
+last_activity: 2026-04-14 -- Plan 02 complete (incident/entity stores, extractor, scoring)
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 13
-  completed_plans: 10
-  percent: 100
+  completed_plans: 12
+  percent: 97
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 17 of 19 (MemPalace Semantic Memory)
-Plan: 1 of 4 executed
-Status: Executing -- Plan 01 complete, Plan 02 next
-Last activity: 2026-04-14 -- Plan 01 complete (types, config schema, WAL)
+Plan: 2 of 4 executed
+Status: Executing -- Plan 02 complete, Plan 03 next
+Last activity: 2026-04-14 -- Plan 02 complete (incident/entity stores, extractor, scoring)
 
-Progress: [██████████] 100%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
@@ -79,6 +79,10 @@ Progress: [██████████] 100%
 - [Phase 17-01]: WAL uses synchronous appendFileSync for guaranteed write-before-mutation audit trail
 - [Phase 17-01]: Memory decayLambda defaults to 0.02 (5x slower than cache 0.1) for long-lived architectural knowledge
 - [Phase 17-01]: WAL rotation renames to .wal.1.jsonl (single archive) for simplicity
+- [Phase 17-02]: EntityStore getActive() filters expired entities in application layer (LanceDB SQL lacks temporal operators)
+- [Phase 17-02]: Entity extractor uses word-boundary regex for 20+ known service names to prevent false positives
+- [Phase 17-02]: Container name regex requires at least one hyphen/underscore to distinguish from plain words
+- [Phase 17-02]: searchByEntities uses in-app filtering (not SQL IN) due to LanceDB query limitations
 
 ### Pending Todos
 
@@ -92,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T11:22:15.108Z
-Stopped at: Completed 17-01-PLAN.md
-Resume: Plan Phase 17 (MemPalace Semantic Memory) or next milestone phase
+Last session: 2026-04-14T11:31:58.865Z
+Stopped at: Completed 17-02-PLAN.md
+Resume: Execute Plan 03 (wake-up context layers, memory retrieval, prompt injection)

@@ -47,13 +47,13 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 
 ### Semantic Memory (MemPalace Native TypeScript)
 
-- [ ] **MEM-01**: Incident auto-filing after every completed DPEV cycle (diagnosis + fix steps + verification + outcome)
+- [x] **MEM-01**: Incident auto-filing after every completed DPEV cycle (diagnosis + fix steps + verification + outcome)
 - [ ] **MEM-02**: Cross-session semantic search over all past incidents via Qdrant
-- [ ] **MEM-03**: Temporal Knowledge Graph in Qdrant payload metadata (entity, relationship, valid_from, valid_to)
+- [x] **MEM-03**: Temporal Knowledge Graph in Qdrant payload metadata (entity, relationship, valid_from, valid_to)
 - [ ] **MEM-04**: 4-layer wake-up context: L0 identity (~100 tokens) + L1 recent incidents (~500 tokens) + L2 filtered search + L3 deep semantic
 - [ ] **MEM-05**: Memory skill (`skills/memory.md`) routes "what did we decide" / "when did this happen" queries
-- [ ] **MEM-06**: Infrastructure entity detection from diagnostic text (hostnames, service names, container IDs, IPs)
-- [ ] **MEM-07**: Temporal decay weighting -- recent incidents score higher than old ones at equal similarity
+- [x] **MEM-06**: Infrastructure entity detection from diagnostic text (hostnames, service names, container IDs, IPs)
+- [x] **MEM-07**: Temporal decay weighting -- recent incidents score higher than old ones at equal similarity
 - [x] **MEM-08**: Wings/Rooms organizational hierarchy: wing_incidents, wing_config, wing_runbooks, wing_user
 - [x] **MEM-09**: Write-ahead log for all memory mutations (audit trail for memory changes)
 
@@ -119,13 +119,13 @@ Deferred to future release. Tracked but not in current roadmap.
 | CACHE-06 | Phase 16 | Complete |
 | CACHE-07 | Phase 16 | Complete |
 | CACHE-08 | Phase 16 | Complete |
-| MEM-01 | Phase 17 | Pending |
+| MEM-01 | Phase 17 | Complete |
 | MEM-02 | Phase 17 | Pending |
-| MEM-03 | Phase 17 | Pending |
+| MEM-03 | Phase 17 | Complete |
 | MEM-04 | Phase 17 | Pending |
 | MEM-05 | Phase 17 | Pending |
-| MEM-06 | Phase 17 | Pending |
-| MEM-07 | Phase 17 | Pending |
+| MEM-06 | Phase 17 | Complete |
+| MEM-07 | Phase 17 | Complete |
 | MEM-08 | Phase 17 | Complete |
 | MEM-09 | Phase 17 | Complete |
 | INFER-01 | Phase 18 | Pending |
