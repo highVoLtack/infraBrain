@@ -48,9 +48,9 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 ### Semantic Memory (MemPalace Native TypeScript)
 
 - [x] **MEM-01**: Incident auto-filing after every completed DPEV cycle (diagnosis + fix steps + verification + outcome)
-- [ ] **MEM-02**: Cross-session semantic search over all past incidents via Qdrant
+- [x] **MEM-02**: Cross-session semantic search over all past incidents via Qdrant
 - [x] **MEM-03**: Temporal Knowledge Graph in Qdrant payload metadata (entity, relationship, valid_from, valid_to)
-- [ ] **MEM-04**: 4-layer wake-up context: L0 identity (~100 tokens) + L1 recent incidents (~500 tokens) + L2 filtered search + L3 deep semantic
+- [x] **MEM-04**: 4-layer wake-up context: L0 identity (~100 tokens) + L1 recent incidents (~500 tokens) + L2 filtered search + L3 deep semantic
 - [ ] **MEM-05**: Memory skill (`skills/memory.md`) routes "what did we decide" / "when did this happen" queries
 - [x] **MEM-06**: Infrastructure entity detection from diagnostic text (hostnames, service names, container IDs, IPs)
 - [x] **MEM-07**: Temporal decay weighting -- recent incidents score higher than old ones at equal similarity
@@ -120,9 +120,9 @@ Deferred to future release. Tracked but not in current roadmap.
 | CACHE-07 | Phase 16 | Complete |
 | CACHE-08 | Phase 16 | Complete |
 | MEM-01 | Phase 17 | Complete |
-| MEM-02 | Phase 17 | Pending |
+| MEM-02 | Phase 17 | Complete |
 | MEM-03 | Phase 17 | Complete |
-| MEM-04 | Phase 17 | Pending |
+| MEM-04 | Phase 17 | Complete |
 | MEM-05 | Phase 17 | Pending |
 | MEM-06 | Phase 17 | Complete |
 | MEM-07 | Phase 17 | Complete |

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
 status: executing
-stopped_at: Completed 17-02-PLAN.md
-last_updated: "2026-04-14T11:32:09.264Z"
-last_activity: 2026-04-14 -- Plan 02 complete (incident/entity stores, extractor, scoring)
+stopped_at: Completed 17-03-PLAN.md
+last_updated: "2026-04-14T11:51:00.000Z"
+last_activity: 2026-04-14 -- Plan 03 complete (memory search, wake-up context, pipeline integration)
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 13
-  completed_plans: 12
-  percent: 97
+  completed_plans: 13
+  percent: 100
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 17 of 19 (MemPalace Semantic Memory)
-Plan: 2 of 4 executed
-Status: Executing -- Plan 02 complete, Plan 03 next
-Last activity: 2026-04-14 -- Plan 02 complete (incident/entity stores, extractor, scoring)
+Plan: 3 of 4 executed
+Status: Executing -- Plan 03 complete, Plan 04 next
+Last activity: 2026-04-14 -- Plan 03 complete (memory search, wake-up context, pipeline integration)
 
-Progress: [██████████] 97%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -83,6 +83,10 @@ Progress: [██████████] 97%
 - [Phase 17-02]: Entity extractor uses word-boundary regex for 20+ known service names to prevent false positives
 - [Phase 17-02]: Container name regex requires at least one hyphen/underscore to distinguish from plain words
 - [Phase 17-02]: searchByEntities uses in-app filtering (not SQL IN) due to LanceDB query limitations
+- [Phase 17-03]: Embedding resolution moved before cache check so cache+memory share resolved config
+- [Phase 17-03]: L3 conditional trigger uses best (max) L2 similarity vs threshold, not average
+- [Phase 17-03]: Token budget truncates L3 first (less valuable), then L2 line-by-line
+- [Phase 17-03]: Memory mocks required in all test files exercising pipeline (same pattern as cache mocks)
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T11:31:58.865Z
-Stopped at: Completed 17-02-PLAN.md
-Resume: Execute Plan 03 (wake-up context layers, memory retrieval, prompt injection)
+Last session: 2026-04-14T11:51:00.000Z
+Stopped at: Completed 17-03-PLAN.md
+Resume: Execute Plan 04 (incident auto-filing, memory skill routing)
