@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
-status: completed
-stopped_at: Completed 17-04-PLAN.md (Phase 17 complete)
-last_updated: "2026-04-14T12:16:03.216Z"
-last_activity: 2026-04-14 -- Plan 04 complete (intent classifier, memory skill, auto-filing)
+status: in_progress
+stopped_at: Completed 18-01-PLAN.md
+last_updated: "2026-04-15T09:49:53Z"
+last_activity: 2026-04-15 -- Plan 01 complete (InferenceScheduler with parallel dispatch)
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 14
+  completed_plans: 14
   percent: 100
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control -- every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.3 The Intelligence Layer -- Phase 17 (MemPalace Semantic Memory)
+**Current focus:** v1.3 The Intelligence Layer -- Phase 18 (Parallel Inference)
 
 ## Current Position
 
-Phase: 17 of 19 (MemPalace Semantic Memory)
-Plan: 4 of 4 executed
-Status: Phase 17 complete -- all 4 plans executed
-Last activity: 2026-04-14 -- Plan 04 complete (intent classifier, memory skill, auto-filing)
+Phase: 18 of 19 (Parallel Inference)
+Plan: 1 of ? executed
+Status: Plan 18-01 complete -- InferenceScheduler implemented
+Last activity: 2026-04-15 -- Plan 01 complete (InferenceScheduler with parallel dispatch)
 
 Progress: [██████████] 100%
 
@@ -91,6 +91,10 @@ Progress: [██████████] 100%
 - [Phase 17-04]: root_cause sourced from structuredDiagnosis.rootCause (not req.body.diagnosis) for distinct embedding input
 - [Phase 17-04]: Memory filing in execute route is non-critical: wrapped in try-catch, never affects response
 - [Phase 17-04]: Memory mocks required in all test files importing execute.ts (wal, entity-extractor, memory-search, embedder)
+- [Phase 18-01]: InferenceScheduler is a plain object factory (not class) matching createModelRegistry pattern
+- [Phase 18-01]: Probe cache uses simple timestamp comparison, not interval-based refresh
+- [Phase 18-01]: runParallel wraps task.execute() in timing wrapper, dispatches via Promise.all (rejections handled in wrapper)
+- [Phase 18-01]: getMode defaults to 'sequential' before probeBackends is called (safe fallback)
 
 ### Pending Todos
 
@@ -104,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T12:04:00.000Z
-Stopped at: Completed 17-04-PLAN.md (Phase 17 complete)
-Resume: Phase 18 (Parallel Inference) planning
+Last session: 2026-04-15T09:49:53Z
+Stopped at: Completed 18-01-PLAN.md
+Resume: Phase 18 Plan 02 (pipeline integration)

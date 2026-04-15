@@ -59,11 +59,11 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 
 ### Parallel Inference
 
-- [ ] **INFER-01**: Concurrent model calls to different vLLM backends via `Promise.allSettled()`
-- [ ] **INFER-02**: Pipeline stages: 9B intent classification (<200ms) -> 122B deep reasoning
+- [x] **INFER-01**: Concurrent model calls to different vLLM backends via `Promise.allSettled()`
+- [x] **INFER-02**: Pipeline stages: 9B intent classification (<200ms) -> 122B deep reasoning
 - [ ] **INFER-03**: 9B pre-processes logs and extracts error patterns while 122B reasons about diagnosis
-- [ ] **INFER-04**: Separate vLLM instances per model size (no VRAM contention on single GPU)
-- [ ] **INFER-05**: Fallback to sequential inference when only single backend available
+- [x] **INFER-04**: Separate vLLM instances per model size (no VRAM contention on single GPU)
+- [x] **INFER-05**: Fallback to sequential inference when only single backend available
 
 ## v2 Requirements
 
@@ -128,11 +128,11 @@ Deferred to future release. Tracked but not in current roadmap.
 | MEM-07 | Phase 17 | Complete |
 | MEM-08 | Phase 17 | Complete |
 | MEM-09 | Phase 17 | Complete |
-| INFER-01 | Phase 18 | Pending |
-| INFER-02 | Phase 18 | Pending |
+| INFER-01 | Phase 18 | Complete |
+| INFER-02 | Phase 18 | Complete |
 | INFER-03 | Phase 18 | Pending |
-| INFER-04 | Phase 18 | Pending |
-| INFER-05 | Phase 18 | Pending |
+| INFER-04 | Phase 18 | Complete |
+| INFER-05 | Phase 18 | Complete |
 | TERM-01 | Phase 19 | Pending |
 | TERM-02 | Phase 19 | Pending |
 | TERM-03 | Phase 19 | Pending |

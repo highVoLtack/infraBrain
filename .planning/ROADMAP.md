@@ -140,7 +140,7 @@ Plans:
   4. Separate vLLM instances serve different model sizes without VRAM contention (health check shows multiple backends)
 **Plans:** 2 plans
 Plans:
-- [ ] 18-01-PLAN.md -- InferenceScheduler types, backend probe, parallel dispatch, timing instrumentation
+- [x] 18-01-PLAN.md -- InferenceScheduler types, backend probe, parallel dispatch, timing instrumentation
 - [ ] 18-02-PLAN.md -- Pipeline parallel inference integration, health route enhancement
 
 ### Phase 19: Ink/React Terminal UI
@@ -177,9 +177,9 @@ Plans:
 | 15 | v1.3 | 3/3 | Complete | 2026-04-10 |
 | 16 | v1.3 | 4/4 | Complete | 2026-04-10 |
 | 17 | v1.3 | 4/4 | Complete | 2026-04-14 |
-| 18 | v1.3 | 0/2 | Planned | - |
+| 18 | v1.3 | 1/2 | In progress | - |
 | 19 | v1.3 | TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-04-14 -- Phase 18 planned (2 plans in 2 waves)*
+*Last updated: 2026-04-15 -- Phase 18 Plan 01 complete (InferenceScheduler)*
