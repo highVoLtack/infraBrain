@@ -141,7 +141,7 @@ Plans:
 **Plans:** 2/2 plans complete
 Plans:
 - [x] 18-01-PLAN.md -- InferenceScheduler types, backend probe, parallel dispatch, timing instrumentation
-- [ ] 18-02-PLAN.md -- Pipeline parallel inference integration, health route enhancement
+- [x] 18-02-PLAN.md -- Pipeline parallel inference integration, health route enhancement
 
 ### Phase 19: Ink/React Terminal UI
 **Goal**: Admin interacts with InfraBrain through a rich, reactive terminal interface with live progress tracking, streaming output, and a status dashboard
@@ -153,7 +153,14 @@ Plans:
   3. Approval prompts render as interactive Ink components (Y/N/details) replacing readline
   4. Terminal output adapts correctly to narrow (80-col) and wide (200-col) terminals without truncation or overflow
   5. All existing CLI commands (`/infra:debug`, `/infra:status`, `/infra:history`, `/infra:resume`) work through the Ink renderer with identical behavior
-**Plans:** [To be planned]
+**Plans:** 6 plans
+Plans:
+- [ ] 19-01-PLAN.md -- Ink v7 + React 19 framework install, TSX config, SSE types, theme, custom hooks
+- [ ] 19-02-PLAN.md -- Express SSE streaming endpoints for DPEV pipeline and execution
+- [ ] 19-03-PLAN.md -- Core Ink components (StreamingText, StepCard, Approval, CacheHitBanner)
+- [ ] 19-04-PLAN.md -- DPEV state machine (useDPEV) and center panel with streaming accordion
+- [ ] 19-05-PLAN.md -- Responsive panel layout, header bar, session panel, entity panel
+- [ ] 19-06-PLAN.md -- App root, status overlay, index.ts wiring, backward CLI compatibility
 
 ## Progress
 
@@ -177,9 +184,9 @@ Plans:
 | 15 | v1.3 | 3/3 | Complete | 2026-04-10 |
 | 16 | v1.3 | 4/4 | Complete | 2026-04-10 |
 | 17 | v1.3 | 4/4 | Complete | 2026-04-14 |
-| 18 | 2/2 | Complete    | 2026-04-15 | - |
-| 19 | v1.3 | TBD | Not started | - |
+| 18 | v1.3 | 2/2 | Complete | 2026-04-15 |
+| 19 | v1.3 | 0/6 | Planned | - |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-04-15 -- Phase 18 Plan 01 complete (InferenceScheduler)*
+*Last updated: 2026-04-15 -- Phase 19 planned (6 plans, 4 waves)*
