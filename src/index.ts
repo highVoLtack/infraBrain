@@ -3,6 +3,8 @@
 
 import { join } from 'node:path';
 import chalk from 'chalk';
+import React from 'react';
+import { render } from 'ink';
 
 import { loadConfig } from './config/loader.js';
 import { createCompatModel, createModelRegistry } from './llm/openai-compat.js';
@@ -14,7 +16,7 @@ import { AuditLogger } from './audit/logger.js';
 import { validateCommand } from './safety/validator.js';
 import { createServer } from './api/server.js';
 import { registerCommands } from './cli/commands.js';
-import { startRepl } from './cli/repl.js';
+import { App } from './ui/App.js';
 import { SkillRegistry } from './skills/registry.js';
 import { getCacheStore } from './cache/lance-store.js';
 import { runStartupInvalidation } from './cache/invalidation.js';
@@ -116,10 +118,13 @@ async function main(): Promise<void> {
   // Register CLI commands
   const program = registerCommands({ apiBaseUrl, config });
 
-  // Check if one-shot mode (CLI args present)
+  // Check if one-shot mode (CLI args present) or --json mode
   const args = process.argv.slice(2);
-  if (args.length > 0) {
-    // One-shot mode: parse args and exit
+  const isJsonMode = args.includes('--json');
+  const hasArgs = args.filter(a => a !== '--json').length > 0;
+
+  if (hasArgs || isJsonMode) {
+    // One-shot / --json mode: bypass Ink, use Commander directly
     try {
       await program.parseAsync(args, { from: 'user' });
     } catch (err) {
@@ -130,8 +135,29 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Interactive REPL mode
-  await startRepl({ apiBaseUrl, program });
+  // Interactive Ink mode: replaces readline REPL
+  // Move startup messages before Ink render (Ink takes over stdout -- RESEARCH.md Pitfall 2)
+  console.log(chalk.bold('InfraBrain v1.3'));
+  console.log(chalk.gray('Starting Ink terminal UI...\n'));
+
+  // Signal handlers: restore terminal state on crash (RESEARCH.md Pitfall 5)
+  process.on('SIGINT', () => {
+    server.close();
+    db.close();
+    process.exit(0);
+  });
+  process.on('SIGTERM', () => {
+    server.close();
+    db.close();
+    process.exit(0);
+  });
+
+  // Render Ink App (replaces startRepl)
+  const { waitUntilExit } = render(
+    React.createElement(App, { apiBaseUrl }),
+    { exitOnCtrlC: true },
+  );
+  await waitUntilExit();
 
   // Cleanup on exit
   server.close();
