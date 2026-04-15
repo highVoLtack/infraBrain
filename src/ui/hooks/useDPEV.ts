@@ -11,6 +11,7 @@ import type {
   DPEVState,
   DPEVAction,
   DPEVPhaseState,
+  StepState,
   SSEEventMap,
 } from '../types.js';
 
@@ -81,14 +82,15 @@ export function dpevReducer(state: DPEVState, action: DPEVAction): DPEVState {
     }
 
     case 'STEP_UPDATE': {
+      const stepStatus = action.status as StepState['status'];
       const existingIdx = state.executionSteps.findIndex(
         s => s.stepIndex === action.stepIndex
       );
-      let executionSteps;
+      let executionSteps: StepState[];
       if (existingIdx >= 0) {
         executionSteps = state.executionSteps.map((s, i) =>
           i === existingIdx
-            ? { ...s, status: action.status as DPEVPhaseState['status'], stdout: action.stdout ?? s.stdout, stderr: action.stderr ?? s.stderr }
+            ? { ...s, status: stepStatus, stdout: action.stdout ?? s.stdout, stderr: action.stderr ?? s.stderr }
             : s
         );
       } else {
@@ -99,7 +101,7 @@ export function dpevReducer(state: DPEVState, action: DPEVAction): DPEVState {
             total: 0,
             command: '',
             risk: '',
-            status: action.status,
+            status: stepStatus,
             stdout: action.stdout,
             stderr: action.stderr,
           },
