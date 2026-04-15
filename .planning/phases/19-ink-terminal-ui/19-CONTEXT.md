@@ -84,7 +84,7 @@ Requirements: TERM-01, TERM-02, TERM-03, TERM-04, TERM-05, TERM-06, TERM-07, TER
 ### Status Dashboard (TERM-04)
 - **Persistent header bar** (2-3 lines, always visible): InfraBrain version, inference mode (parallel/sequential with color), active model name, backend health dots (green/yellow/red), active session count, cache entry count
 - Header color adapts: green for local vLLM, blue for parallel mode, different hue for cloud (Gemini) backends
-- **Full overlay dashboard** on `s` keystroke: backends with latency, model assignments (reasoning/worker), cache hit rate + avg confidence, memory incident/entity counts + WAL size, context window token usage visualization
+- **Full overlay dashboard** on `s` keystroke: backends with latency, model assignments (reasoning/worker), cache hit rate + avg confidence, memory incident/entity counts + WAL size, context window token usage visualization, compression efficiency metric placeholder (for future Caveman/Perc integration)
 - Overlay is modal (Esc to dismiss), DPEV stream visually paused in background (logically continues)
 
 ### Responsive Layout (TERM-05)
@@ -170,6 +170,7 @@ Requirements: TERM-01, TERM-02, TERM-03, TERM-04, TERM-05, TERM-06, TERM-07, TER
 - Mobile-responsive web interface -- out of scope, CLI-first
 - Customizable panel sizes via drag handles -- terminal limitation, use fixed breakpoints
 - Plugin system for custom dashboard widgets -- future enhancement
+- **Caveman semantic compression** (github.com/JuliusBrussee/caveman) -- prompt-based terse encoding for L2/L3 memory context. Tiered: L0 Ground Truth stays TOON/plaintext for precision, L2/L3 historical incidents compressed with Caveman-style terseness to fit more history into context window. Target: v2.0 Perc. Phase 19 pre-builds the UI hook (compression efficiency metric in status overlay)
 
 </deferred>
 
