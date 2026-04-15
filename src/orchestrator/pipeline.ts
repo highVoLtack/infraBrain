@@ -7,6 +7,8 @@ import type { SkillFile } from '../skills/types.js';
 import type { WriteThrough } from '../state/store.js';
 import type { InfraBrainConfig } from '../config/types.js';
 import type { FixPlan, StructuredDiagnosis } from './types.js';
+import type { InferenceScheduler } from './inference-scheduler.js';
+import type { InferenceTask } from './inference-types.js';
 import { checkCache } from '../cache/cache-lookup.js';
 import { getCacheStore } from '../cache/lance-store.js';
 import type { CacheStore } from '../cache/lance-store.js';
@@ -54,6 +56,8 @@ export interface DPEVInput {
   config?: InfraBrainConfig;
   sessionId?: string;
   noCache?: boolean;
+  /** Optional InferenceScheduler for parallel dispatch. When absent, pipeline uses sequential mode (current behavior). */
+  inferenceScheduler?: InferenceScheduler;
 }
 
 export interface CacheHitProvenance {
@@ -174,58 +178,9 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   const { system } = buildMessages(selection.skill, prompt);
   systemPrompt = system;
 
-  // --- Context Management: noise filter + ContextManager ---
+  // --- Shared setup for both parallel and sequential paths ---
   const workerModel = provider.registry?.get?.('worker');
   const skillNoisePatterns = selection.skill.frontmatter.noise_patterns ?? [];
-  const { filtered: filteredRaw, removedCount, workerModelUsed } = await filterNoise(discoveryRaw, skillNoisePatterns, workerModel);
-
-  if (DEV_MODE) {
-    console.log(`[NOISE] Filtered ${removedCount} noise lines`);
-    if (workerModelUsed) console.log(`[NOISE] Worker model used for relevance scoring`);
-  }
-
-  const contextManager = new ContextManager(
-    {
-      windowSize: input.config?.contextWindow ?? 32768,
-      threshold: 0.83,
-      target: 0.60,
-      groundTruthCap: 0.20,
-    },
-    input.config?.sessionDir,
-    input.sessionId,
-  );
-
-  contextManager.ingestDiscovery(filteredRaw);
-
-  if (DEV_MODE) {
-    const usage = contextManager.getUsage();
-    console.log(`[CONTEXT] ${(usage.percentage * 100).toFixed(1)}% used (${usage.tokens} tokens)`);
-  }
-
-  const compactionResult = await contextManager.maybeCompact(workerModel);
-  if (DEV_MODE && compactionResult) {
-    console.log(`[CONTEXT] Compaction fired: ${compactionResult.tokensBefore} -> ${compactionResult.tokensAfter} tokens (${compactionResult.tiersUsed} tiers)`);
-  }
-
-  // Build enriched prompt using ContextManager (replaces ad-hoc GROUND TRUTH block)
-  let rollingContext = '';
-  const idleDetail = discoveryRaw['Idle connections detail'];
-  if (idleDetail && idleDetail !== '(empty)') {
-    const pids = idleDetail.split('\n')
-      .map(line => line.split('|')[0]?.trim())
-      .filter(pid => pid && /^\d+$/.test(pid));
-    if (pids.length > 0) {
-      rollingContext = `\n\n--- ROLLING CONTEXT (from discovery) ---\nIdle connection PIDs found: [${pids.join(', ')}]\nThese PIDs MUST be referenced in the fix plan. Re-query to get fresh PIDs at fix time, but use these as the expected values.\n--- END ROLLING CONTEXT ---`;
-    }
-  }
-
-  const contextBlock = contextManager.buildContext();
-  const enrichedPrompt = contextBlock
-    ? `${prompt}\n\n${contextBlock}${rollingContext}\n\nMANDATORY: Use ONLY the container names, IPs, PIDs, and values shown in Ground Truth above. Do NOT invent, guess, or substitute any names.`
-    : prompt;
-
-  // Pre-filter log-heavy prompts before LLM call to save tokens
-  const { filtered: preFilteredPrompt } = preFilterIfLogHeavy(enrichedPrompt);
 
   // Extract containers and rewrite rules BEFORE diagnosis so both paths can use them
   const allContainers = extractContainerNames(discoveryRaw);
@@ -251,133 +206,397 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
       ? (embeddingEntry as { model: string }).model
       : 'bge-m3';
 
-  // --- Cache check: between noise filter and diagnosis ---
-  if (!input.noCache) {
-    let cacheStore: CacheStore | null = null;
-    const cacheEnabled = input.config?.cache?.enabled !== false;
-    if (cacheEnabled) {
-      try {
-        cacheStore = getCacheStore(input.config?.cache?.dataDir ?? DEFAULT_CACHE_CONFIG.data_dir);
-        await cacheStore.init();
-      } catch { cacheStore = null; }
-    }
+  // ContextManager used by both paths
+  const contextManager = new ContextManager(
+    {
+      windowSize: input.config?.contextWindow ?? 32768,
+      threshold: 0.83,
+      target: 0.60,
+      groundTruthCap: 0.20,
+    },
+    input.config?.sessionDir,
+    input.sessionId,
+  );
 
-    const cacheResult = await checkCache({
-      prompt,
-      filteredDiscovery: filteredRaw,
-      store: cacheStore,
-      baseURL: embeddingBaseURL,
-      modelId: embeddingModelId,
-      cacheConfig: {
-        enabled: cacheEnabled,
-        similarity_threshold: input.config?.cache?.similarityThreshold ?? DEFAULT_CACHE_CONFIG.similarity_threshold,
-        soft_zone_floor: input.config?.cache?.softZoneFloor ?? DEFAULT_CACHE_CONFIG.soft_zone_floor,
-        data_dir: input.config?.cache?.dataDir ?? DEFAULT_CACHE_CONFIG.data_dir,
-      },
-      confidenceConfig: input.config?.cache?.confidenceWeights ?? DEFAULT_CONFIDENCE_CONFIG,
-    });
-
-    if (cacheResult.type === 'fast-path') {
-      // Fast-path: skip LLM diagnosis entirely, return cached fix
-      const cachedEntry = cacheResult.hit.entry;
-      let cachedFixPlan: FixPlan | undefined;
-      try {
-        cachedFixPlan = JSON.parse(cachedEntry.fix_plan);
-      } catch { /* invalid JSON, skip fix plan */ }
-
-      return {
-        sessionId: input.sessionId ?? '',
-        skillMessage: `Using skill: ${selection.skill.frontmatter.name} -- ${selection.reasoning}`,
-        diagnosis: cachedEntry.diagnosis,
-        commands: [],
-        ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
-        ...(cachedFixPlan && { fixPlan: cachedFixPlan }),
-        skillName: selection.skill.frontmatter.name,
-        ...(targetContainers.length > 0 && { containers: targetContainers }),
-        cacheHit: {
-          similarity: cacheResult.hit.similarity,
-          confidence: cacheResult.hit.confidence,
-          originalSessionId: cachedEntry.session_id,
-          originalDate: cachedEntry.created_at,
-          skillName: cachedEntry.skill_name,
-        },
-        ...(cachedFixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName, skillName, containers }' }),
-      };
-    }
-
-    if (cacheResult.type === 'speculative') {
-      // Speculative: log and proceed to full LLM diagnosis
-      // The speculative hit is stored in result for Plan 03 to display
-      if (DEV_MODE) console.log(`[CACHE] Speculative match found -- proceeding to LLM diagnosis`);
-      // Note: speculative hit provenance will be attached to the final result below
-    }
-
-    // Cache miss: proceed normally (existing code path unchanged)
+  // ---------------------------------------------------------------------------
+  // Determine execution mode: parallel or sequential
+  // ---------------------------------------------------------------------------
+  let useParallelPath = false;
+  if (input.inferenceScheduler) {
+    await input.inferenceScheduler.probeBackends();
+    const mode = input.inferenceScheduler.getMode();
+    useParallelPath = mode === 'parallel';
+    if (DEV_MODE) console.log(`[PARALLEL] InferenceScheduler mode: ${mode}`);
   }
-  // Cache write happens in execution route after fix verification -- see storeFixInCache()
 
-  // --- Memory enrichment: wake-up context (non-blocking) ---
-  const memoryEnabled = input.config?.memory?.enabled !== false;
-  if (memoryEnabled) {
-    try {
-      const memDataDir = input.config?.memory?.dataDir ?? '.infrabrain/memory';
-      const incidentStore = getIncidentStore(memDataDir);
-      const entityStore = getEntityStore(memDataDir);
+  // ---------------------------------------------------------------------------
+  // PARALLEL PATH: 9B preprocess + 122B diagnosis run concurrently
+  // ---------------------------------------------------------------------------
+  let diagnosis: string;
+  let structuredDiagnosis: StructuredDiagnosis | undefined;
 
-      const memoryConfig: MemoryConfig = {
-        enabled: true,
-        dataDir: memDataDir,
-        decayLambda: input.config?.memory?.decayLambda ?? 0.02,
-        l2SimilarityThreshold: input.config?.memory?.l2SimilarityThreshold ?? 0.7,
-        l2Limit: input.config?.memory?.l2Limit ?? 3,
-        tokenBudgets: input.config?.memory?.tokenBudgets ?? { l0: 100, l1: 500, l2l3: 1000 },
-      };
+  if (useParallelPath && input.inferenceScheduler) {
+    const scheduler = input.inferenceScheduler;
 
-      const wakeUp = await buildWakeUpContext({
-        currentPrompt: prompt,
-        memoryConfig,
-        embeddingParams: { baseURL: embeddingBaseURL, modelId: embeddingModelId },
-        incidentStore,
-        entityStore,
+    // --- Cache check with raw discovery (noise filter hasn't run yet) ---
+    if (!input.noCache) {
+      let cacheStore: CacheStore | null = null;
+      const cacheEnabled = input.config?.cache?.enabled !== false;
+      if (cacheEnabled) {
+        try {
+          cacheStore = getCacheStore(input.config?.cache?.dataDir ?? DEFAULT_CACHE_CONFIG.data_dir);
+          await cacheStore.init();
+        } catch { cacheStore = null; }
+      }
+
+      const cacheResult = await checkCache({
+        prompt,
+        filteredDiscovery: discoveryRaw,
+        store: cacheStore,
+        baseURL: embeddingBaseURL,
+        modelId: embeddingModelId,
+        cacheConfig: {
+          enabled: cacheEnabled,
+          similarity_threshold: input.config?.cache?.similarityThreshold ?? DEFAULT_CACHE_CONFIG.similarity_threshold,
+          soft_zone_floor: input.config?.cache?.softZoneFloor ?? DEFAULT_CACHE_CONFIG.soft_zone_floor,
+          data_dir: input.config?.cache?.dataDir ?? DEFAULT_CACHE_CONFIG.data_dir,
+        },
+        confidenceConfig: input.config?.cache?.confidenceWeights ?? DEFAULT_CONFIDENCE_CONFIG,
       });
 
-      if (wakeUp.pinned || wakeUp.evictable) {
-        contextManager.injectMemory(wakeUp.pinned, wakeUp.evictable);
-        if (DEV_MODE) console.log(`[MEMORY] Wake-up context injected (pinned: ${wakeUp.pinned.length > 0}, evictable: ${wakeUp.evictable.length > 0})`);
+      if (cacheResult.type === 'fast-path') {
+        const cachedEntry = cacheResult.hit.entry;
+        let cachedFixPlan: FixPlan | undefined;
+        try {
+          cachedFixPlan = JSON.parse(cachedEntry.fix_plan);
+        } catch { /* invalid JSON, skip fix plan */ }
+
+        return {
+          sessionId: input.sessionId ?? '',
+          skillMessage: `Using skill: ${selection.skill.frontmatter.name} -- ${selection.reasoning}`,
+          diagnosis: cachedEntry.diagnosis,
+          commands: [],
+          ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
+          ...(cachedFixPlan && { fixPlan: cachedFixPlan }),
+          skillName: selection.skill.frontmatter.name,
+          ...(targetContainers.length > 0 && { containers: targetContainers }),
+          cacheHit: {
+            similarity: cacheResult.hit.similarity,
+            confidence: cacheResult.hit.confidence,
+            originalSessionId: cachedEntry.session_id,
+            originalDate: cachedEntry.created_at,
+            skillName: cachedEntry.skill_name,
+          },
+          ...(cachedFixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName, skillName, containers }' }),
+        };
       }
-    } catch (memErr) {
-      // Memory unavailable -- proceed without enrichment
-      if (DEV_MODE) console.error('[MEMORY] Wake-up context failed:', memErr);
+
+      if (cacheResult.type === 'speculative') {
+        if (DEV_MODE) console.log(`[CACHE] Speculative match found -- proceeding to LLM diagnosis`);
+      }
     }
+
+    // --- Memory enrichment (before parallel split -- uses embedding, not inference) ---
+    const memoryEnabled = input.config?.memory?.enabled !== false;
+    if (memoryEnabled) {
+      try {
+        const memDataDir = input.config?.memory?.dataDir ?? '.infrabrain/memory';
+        const incidentStore = getIncidentStore(memDataDir);
+        const entityStore = getEntityStore(memDataDir);
+
+        const memoryConfig: MemoryConfig = {
+          enabled: true,
+          dataDir: memDataDir,
+          decayLambda: input.config?.memory?.decayLambda ?? 0.02,
+          l2SimilarityThreshold: input.config?.memory?.l2SimilarityThreshold ?? 0.7,
+          l2Limit: input.config?.memory?.l2Limit ?? 3,
+          tokenBudgets: input.config?.memory?.tokenBudgets ?? { l0: 100, l1: 500, l2l3: 1000 },
+        };
+
+        const wakeUp = await buildWakeUpContext({
+          currentPrompt: prompt,
+          memoryConfig,
+          embeddingParams: { baseURL: embeddingBaseURL, modelId: embeddingModelId },
+          incidentStore,
+          entityStore,
+        });
+
+        if (wakeUp.pinned || wakeUp.evictable) {
+          contextManager.injectMemory(wakeUp.pinned, wakeUp.evictable);
+          if (DEV_MODE) console.log(`[MEMORY] Wake-up context injected (pinned: ${wakeUp.pinned.length > 0}, evictable: ${wakeUp.evictable.length > 0})`);
+        }
+      } catch (memErr) {
+        if (DEV_MODE) console.error('[MEMORY] Wake-up context failed:', memErr);
+      }
+    }
+
+    // DPEV: enforce discovery before diagnosis
+    enforceDPEVSequence('diagnosis', completedPhases);
+
+    // Build raw enriched prompt for 122B diagnosis (unfiltered -- 122B can handle noise)
+    const rawContextManager = new ContextManager(
+      {
+        windowSize: input.config?.contextWindow ?? 32768,
+        threshold: 0.83,
+        target: 0.60,
+        groundTruthCap: 0.20,
+      },
+      input.config?.sessionDir,
+      input.sessionId,
+    );
+    rawContextManager.ingestDiscovery(discoveryRaw);
+    const rawContextBlock = rawContextManager.buildContext();
+    const rawEnrichedPrompt = rawContextBlock
+      ? `${prompt}\n\n${rawContextBlock}\n\nMANDATORY: Use ONLY the container names, IPs, PIDs, and values shown in Ground Truth above. Do NOT invent, guess, or substitute any names.`
+      : prompt;
+    const { filtered: rawPreFiltered } = preFilterIfLogHeavy(rawEnrichedPrompt);
+
+    if (DEV_MODE) console.log(`[PARALLEL] Dispatching 9B-preprocess and 122B-diagnosis concurrently...`);
+    const parallelStart = Date.now();
+
+    // Launch both concurrently via scheduler (unknown type since tasks return different shapes)
+    const tasks: InferenceTask<unknown>[] = [
+      {
+        label: '9B-preprocess',
+        role: 'worker' as ModelRole,
+        execute: async () => {
+          const noiseResult = await filterNoise(discoveryRaw, skillNoisePatterns, workerModel);
+          contextManager.ingestDiscovery(noiseResult.filtered);
+          const compResult = await contextManager.maybeCompact(workerModel);
+          return { noiseResult, contextBlock: contextManager.buildContext(), compResult };
+        },
+      },
+      {
+        label: '122B-diagnosis',
+        role: (preferredRole ?? 'default') as ModelRole,
+        execute: async () => {
+          return runDiagnosis({
+            prompt: rawPreFiltered,
+            systemPrompt,
+            discoveryContext,
+            provider,
+            preferredRole,
+            rewriteRules,
+            targetContainers,
+            auditLogger,
+          });
+        },
+      },
+    ];
+    const results = await scheduler.runParallel(tasks);
+
+    if (DEV_MODE) console.log(`[PARALLEL] Both tasks settled in ${Date.now() - parallelStart}ms`);
+
+    // Extract results by label
+    const preProcessResult = results.find(r => r.label === '9B-preprocess');
+    const diagResult = results.find(r => r.label === '122B-diagnosis');
+
+    // 122B diagnosis is REQUIRED -- fail if rejected
+    if (!diagResult || diagResult.status === 'rejected') {
+      throw new Error(`Diagnosis failed: ${diagResult?.reason ?? 'unknown'}`);
+    }
+    const diagnosisResult = diagResult.value as { diagnosis: string; structuredDiagnosis?: StructuredDiagnosis; hallucinationError?: { violations: string[]; hint: string } };
+
+    // If hallucination error, return early for HTTP handler to translate to 422
+    if (diagnosisResult.hallucinationError) {
+      return {
+        sessionId: input.sessionId ?? '',
+        diagnosis: diagnosisResult.diagnosis,
+        commands: [],
+        skillName: selection.skill.frontmatter.name,
+        hallucinationError: diagnosisResult.hallucinationError,
+      };
+    }
+
+    diagnosis = diagnosisResult.diagnosis;
+    structuredDiagnosis = diagnosisResult.structuredDiagnosis;
+
+    // 9B preprocess is OPTIONAL -- graceful degradation
+    if (preProcessResult?.status === 'fulfilled') {
+      const ppValue = preProcessResult.value as { noiseResult: { filtered: Record<string, string>; removedCount: number; workerModelUsed: boolean }; contextBlock: string; compResult: unknown };
+      if (DEV_MODE) {
+        console.log(`[PARALLEL] 9B preprocess succeeded: filtered ${ppValue.noiseResult.removedCount} noise lines`);
+      }
+      // 9B cleaned context will be used for planning phase enrichment (contextManager already updated)
+    } else {
+      if (DEV_MODE) console.log(`[PARALLEL] 9B preprocess failed (graceful degradation): ${preProcessResult?.reason ?? 'unknown'}`);
+      // Fallback: ingest raw discovery so contextManager has something for planning
+      contextManager.ingestDiscovery(discoveryRaw);
+    }
+
+  // ---------------------------------------------------------------------------
+  // SEQUENTIAL PATH: current behavior unchanged
+  // ---------------------------------------------------------------------------
+  } else {
+    // --- Context Management: noise filter + ContextManager ---
+    const { filtered: filteredRaw, removedCount, workerModelUsed } = await filterNoise(discoveryRaw, skillNoisePatterns, workerModel);
+
+    if (DEV_MODE) {
+      console.log(`[NOISE] Filtered ${removedCount} noise lines`);
+      if (workerModelUsed) console.log(`[NOISE] Worker model used for relevance scoring`);
+    }
+
+    contextManager.ingestDiscovery(filteredRaw);
+
+    if (DEV_MODE) {
+      const usage = contextManager.getUsage();
+      console.log(`[CONTEXT] ${(usage.percentage * 100).toFixed(1)}% used (${usage.tokens} tokens)`);
+    }
+
+    const compactionResult = await contextManager.maybeCompact(workerModel);
+    if (DEV_MODE && compactionResult) {
+      console.log(`[CONTEXT] Compaction fired: ${compactionResult.tokensBefore} -> ${compactionResult.tokensAfter} tokens (${compactionResult.tiersUsed} tiers)`);
+    }
+
+    // Build enriched prompt using ContextManager (replaces ad-hoc GROUND TRUTH block)
+    let rollingContext = '';
+    const idleDetail = discoveryRaw['Idle connections detail'];
+    if (idleDetail && idleDetail !== '(empty)') {
+      const pids = idleDetail.split('\n')
+        .map(line => line.split('|')[0]?.trim())
+        .filter(pid => pid && /^\d+$/.test(pid));
+      if (pids.length > 0) {
+        rollingContext = `\n\n--- ROLLING CONTEXT (from discovery) ---\nIdle connection PIDs found: [${pids.join(', ')}]\nThese PIDs MUST be referenced in the fix plan. Re-query to get fresh PIDs at fix time, but use these as the expected values.\n--- END ROLLING CONTEXT ---`;
+      }
+    }
+
+    const contextBlock = contextManager.buildContext();
+    const enrichedPrompt = contextBlock
+      ? `${prompt}\n\n${contextBlock}${rollingContext}\n\nMANDATORY: Use ONLY the container names, IPs, PIDs, and values shown in Ground Truth above. Do NOT invent, guess, or substitute any names.`
+      : prompt;
+
+    // Pre-filter log-heavy prompts before LLM call to save tokens
+    const { filtered: preFilteredPrompt } = preFilterIfLogHeavy(enrichedPrompt);
+
+    // --- Cache check: between noise filter and diagnosis ---
+    if (!input.noCache) {
+      let cacheStore: CacheStore | null = null;
+      const cacheEnabled = input.config?.cache?.enabled !== false;
+      if (cacheEnabled) {
+        try {
+          cacheStore = getCacheStore(input.config?.cache?.dataDir ?? DEFAULT_CACHE_CONFIG.data_dir);
+          await cacheStore.init();
+        } catch { cacheStore = null; }
+      }
+
+      const cacheResult = await checkCache({
+        prompt,
+        filteredDiscovery: filteredRaw,
+        store: cacheStore,
+        baseURL: embeddingBaseURL,
+        modelId: embeddingModelId,
+        cacheConfig: {
+          enabled: cacheEnabled,
+          similarity_threshold: input.config?.cache?.similarityThreshold ?? DEFAULT_CACHE_CONFIG.similarity_threshold,
+          soft_zone_floor: input.config?.cache?.softZoneFloor ?? DEFAULT_CACHE_CONFIG.soft_zone_floor,
+          data_dir: input.config?.cache?.dataDir ?? DEFAULT_CACHE_CONFIG.data_dir,
+        },
+        confidenceConfig: input.config?.cache?.confidenceWeights ?? DEFAULT_CONFIDENCE_CONFIG,
+      });
+
+      if (cacheResult.type === 'fast-path') {
+        // Fast-path: skip LLM diagnosis entirely, return cached fix
+        const cachedEntry = cacheResult.hit.entry;
+        let cachedFixPlan: FixPlan | undefined;
+        try {
+          cachedFixPlan = JSON.parse(cachedEntry.fix_plan);
+        } catch { /* invalid JSON, skip fix plan */ }
+
+        return {
+          sessionId: input.sessionId ?? '',
+          skillMessage: `Using skill: ${selection.skill.frontmatter.name} -- ${selection.reasoning}`,
+          diagnosis: cachedEntry.diagnosis,
+          commands: [],
+          ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
+          ...(cachedFixPlan && { fixPlan: cachedFixPlan }),
+          skillName: selection.skill.frontmatter.name,
+          ...(targetContainers.length > 0 && { containers: targetContainers }),
+          cacheHit: {
+            similarity: cacheResult.hit.similarity,
+            confidence: cacheResult.hit.confidence,
+            originalSessionId: cachedEntry.session_id,
+            originalDate: cachedEntry.created_at,
+            skillName: cachedEntry.skill_name,
+          },
+          ...(cachedFixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName, skillName, containers }' }),
+        };
+      }
+
+      if (cacheResult.type === 'speculative') {
+        // Speculative: log and proceed to full LLM diagnosis
+        // The speculative hit is stored in result for Plan 03 to display
+        if (DEV_MODE) console.log(`[CACHE] Speculative match found -- proceeding to LLM diagnosis`);
+        // Note: speculative hit provenance will be attached to the final result below
+      }
+
+      // Cache miss: proceed normally (existing code path unchanged)
+    }
+    // Cache write happens in execution route after fix verification -- see storeFixInCache()
+
+    // --- Memory enrichment: wake-up context (non-blocking) ---
+    const memoryEnabled = input.config?.memory?.enabled !== false;
+    if (memoryEnabled) {
+      try {
+        const memDataDir = input.config?.memory?.dataDir ?? '.infrabrain/memory';
+        const incidentStore = getIncidentStore(memDataDir);
+        const entityStore = getEntityStore(memDataDir);
+
+        const memoryConfig: MemoryConfig = {
+          enabled: true,
+          dataDir: memDataDir,
+          decayLambda: input.config?.memory?.decayLambda ?? 0.02,
+          l2SimilarityThreshold: input.config?.memory?.l2SimilarityThreshold ?? 0.7,
+          l2Limit: input.config?.memory?.l2Limit ?? 3,
+          tokenBudgets: input.config?.memory?.tokenBudgets ?? { l0: 100, l1: 500, l2l3: 1000 },
+        };
+
+        const wakeUp = await buildWakeUpContext({
+          currentPrompt: prompt,
+          memoryConfig,
+          embeddingParams: { baseURL: embeddingBaseURL, modelId: embeddingModelId },
+          incidentStore,
+          entityStore,
+        });
+
+        if (wakeUp.pinned || wakeUp.evictable) {
+          contextManager.injectMemory(wakeUp.pinned, wakeUp.evictable);
+          if (DEV_MODE) console.log(`[MEMORY] Wake-up context injected (pinned: ${wakeUp.pinned.length > 0}, evictable: ${wakeUp.evictable.length > 0})`);
+        }
+      } catch (memErr) {
+        // Memory unavailable -- proceed without enrichment
+        if (DEV_MODE) console.error('[MEMORY] Wake-up context failed:', memErr);
+      }
+    }
+
+    // DPEV: enforce discovery before diagnosis
+    enforceDPEVSequence('diagnosis', completedPhases);
+
+    // Run diagnosis
+    const diagnosisResult = await runDiagnosis({
+      prompt: preFilteredPrompt,
+      systemPrompt,
+      discoveryContext,
+      provider,
+      preferredRole,
+      rewriteRules,
+      targetContainers,
+      auditLogger,
+    });
+
+    // If hallucination error, return early for HTTP handler to translate to 422
+    if (diagnosisResult.hallucinationError) {
+      return {
+        sessionId: input.sessionId ?? '',
+        diagnosis: diagnosisResult.diagnosis,
+        commands: [],
+        skillName: selection.skill.frontmatter.name,
+        hallucinationError: diagnosisResult.hallucinationError,
+      };
+    }
+
+    diagnosis = diagnosisResult.diagnosis;
+    structuredDiagnosis = diagnosisResult.structuredDiagnosis;
   }
-
-  // DPEV: enforce discovery before diagnosis
-  enforceDPEVSequence('diagnosis', completedPhases);
-
-  // Run diagnosis
-  const diagnosisResult = await runDiagnosis({
-    prompt: preFilteredPrompt,
-    systemPrompt,
-    discoveryContext,
-    provider,
-    preferredRole,
-    rewriteRules,
-    targetContainers,
-    auditLogger,
-  });
-
-  // If hallucination error, return early for HTTP handler to translate to 422
-  if (diagnosisResult.hallucinationError) {
-    return {
-      sessionId: input.sessionId ?? '',
-      diagnosis: diagnosisResult.diagnosis,
-      commands: [],
-      skillName: selection.skill.frontmatter.name,
-      hallucinationError: diagnosisResult.hallucinationError,
-    };
-  }
-
-  const { diagnosis, structuredDiagnosis } = diagnosisResult;
 
   // DPEV: diagnosis phase complete
   completedPhases.push('diagnosis');
