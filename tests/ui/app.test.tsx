@@ -253,6 +253,20 @@ describe('App', () => {
     expect(lastFrame()).toContain('debug');
   });
 
+  it('opens status overlay with s key shortcut (when input empty)', async () => {
+    const { lastFrame, stdin } = render(
+      React.createElement(App, { apiBaseUrl: 'http://localhost:3000' }),
+    );
+
+    expect(lastFrame()).not.toContain('STATUS DASHBOARD');
+
+    // Press 's' with empty command input — should trigger shortcut
+    stdin.write('s');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(lastFrame()).toContain('STATUS DASHBOARD');
+  });
+
   it('opens status overlay via status command', async () => {
     const { lastFrame, stdin } = render(
       React.createElement(App, { apiBaseUrl: 'http://localhost:3000' }),

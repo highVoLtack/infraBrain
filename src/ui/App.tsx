@@ -67,9 +67,11 @@ function IdleView(): React.ReactElement {
 
 function CommandInput({
   onSubmit,
+  onShortcut,
   isActive,
 }: {
   onSubmit: (input: string) => void;
+  onShortcut?: (key: string) => boolean;
   isActive: boolean;
 }): React.ReactElement {
   const [text, setText] = useState('');
@@ -80,6 +82,8 @@ function CommandInput({
       setText('');
     } else if (key.backspace || key.delete) {
       setText((t) => t.slice(0, -1));
+    } else if (!text && input && onShortcut?.(input)) {
+      // Single-key shortcut handled when input is empty
     } else if (input && !key.ctrl && !key.meta && !key.tab && !key.escape) {
       setText((t) => t + input);
     }
@@ -205,6 +209,22 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
     [handleSessionSelect],
   );
 
+  // Shortcut handler for CommandInput (fires when input field is empty)
+  const handleShortcut = useCallback(
+    (key: string): boolean => {
+      if (key === 's') {
+        setShowStatusOverlay((v) => !v);
+        return true;
+      }
+      if (key === 'g' && mode === 'compact') {
+        setShowEntityOverlay((v) => !v);
+        return true;
+      }
+      return false;
+    },
+    [mode],
+  );
+
   // Global keyboard handling for overlays and navigation
   useInput(
     (input, key) => {
@@ -282,6 +302,7 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
       )}
       <CommandInput
         onSubmit={handleCommand}
+        onShortcut={handleShortcut}
         isActive={!showStatusOverlay}
       />
     </Box>
