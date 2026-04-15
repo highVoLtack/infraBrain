@@ -60,7 +60,7 @@
 - [x] **Phase 15: Auto-Compact Context Management** - Token counting and automatic context compaction at 83% threshold with ground truth pinning (completed 2026-04-10)
 - [x] **Phase 16: Qdrant Fix-Caching** - Vector similarity search returns cached fixes in 2s instead of 113s LLM reasoning (completed 2026-04-10)
 - [x] **Phase 17: MemPalace Semantic Memory** - Native TypeScript incident memory with temporal knowledge graph and semantic search (completed 2026-04-14)
-- [ ] **Phase 18: Parallel Inference Pipeline** - Concurrent 9B pre-processing + 122B reasoning via Promise.allSettled
+- [x] **Phase 18: Parallel Inference Pipeline** - Concurrent 9B pre-processing + 122B reasoning via Promise.allSettled (completed 2026-04-15)
 - [ ] **Phase 19: Ink/React Terminal UI** - Full terminal renderer with live DPEV tracking, streaming output, and rich dashboard
 
 ## Phase Details
@@ -138,7 +138,7 @@ Plans:
   2. 9B log pre-processing runs concurrently with 122B reasoning (observable via dev-mode timing logs showing overlapping model calls)
   3. With only a single vLLM backend available, inference falls back to sequential mode transparently (no errors, same results)
   4. Separate vLLM instances serve different model sizes without VRAM contention (health check shows multiple backends)
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 18-01-PLAN.md -- InferenceScheduler types, backend probe, parallel dispatch, timing instrumentation
 - [ ] 18-02-PLAN.md -- Pipeline parallel inference integration, health route enhancement
@@ -177,7 +177,7 @@ Plans:
 | 15 | v1.3 | 3/3 | Complete | 2026-04-10 |
 | 16 | v1.3 | 4/4 | Complete | 2026-04-10 |
 | 17 | v1.3 | 4/4 | Complete | 2026-04-14 |
-| 18 | v1.3 | 1/2 | In progress | - |
+| 18 | 2/2 | Complete   | 2026-04-15 | - |
 | 19 | v1.3 | TBD | Not started | - |
 
 ---

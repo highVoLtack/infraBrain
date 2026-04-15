@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
-status: in_progress
-stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-04-15T09:49:53Z"
-last_activity: 2026-04-15 -- Plan 01 complete (InferenceScheduler with parallel dispatch)
+status: completed
+stopped_at: Completed 18-02-PLAN.md
+last_updated: "2026-04-15T10:05:58.174Z"
+last_activity: 2026-04-15 -- Plan 02 complete (Pipeline parallel inference + health route inferenceMode)
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 14
-  completed_plans: 14
+  completed_phases: 5
+  total_plans: 15
+  completed_plans: 15
   percent: 100
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 18 of 19 (Parallel Inference)
-Plan: 1 of ? executed
-Status: Plan 18-01 complete -- InferenceScheduler implemented
-Last activity: 2026-04-15 -- Plan 01 complete (InferenceScheduler with parallel dispatch)
+Plan: 2 of ? executed
+Status: Plan 18-02 complete -- Pipeline parallel inference + health route inferenceMode
+Last activity: 2026-04-15 -- Plan 02 complete (Pipeline parallel inference + health route inferenceMode)
 
 Progress: [██████████] 100%
 
@@ -95,6 +95,11 @@ Progress: [██████████] 100%
 - [Phase 18-01]: Probe cache uses simple timestamp comparison, not interval-based refresh
 - [Phase 18-01]: runParallel wraps task.execute() in timing wrapper, dispatches via Promise.all (rejections handled in wrapper)
 - [Phase 18-01]: getMode defaults to 'sequential' before probeBackends is called (safe fallback)
+- [Phase 18-02]: InferenceScheduler is optional in DPEVInput -- when absent, pipeline uses sequential mode (zero behavioral change)
+- [Phase 18-02]: 122B diagnosis receives raw (unfiltered) discovery context in parallel mode -- large model can handle noise
+- [Phase 18-02]: 9B preprocess results enrich planning phase -- noise filter + compaction run inside parallel task
+- [Phase 18-02]: Cache check uses raw discovery in parallel mode (noise filter hasn't run yet) -- embedding similarity still valid
+- [Phase 18-02]: Health route inferenceMode is purely additive -- existing response fields unchanged
 
 ### Pending Todos
 
@@ -108,6 +113,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-15T09:49:53Z
-Stopped at: Completed 18-01-PLAN.md
-Resume: Phase 18 Plan 02 (pipeline integration)
+Last session: 2026-04-15T10:05:52.621Z
+Stopped at: Completed 18-02-PLAN.md
+Resume: Phase 18 Plan 03 (timing benchmarks) or next plan
