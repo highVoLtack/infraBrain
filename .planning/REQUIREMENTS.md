@@ -13,9 +13,9 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 - [ ] **TERM-02**: Admin sees streaming LLM output in real-time (not buffered until complete)
 - [ ] **TERM-03**: Approval prompts work as Ink React components with `useInput` (replacing readline)
 - [ ] **TERM-04**: Admin sees rich status dashboard with panels (active sessions, backend health, recent incidents)
-- [ ] **TERM-05**: Terminal output adapts to terminal width (no hardcoded column widths)
+- [x] **TERM-05**: Terminal output adapts to terminal width (no hardcoded column widths)
 - [ ] **TERM-06**: Admin sees step-by-step execution progress with per-step status icons
-- [ ] **TERM-07**: Express REST API serves SSE endpoints for live streaming to Ink renderer
+- [x] **TERM-07**: Express REST API serves SSE endpoints for live streaming to Ink renderer
 - [ ] **TERM-08**: All existing CLI commands work through Ink renderer (backwards compatible)
 
 ### Parallel Execution
@@ -137,9 +137,9 @@ Deferred to future release. Tracked but not in current roadmap.
 | TERM-02 | Phase 19 | Pending |
 | TERM-03 | Phase 19 | Pending |
 | TERM-04 | Phase 19 | Pending |
-| TERM-05 | Phase 19 | Pending |
+| TERM-05 | Phase 19 | Complete |
 | TERM-06 | Phase 19 | Pending |
-| TERM-07 | Phase 19 | Pending |
+| TERM-07 | Phase 19 | Complete |
 | TERM-08 | Phase 19 | Pending |
 
 **Coverage:**

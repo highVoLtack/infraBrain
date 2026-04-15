@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
-status: completed
-stopped_at: Phase 19 context gathered
-last_updated: "2026-04-15T12:25:12.678Z"
-last_activity: 2026-04-15 -- Plan 02 complete (Pipeline parallel inference + health route inferenceMode)
+status: active
+stopped_at: Phase 19 Plan 01 complete
+last_updated: "2026-04-15T13:08:15.000Z"
+last_activity: 2026-04-15 -- Plan 19-01 complete (Ink v7 framework + SSE types + hooks + theme)
 progress:
   total_phases: 6
   completed_phases: 5
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control -- every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.3 The Intelligence Layer -- Phase 18 (Parallel Inference)
+**Current focus:** v1.3 The Intelligence Layer -- Phase 19 (Ink Terminal UI)
 
 ## Current Position
 
-Phase: 18 of 19 (Parallel Inference)
-Plan: 2 of ? executed
-Status: Plan 18-02 complete -- Pipeline parallel inference + health route inferenceMode
-Last activity: 2026-04-15 -- Plan 02 complete (Pipeline parallel inference + health route inferenceMode)
+Phase: 19 of 19 (Ink Terminal UI)
+Plan: 1 of 6 executed
+Status: Plan 19-01 complete -- Ink v7 framework + SSE types + hooks + theme
+Last activity: 2026-04-15 -- Plan 19-01 complete (Ink v7 framework + SSE types + hooks + theme)
 
-Progress: [██████████] 100%
+Progress: [█░░░░░░░░░] 16%
 
 ## Performance Metrics
 
@@ -100,6 +100,10 @@ Progress: [██████████] 100%
 - [Phase 18-02]: 9B preprocess results enrich planning phase -- noise filter + compaction run inside parallel task
 - [Phase 18-02]: Cache check uses raw discovery in parallel mode (noise filter hasn't run yet) -- embedding similarity still valid
 - [Phase 18-02]: Health route inferenceMode is purely additive -- existing response fields unchanged
+- [Phase 19-01]: Extracted getLayoutMode as pure function from useResponsive for testability without React context
+- [Phase 19-01]: usePanel implemented as mutable state factory (not React useState) for direct testability
+- [Phase 19-01]: parseSSEStream persists event/data state across chunk boundaries for split-chunk resilience
+- [Phase 19-01]: @inkjs/ui@2 installs cleanly with Ink v7 -- no compatibility wrappers needed
 
 ### Pending Todos
 
@@ -113,6 +117,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-15T12:25:12.675Z
-Stopped at: Phase 19 context gathered
-Resume: Phase 18 Plan 03 (timing benchmarks) or next plan
+Last session: 2026-04-15T13:08:15.000Z
+Stopped at: Phase 19 Plan 01 complete
+Resume: Phase 19 Plan 02 (SSE streaming endpoints)
