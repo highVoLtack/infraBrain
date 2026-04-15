@@ -242,6 +242,8 @@ describe('ApprovalWrite', () => {
       })
     );
     stdin.write('y');
+    // Wait for React state flush
+    await new Promise(resolve => setTimeout(resolve, 50));
     const frame = lastFrame() ?? '';
     expect(frame).toContain('Approved');
   });
@@ -267,16 +269,20 @@ describe('ApprovalDestructive', () => {
   it('calls onResponse(true) when correct target is submitted', async () => {
     const { ApprovalDestructive } = await import('../../src/ui/components/ApprovalDestructive.js');
     const onResponse = vi.fn();
-    const { stdin, lastFrame } = render(
+    const { stdin } = render(
       React.createElement(ApprovalDestructive, {
         command: 'docker rm -f nginx',
         target: 'nginx',
         onResponse,
       })
     );
-    // Type the target name and submit
-    stdin.write('nginx');
+    // Type each character individually then submit
+    for (const ch of 'nginx') {
+      stdin.write(ch);
+    }
+    await new Promise(resolve => setTimeout(resolve, 50));
     stdin.write('\r');
+    await new Promise(resolve => setTimeout(resolve, 50));
     expect(onResponse).toHaveBeenCalledWith(true);
   });
 
@@ -290,9 +296,13 @@ describe('ApprovalDestructive', () => {
         onResponse,
       })
     );
-    // Type wrong target and submit
-    stdin.write('wrong');
+    // Type wrong target character-by-character and submit
+    for (const ch of 'wrong') {
+      stdin.write(ch);
+    }
+    await new Promise(resolve => setTimeout(resolve, 50));
     stdin.write('\r');
+    await new Promise(resolve => setTimeout(resolve, 50));
     const frame = lastFrame() ?? '';
     expect(frame).toContain('mismatch');
     expect(onResponse).not.toHaveBeenCalled();
