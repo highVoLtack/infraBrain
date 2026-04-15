@@ -12,7 +12,7 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 - [x] **TERM-01**: Admin sees live DPEV phase tracking during diagnosis (which phase, which model, elapsed time)
 - [x] **TERM-02**: Admin sees streaming LLM output in real-time (not buffered until complete)
 - [x] **TERM-03**: Approval prompts work as Ink React components with `useInput` (replacing readline)
-- [ ] **TERM-04**: Admin sees rich status dashboard with panels (active sessions, backend health, recent incidents)
+- [x] **TERM-04**: Admin sees rich status dashboard with panels (active sessions, backend health, recent incidents)
 - [x] **TERM-05**: Terminal output adapts to terminal width (no hardcoded column widths)
 - [x] **TERM-06**: Admin sees step-by-step execution progress with per-step status icons
 - [x] **TERM-07**: Express REST API serves SSE endpoints for live streaming to Ink renderer
@@ -136,7 +136,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | TERM-01 | Phase 19 | Complete |
 | TERM-02 | Phase 19 | Complete |
 | TERM-03 | Phase 19 | Complete |
-| TERM-04 | Phase 19 | Pending |
+| TERM-04 | Phase 19 | Complete |
 | TERM-05 | Phase 19 | Complete |
 | TERM-06 | Phase 19 | Complete |
 | TERM-07 | Phase 19 | Complete |

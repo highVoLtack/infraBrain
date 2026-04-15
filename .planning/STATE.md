@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
 status: active
-stopped_at: Phase 19 Plan 03 complete
-last_updated: "2026-04-15T13:16:30.000Z"
-last_activity: 2026-04-15 -- Plan 19-03 complete (6 Ink components: StreamingText, DPEVPhaseHeader, StepCard, ApprovalWrite, ApprovalDestructive, CacheHitBanner)
+stopped_at: Phase 19 Plan 05 complete
+last_updated: "2026-04-15T13:17:40.000Z"
+last_activity: 2026-04-15 -- Plan 19-05 complete (Panel layout, header bar, session/entity panels, GET /entities endpoint)
 progress:
   total_phases: 6
   completed_phases: 5
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 19 of 19 (Ink Terminal UI)
-Plan: 3 of 6 executed
-Status: Plan 19-03 complete -- 6 Ink components with 18 tests
-Last activity: 2026-04-15 -- Plan 19-03 complete (6 Ink components: StreamingText, DPEVPhaseHeader, StepCard, ApprovalWrite, ApprovalDestructive, CacheHitBanner)
+Plan: 5 of 6 executed
+Status: Plan 19-05 complete -- Panel layout, header bar, session/entity panels, GET /entities endpoint
+Last activity: 2026-04-15 -- Plan 19-05 complete (Panel layout, header bar, session/entity panels, GET /entities endpoint)
 
-Progress: [█████░░░░░] 50%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -111,6 +111,11 @@ Progress: [█████░░░░░] 50%
 - [Phase 19-03]: ApprovalDestructive uses useInput character-by-character instead of TextInput for reliable ink-testing-library testability
 - [Phase 19-03]: React 19 batched state updates require setTimeout(50ms) flush in ink-testing-library tests for post-input re-render verification
 - [Phase 19-03]: StepCard uses @inkjs/ui Spinner for running status, static Unicode icons for other states
+- [Phase 19-05]: Pure function extraction pattern for every Ink component (getPanelConfig, parseHealthData, formatSessionItem, etc.)
+- [Phase 19-05]: Text domain badges [D]/[P]/[N] instead of emoji for terminal compatibility
+- [Phase 19-05]: EntityStoreReader interface for dependency injection in entities route
+- [Phase 19-05]: GET /entities queries all 6 entity types and deduplicates (EntityStore.getActive requires entityType param)
+- [Phase 19-05]: Windowed session rendering (max 20) to prevent terminal performance issues per RESEARCH.md Pitfall 3
 
 ### Pending Todos
 
@@ -124,6 +129,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-15T13:16:30.000Z
-Stopped at: Phase 19 Plan 03 complete
-Resume: Phase 19 Plan 04 (DPEV Panel)
+Last session: 2026-04-15T13:17:40.000Z
+Stopped at: Phase 19 Plan 05 complete
+Resume: Phase 19 Plan 06 (App Shell + Integration)
