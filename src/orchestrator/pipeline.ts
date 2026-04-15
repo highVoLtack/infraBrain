@@ -58,6 +58,10 @@ export interface DPEVInput {
   noCache?: boolean;
   /** Optional InferenceScheduler for parallel dispatch. When absent, pipeline uses sequential mode (current behavior). */
   inferenceScheduler?: InferenceScheduler;
+  /** Optional event callback for SSE streaming. When provided, pipeline emits events at each phase transition. */
+  onEvent?: (event: string, data: unknown) => void;
+  /** Optional callback to request cache hit approval from the client. Returns true to use cache, false to re-diagnose. */
+  requestCacheApproval?: (provenance: CacheHitProvenance) => Promise<boolean>;
 }
 
 export interface CacheHitProvenance {
@@ -167,6 +171,9 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   // DPEV: discovery phase complete
   completedPhases.push('discovery');
 
+  // Emit discovery phase events via SSE when streaming
+  input.onEvent?.('dpev:phase', { phase: 'discovery', model: triageModelId, status: 'complete' });
+
   if (discoveryContext) {
     auditLogger.logExecution('discovery_complete', {
       skill: selection.skill.frontmatter.name,
@@ -266,29 +273,58 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
 
       if (cacheResult.type === 'fast-path') {
         const cachedEntry = cacheResult.hit.entry;
-        let cachedFixPlan: FixPlan | undefined;
-        try {
-          cachedFixPlan = JSON.parse(cachedEntry.fix_plan);
-        } catch { /* invalid JSON, skip fix plan */ }
-
-        return {
-          sessionId: input.sessionId ?? '',
-          skillMessage: `Using skill: ${selection.skill.frontmatter.name} -- ${selection.reasoning}`,
-          diagnosis: cachedEntry.diagnosis,
-          commands: [],
-          ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
-          ...(cachedFixPlan && { fixPlan: cachedFixPlan }),
-          skillName: selection.skill.frontmatter.name,
-          ...(targetContainers.length > 0 && { containers: targetContainers }),
-          cacheHit: {
-            similarity: cacheResult.hit.similarity,
-            confidence: cacheResult.hit.confidence,
-            originalSessionId: cachedEntry.session_id,
-            originalDate: cachedEntry.created_at,
-            skillName: cachedEntry.skill_name,
-          },
-          ...(cachedFixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName, skillName, containers }' }),
+        const cacheProvenance: CacheHitProvenance = {
+          similarity: cacheResult.hit.similarity,
+          confidence: cacheResult.hit.confidence,
+          originalSessionId: cachedEntry.session_id,
+          originalDate: cachedEntry.created_at,
+          skillName: cachedEntry.skill_name,
         };
+
+        // If requestCacheApproval is provided, ask the client before using cache
+        if (input.requestCacheApproval) {
+          const useCache = await input.requestCacheApproval(cacheProvenance);
+          if (!useCache) {
+            input.noCache = true;
+            // Fall through to diagnosis path
+          } else {
+            let cachedFixPlan: FixPlan | undefined;
+            try {
+              cachedFixPlan = JSON.parse(cachedEntry.fix_plan);
+            } catch { /* invalid JSON, skip fix plan */ }
+
+            return {
+              sessionId: input.sessionId ?? '',
+              skillMessage: `Using skill: ${selection.skill.frontmatter.name} -- ${selection.reasoning}`,
+              diagnosis: cachedEntry.diagnosis,
+              commands: [],
+              ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
+              ...(cachedFixPlan && { fixPlan: cachedFixPlan }),
+              skillName: selection.skill.frontmatter.name,
+              ...(targetContainers.length > 0 && { containers: targetContainers }),
+              cacheHit: cacheProvenance,
+              ...(cachedFixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName, skillName, containers }' }),
+            };
+          }
+        } else {
+          let cachedFixPlan: FixPlan | undefined;
+          try {
+            cachedFixPlan = JSON.parse(cachedEntry.fix_plan);
+          } catch { /* invalid JSON, skip fix plan */ }
+
+          return {
+            sessionId: input.sessionId ?? '',
+            skillMessage: `Using skill: ${selection.skill.frontmatter.name} -- ${selection.reasoning}`,
+            diagnosis: cachedEntry.diagnosis,
+            commands: [],
+            ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
+            ...(cachedFixPlan && { fixPlan: cachedFixPlan }),
+            skillName: selection.skill.frontmatter.name,
+            ...(targetContainers.length > 0 && { containers: targetContainers }),
+            cacheHit: cacheProvenance,
+            ...(cachedFixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName, skillName, containers }' }),
+          };
+        }
       }
 
       if (cacheResult.type === 'speculative') {
@@ -495,31 +531,62 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
       });
 
       if (cacheResult.type === 'fast-path') {
-        // Fast-path: skip LLM diagnosis entirely, return cached fix
         const cachedEntry = cacheResult.hit.entry;
-        let cachedFixPlan: FixPlan | undefined;
-        try {
-          cachedFixPlan = JSON.parse(cachedEntry.fix_plan);
-        } catch { /* invalid JSON, skip fix plan */ }
-
-        return {
-          sessionId: input.sessionId ?? '',
-          skillMessage: `Using skill: ${selection.skill.frontmatter.name} -- ${selection.reasoning}`,
-          diagnosis: cachedEntry.diagnosis,
-          commands: [],
-          ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
-          ...(cachedFixPlan && { fixPlan: cachedFixPlan }),
-          skillName: selection.skill.frontmatter.name,
-          ...(targetContainers.length > 0 && { containers: targetContainers }),
-          cacheHit: {
-            similarity: cacheResult.hit.similarity,
-            confidence: cacheResult.hit.confidence,
-            originalSessionId: cachedEntry.session_id,
-            originalDate: cachedEntry.created_at,
-            skillName: cachedEntry.skill_name,
-          },
-          ...(cachedFixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName, skillName, containers }' }),
+        const cacheProvenance: CacheHitProvenance = {
+          similarity: cacheResult.hit.similarity,
+          confidence: cacheResult.hit.confidence,
+          originalSessionId: cachedEntry.session_id,
+          originalDate: cachedEntry.created_at,
+          skillName: cachedEntry.skill_name,
         };
+
+        // If requestCacheApproval is provided, ask the client before using cache
+        if (input.requestCacheApproval) {
+          const useCache = await input.requestCacheApproval(cacheProvenance);
+          if (!useCache) {
+            // User rejected cache -- re-run diagnosis from scratch
+            input.noCache = true;
+            // Fall through to normal diagnosis path below
+          } else {
+            // User approved cache -- return cached fix
+            let cachedFixPlan: FixPlan | undefined;
+            try {
+              cachedFixPlan = JSON.parse(cachedEntry.fix_plan);
+            } catch { /* invalid JSON, skip fix plan */ }
+
+            return {
+              sessionId: input.sessionId ?? '',
+              skillMessage: `Using skill: ${selection.skill.frontmatter.name} -- ${selection.reasoning}`,
+              diagnosis: cachedEntry.diagnosis,
+              commands: [],
+              ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
+              ...(cachedFixPlan && { fixPlan: cachedFixPlan }),
+              skillName: selection.skill.frontmatter.name,
+              ...(targetContainers.length > 0 && { containers: targetContainers }),
+              cacheHit: cacheProvenance,
+              ...(cachedFixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName, skillName, containers }' }),
+            };
+          }
+        } else {
+          // No requestCacheApproval -- existing behavior: return cached result immediately
+          let cachedFixPlan: FixPlan | undefined;
+          try {
+            cachedFixPlan = JSON.parse(cachedEntry.fix_plan);
+          } catch { /* invalid JSON, skip fix plan */ }
+
+          return {
+            sessionId: input.sessionId ?? '',
+            skillMessage: `Using skill: ${selection.skill.frontmatter.name} -- ${selection.reasoning}`,
+            diagnosis: cachedEntry.diagnosis,
+            commands: [],
+            ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
+            ...(cachedFixPlan && { fixPlan: cachedFixPlan }),
+            skillName: selection.skill.frontmatter.name,
+            ...(targetContainers.length > 0 && { containers: targetContainers }),
+            cacheHit: cacheProvenance,
+            ...(cachedFixPlan && { executeHint: 'POST /execute with { sessionId, fixPlan, target, adminName, skillName, containers }' }),
+          };
+        }
       }
 
       if (cacheResult.type === 'speculative') {
@@ -571,7 +638,25 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
     // DPEV: enforce discovery before diagnosis
     enforceDPEVSequence('diagnosis', completedPhases);
 
-    // Run diagnosis
+    // Emit diagnosis phase start
+    const diagModelId = preferredRole
+      ? ((provider.registry?.get?.(preferredRole as ModelRole) as any)?.modelId ?? 'default')
+      : ((provider.model as any)?.modelId ?? 'default');
+    input.onEvent?.('dpev:phase', { phase: 'diagnosis', model: diagModelId, status: 'active' });
+
+    // Token-by-token streaming: when onEvent is provided, use streamDiagnosis instead of generateCommand
+    // to emit individual token chunks via dpev:token events
+    if (input.onEvent && provider.streamDiagnosis) {
+      let streamedDiagnosis = '';
+      for await (const chunk of provider.streamDiagnosis(preFilteredPrompt, systemPrompt)) {
+        streamedDiagnosis += chunk;
+        input.onEvent('dpev:token', { text: chunk, phase: 'diagnosis' });
+      }
+      // Use streamed result for diagnosis (structured diagnosis via generateObject still needed for planning)
+      // Fall through to runDiagnosis which will use generateCommand for structured output
+    }
+
+    // Run diagnosis (always needed for structured output even when streaming)
     const diagnosisResult = await runDiagnosis({
       prompt: preFilteredPrompt,
       systemPrompt,
@@ -601,6 +686,16 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   // DPEV: diagnosis phase complete
   completedPhases.push('diagnosis');
 
+  // Emit diagnosis complete events
+  if (structuredDiagnosis) {
+    input.onEvent?.('dpev:diagnosis', {
+      rootCause: structuredDiagnosis.rootCause,
+      correlation: structuredDiagnosis.correlation,
+      structuredDiagnosis,
+    });
+  }
+  input.onEvent?.('dpev:phase', { phase: 'diagnosis', model: 'default', status: 'complete' });
+
   // DPEV: enforce diagnosis before plan
   enforceDPEVSequence('plan', completedPhases);
 
@@ -613,11 +708,14 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   if (planningSkill) {
     let planStart = Date.now();
     try {
-      const planModelId = planningSkill.frontmatter.preferred_model
+      const planModelId: string = planningSkill.frontmatter.preferred_model
         ? (provider.registry?.get?.(planningSkill.frontmatter.preferred_model as ModelRole) as any)?.modelId ?? planningSkill.frontmatter.preferred_model
         : (provider.model as any)?.modelId ?? 'default';
       if (DEV_MODE) console.log(`[PLANNING] Generating fix plan via ${planModelId}...`);
       planStart = Date.now();
+
+      // Emit planning phase start
+      input.onEvent?.('dpev:phase', { phase: 'plan', model: planModelId, status: 'active' });
 
       // Include discovery context in the diagnosis passed to planner
       const enrichedDiagnosis = discoveryContext
@@ -650,6 +748,11 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
 
       planMarkdown = generatePlanMarkdown(fixPlan);
       planTable = formatPlanTable(fixPlan);
+
+      // Emit plan ready and planning phase complete events
+      input.onEvent?.('dpev:plan', { fixPlan, planTable });
+      input.onEvent?.('dpev:phase', { phase: 'plan', model: planModelId, status: 'complete' });
+
       if (DEV_MODE) console.log(`[PLANNING] Complete in ${((Date.now() - planStart) / 1000).toFixed(1)}s — ${fixPlan.steps.length} steps`);
     } catch (planErr) {
       if (DEV_MODE) console.log(`[PLANNING] FAILED after ${((Date.now() - planStart) / 1000).toFixed(1)}s: ${(planErr as Error).message}`);
