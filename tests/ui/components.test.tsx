@@ -118,3 +118,183 @@ describe('CacheHitBanner', () => {
     expect(onResponse).toHaveBeenCalledWith(true);
   });
 });
+
+// ---- StepCard Tests ----
+describe('StepCard', () => {
+  it('shows step number, command, and checkmark for success status', async () => {
+    const { StepCard } = await import('../../src/ui/components/StepCard.js');
+    const step = {
+      stepIndex: 0,
+      total: 3,
+      command: 'docker ps',
+      risk: 'read',
+      status: 'success' as const,
+    };
+    const { lastFrame } = render(React.createElement(StepCard, { step }));
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('1/3');
+    expect(frame).toContain('docker ps');
+    // checkmark: \u2713
+    expect(frame).toContain('\u2713');
+  });
+
+  it('shows stderr when status is failed', async () => {
+    const { StepCard } = await import('../../src/ui/components/StepCard.js');
+    const step = {
+      stepIndex: 1,
+      total: 3,
+      command: 'docker restart nginx',
+      risk: 'write',
+      status: 'failed' as const,
+      stderr: 'Error: container not found',
+    };
+    const { lastFrame } = render(React.createElement(StepCard, { step }));
+    const frame = lastFrame() ?? '';
+    // cross: \u2717
+    expect(frame).toContain('\u2717');
+    expect(frame).toContain('Error: container not found');
+  });
+
+  it('shows risk badge with correct label', async () => {
+    const { StepCard } = await import('../../src/ui/components/StepCard.js');
+    const step = {
+      stepIndex: 0,
+      total: 1,
+      command: 'rm -rf /tmp/test',
+      risk: 'destructive',
+      status: 'pending' as const,
+    };
+    const { lastFrame } = render(React.createElement(StepCard, { step }));
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('destructive');
+  });
+
+  it('shows provider and target when available', async () => {
+    const { StepCard } = await import('../../src/ui/components/StepCard.js');
+    const step = {
+      stepIndex: 0,
+      total: 1,
+      command: 'docker restart web',
+      risk: 'write',
+      status: 'running' as const,
+      provider: 'Docker',
+      target: 'web-container',
+    };
+    const { lastFrame } = render(React.createElement(StepCard, { step }));
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('web-container');
+  });
+});
+
+// ---- ApprovalWrite Tests ----
+describe('ApprovalWrite', () => {
+  it('renders command and Y/n prompt', async () => {
+    const { ApprovalWrite } = await import('../../src/ui/components/ApprovalWrite.js');
+    const onResponse = vi.fn();
+    const { lastFrame } = render(
+      React.createElement(ApprovalWrite, {
+        command: 'docker restart nginx',
+        riskLevel: 'write',
+        onResponse,
+      })
+    );
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('docker restart nginx');
+    expect(frame).toContain('Y/n');
+  });
+
+  it('calls onResponse(true) when Y is pressed', async () => {
+    const { ApprovalWrite } = await import('../../src/ui/components/ApprovalWrite.js');
+    const onResponse = vi.fn();
+    const { stdin } = render(
+      React.createElement(ApprovalWrite, {
+        command: 'docker restart nginx',
+        riskLevel: 'write',
+        onResponse,
+      })
+    );
+    stdin.write('Y');
+    expect(onResponse).toHaveBeenCalledWith(true);
+  });
+
+  it('calls onResponse(false) when N is pressed', async () => {
+    const { ApprovalWrite } = await import('../../src/ui/components/ApprovalWrite.js');
+    const onResponse = vi.fn();
+    const { stdin } = render(
+      React.createElement(ApprovalWrite, {
+        command: 'docker restart nginx',
+        riskLevel: 'write',
+        onResponse,
+      })
+    );
+    stdin.write('N');
+    expect(onResponse).toHaveBeenCalledWith(false);
+  });
+
+  it('shows Approved after Y response', async () => {
+    const { ApprovalWrite } = await import('../../src/ui/components/ApprovalWrite.js');
+    const onResponse = vi.fn();
+    const { stdin, lastFrame } = render(
+      React.createElement(ApprovalWrite, {
+        command: 'docker restart nginx',
+        riskLevel: 'write',
+        onResponse,
+      })
+    );
+    stdin.write('y');
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('Approved');
+  });
+});
+
+// ---- ApprovalDestructive Tests ----
+describe('ApprovalDestructive', () => {
+  it('renders command and "Type target to confirm" prompt', async () => {
+    const { ApprovalDestructive } = await import('../../src/ui/components/ApprovalDestructive.js');
+    const onResponse = vi.fn();
+    const { lastFrame } = render(
+      React.createElement(ApprovalDestructive, {
+        command: 'docker rm -f nginx',
+        target: 'nginx',
+        onResponse,
+      })
+    );
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('docker rm -f nginx');
+    expect(frame).toContain('nginx');
+  });
+
+  it('calls onResponse(true) when correct target is submitted', async () => {
+    const { ApprovalDestructive } = await import('../../src/ui/components/ApprovalDestructive.js');
+    const onResponse = vi.fn();
+    const { stdin, lastFrame } = render(
+      React.createElement(ApprovalDestructive, {
+        command: 'docker rm -f nginx',
+        target: 'nginx',
+        onResponse,
+      })
+    );
+    // Type the target name and submit
+    stdin.write('nginx');
+    stdin.write('\r');
+    expect(onResponse).toHaveBeenCalledWith(true);
+  });
+
+  it('shows error when wrong target is submitted', async () => {
+    const { ApprovalDestructive } = await import('../../src/ui/components/ApprovalDestructive.js');
+    const onResponse = vi.fn();
+    const { stdin, lastFrame } = render(
+      React.createElement(ApprovalDestructive, {
+        command: 'docker rm -f nginx',
+        target: 'nginx',
+        onResponse,
+      })
+    );
+    // Type wrong target and submit
+    stdin.write('wrong');
+    stdin.write('\r');
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('mismatch');
+    expect(onResponse).not.toHaveBeenCalled();
+  });
+});
