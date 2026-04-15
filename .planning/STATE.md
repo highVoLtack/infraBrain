@@ -104,6 +104,10 @@ Progress: [█████░░░░░] 50%
 - [Phase 19-01]: usePanel implemented as mutable state factory (not React useState) for direct testability
 - [Phase 19-01]: parseSSEStream persists event/data state across chunk boundaries for split-chunk resilience
 - [Phase 19-01]: @inkjs/ui@2 installs cleanly with Ink v7 -- no compatibility wrappers needed
+- [Phase 19-02]: Module-scoped Map keyed by sessionId for cache approval resolvers (concurrent session safety)
+- [Phase 19-02]: onEvent/requestCacheApproval optional in DPEVInput -- when absent, pipeline unchanged (zero behavioral change)
+- [Phase 19-02]: Token streaming uses streamDiagnosis when onEvent provided -- runDiagnosis still needed for structured output
+- [Phase 19-02]: SSE routes mounted after existing REST routes for backward compatibility
 - [Phase 19-03]: ApprovalDestructive uses useInput character-by-character instead of TextInput for reliable ink-testing-library testability
 - [Phase 19-03]: React 19 batched state updates require setTimeout(50ms) flush in ink-testing-library tests for post-input re-render verification
 - [Phase 19-03]: StepCard uses @inkjs/ui Spinner for running status, static Unicode icons for other states
