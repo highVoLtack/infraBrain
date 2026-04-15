@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
 status: active
-stopped_at: Phase 19 Plan 01 complete
-last_updated: "2026-04-15T13:08:15.000Z"
-last_activity: 2026-04-15 -- Plan 19-01 complete (Ink v7 framework + SSE types + hooks + theme)
+stopped_at: Phase 19 Plan 03 complete
+last_updated: "2026-04-15T13:16:30.000Z"
+last_activity: 2026-04-15 -- Plan 19-03 complete (6 Ink components: StreamingText, DPEVPhaseHeader, StepCard, ApprovalWrite, ApprovalDestructive, CacheHitBanner)
 progress:
   total_phases: 6
   completed_phases: 5
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 19 of 19 (Ink Terminal UI)
-Plan: 1 of 6 executed
-Status: Plan 19-01 complete -- Ink v7 framework + SSE types + hooks + theme
-Last activity: 2026-04-15 -- Plan 19-01 complete (Ink v7 framework + SSE types + hooks + theme)
+Plan: 3 of 6 executed
+Status: Plan 19-03 complete -- 6 Ink components with 18 tests
+Last activity: 2026-04-15 -- Plan 19-03 complete (6 Ink components: StreamingText, DPEVPhaseHeader, StepCard, ApprovalWrite, ApprovalDestructive, CacheHitBanner)
 
-Progress: [█░░░░░░░░░] 16%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -104,6 +104,9 @@ Progress: [█░░░░░░░░░] 16%
 - [Phase 19-01]: usePanel implemented as mutable state factory (not React useState) for direct testability
 - [Phase 19-01]: parseSSEStream persists event/data state across chunk boundaries for split-chunk resilience
 - [Phase 19-01]: @inkjs/ui@2 installs cleanly with Ink v7 -- no compatibility wrappers needed
+- [Phase 19-03]: ApprovalDestructive uses useInput character-by-character instead of TextInput for reliable ink-testing-library testability
+- [Phase 19-03]: React 19 batched state updates require setTimeout(50ms) flush in ink-testing-library tests for post-input re-render verification
+- [Phase 19-03]: StepCard uses @inkjs/ui Spinner for running status, static Unicode icons for other states
 
 ### Pending Todos
 
@@ -117,6 +120,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-15T13:08:15.000Z
-Stopped at: Phase 19 Plan 01 complete
-Resume: Phase 19 Plan 02 (SSE streaming endpoints)
+Last session: 2026-04-15T13:16:30.000Z
+Stopped at: Phase 19 Plan 03 complete
+Resume: Phase 19 Plan 04 (DPEV Panel)
