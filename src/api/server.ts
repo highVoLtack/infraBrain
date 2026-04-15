@@ -11,6 +11,10 @@ import { createExecuteRoute } from './routes/execute.js';
 import { createStatusRoute } from './routes/status.js';
 import { createHistoryRoute } from './routes/history.js';
 import { createResumeRoute } from './routes/resume.js';
+import { createStreamDebugRoute } from './routes/stream-debug.js';
+import { createStreamExecuteRoute } from './routes/stream-execute.js';
+import { mountEntitiesRoute } from './routes/entities.js';
+import { getEntityStore } from '../memory/entity-store.js';
 import type { InfraBrainConfig } from '../config/types.js';
 
 export interface ServerDeps {
@@ -86,6 +90,36 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
       auditLogger: deps.auditLogger,
       sessionId: deps.sessionId,
       sessionDir: deps.sessionDir,
+    }));
+  }
+
+  // Mount entities route if memory is configured
+  if (deps.config?.memory?.enabled !== false) {
+    const memDataDir = deps.config?.memory?.dataDir ?? '.infrabrain/memory';
+    const entityStore = getEntityStore(memDataDir);
+    mountEntitiesRoute(app, entityStore);
+  }
+
+  // SSE streaming routes (mounted after existing REST routes for backward compatibility)
+  app.use('/stream/debug', createStreamDebugRoute({
+    provider: deps.provider,
+    auditLogger: deps.auditLogger,
+    validator: deps.validator,
+    registry: deps.registry,
+    store: deps.store,
+    config: deps.config,
+    sessionId: deps.sessionId,
+  }));
+
+  if (deps.config && deps.sessionId && deps.sessionDir) {
+    app.use('/stream/execute', createStreamExecuteRoute({
+      auditLogger: deps.auditLogger,
+      config: deps.config,
+      sessionId: deps.sessionId,
+      sessionDir: deps.sessionDir,
+      store: deps.store,
+      provider: deps.provider,
+      registry: deps.registry,
     }));
   }
 

@@ -272,17 +272,37 @@ describe('POST /stream/execute (SSE streaming execution)', () => {
   });
 
   it('emits exec:approval for WRITE steps when approval callback is called', async () => {
+    let capturedApprovalCallback: ((cmd: string, risk: string) => Promise<{ approved: boolean }>) | null = null;
+
     mockExecutePlan.mockImplementation(async (plan: any, _target: any, executeDeps: any) => {
+      capturedApprovalCallback = executeDeps.requestApproval;
+
       // Simulate requesting approval for the WRITE step
-      const approval = await executeDeps.requestApproval('docker restart nginx', 'write');
+      // The route's requestApproval will emit exec:approval and register a resolver
+      const approvalPromise = executeDeps.requestApproval('docker restart nginx', 'write');
+
+      // Poll until the resolver is registered, then send approval via POST
+      const pollAndApprove = async () => {
+        for (let i = 0; i < 20; i++) {
+          await new Promise(r => setTimeout(r, 50));
+          try {
+            const res = await request(app)
+              .post('/stream/execute/approve')
+              .send({ stepIndex: 0, approved: true });
+            if (res.status === 200) return;
+          } catch { /* keep trying */ }
+        }
+      };
+      pollAndApprove(); // fire and forget
+
+      const approval = await approvalPromise;
       return {
         status: approval.approved ? 'completed' : 'rejected',
         stepResults: [{ stepIndex: 0, status: 'success', retries: 0, damageCost: 1 }],
       };
     });
 
-    // Start the SSE request
-    const resPromise = request(app)
+    const res = await request(app)
       .post('/stream/execute')
       .send({
         sessionId: 'sess-1',
@@ -295,21 +315,13 @@ describe('POST /stream/execute (SSE streaming execution)', () => {
         adminName: 'admin',
       });
 
-    // Wait a bit for the approval event to be emitted, then approve
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    await request(app)
-      .post('/stream/execute/approve')
-      .send({ stepIndex: 0, approved: true })
-      .expect(200);
-
-    const res = await resPromise;
     const events = parseSSEText(res.text);
     const approvalEvents = events.filter(e => e.event === 'exec:approval');
 
     expect(approvalEvents.length).toBe(1);
     expect((approvalEvents[0].data as any).command).toBe('docker restart nginx');
     expect((approvalEvents[0].data as any).riskLevel).toBe('write');
+    expect(capturedApprovalCallback).not.toBeNull();
   });
 });
 
