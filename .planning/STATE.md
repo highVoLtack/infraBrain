@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
-status: active
-stopped_at: Phase 19 Plan 04 complete
-last_updated: "2026-04-15T13:28:54.000Z"
-last_activity: 2026-04-15 -- Plan 19-04 complete (DPEV state machine reducer + center panel with accordion)
+status: completed
+stopped_at: v1.3 milestone complete -- all 6 phases shipped
+last_updated: "2026-04-15T14:28:29.358Z"
+last_activity: 2026-04-15 -- Plan 19-06 complete (App shell + integration, Ink terminal UI verified end-to-end)
 progress:
   total_phases: 6
-  completed_phases: 5
-  total_plans: 16
-  completed_plans: 16
+  completed_phases: 6
+  total_plans: 21
+  completed_plans: 21
   percent: 100
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control -- every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** v1.3 The Intelligence Layer -- Phase 19 (Ink Terminal UI)
+**Current focus:** v1.3 The Intelligence Layer -- COMPLETE
 
 ## Current Position
 
-Phase: 19 of 19 (Ink Terminal UI)
-Plan: 6 of 6 executed (plans 1-5 + plan 4 now complete)
-Status: Plan 19-04 complete -- DPEV state machine reducer + center panel with accordion
-Last activity: 2026-04-15 -- Plan 19-04 complete (DPEV state machine reducer + center panel with accordion)
+Phase: 19 of 19 (Ink Terminal UI) -- COMPLETE
+Plan: 6 of 6 executed (all plans complete)
+Status: v1.3 milestone complete -- all 6 phases (14-19) shipped
+Last activity: 2026-04-15 -- Plan 19-06 complete (App shell + integration, Ink terminal UI verified end-to-end)
 
-Progress: [█████████░] 93%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -38,7 +38,7 @@ Progress: [█████████░] 93%
 - v1.0: 7 phases, 22 plans (6 days)
 - v1.1: 4 phases, 10 plans (1 day)
 - v1.2: 9 phases, 24 plans (4 days)
-- v1.3: 6 phases, 13+ plans (4 planned for Phase 17)
+- v1.3: 6 phases, 21 plans (6 days) -- SHIPPED 2026-04-15
 
 **Recent Trend:** Stable -- phases complete in 1-2 sessions each
 
@@ -120,6 +120,11 @@ Progress: [█████████░] 93%
 - [Phase 19-04]: shouldShowCacheHitBanner disambiguates cache hit vs execution approval by checking pendingApproval absence
 - [Phase 19-04]: APPROVAL_RESPONSE resumes to 'executing' if executionSteps exist, 'streaming' otherwise (context-aware)
 - [Phase 19-04]: DPEVPanel dual-mode: prompt prop activates live SSE streaming, replaySession renders read-only state
+- [Phase 19-06]: Gemini Cloud provider via LLM_API_KEY env var and config.json apiKey for cloud backend support
+- [Phase 19-06]: DPEV reducer handles phases arriving as 'complete' without prior 'active' (robust for varied backends)
+- [Phase 19-06]: Session panel filters 'unknown' entries for clean session display
+- [Phase 19-06]: Persistent command input always visible at bottom of screen
+- [Phase 19-06]: Health check trailing slash fix and API key propagation for Gemini-compatible endpoints
 
 ### Pending Todos
 
@@ -127,12 +132,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- MemPalace TypeScript data model has no reference implementation (highest-risk phase)
-- vLLM concurrent 7B+32B on single 32GB GPU needs benchmarking (Phase 18)
-- Qdrant BGE-M3 embeddings need validation for both error patterns and incident summaries
+- MemPalace TypeScript data model: RESOLVED -- native TypeScript implementation shipped in Phase 17
+- vLLM concurrent 7B+32B on single 32GB GPU: RESOLVED -- InferenceScheduler with graceful fallback shipped in Phase 18
+- Qdrant BGE-M3 embeddings: RESOLVED -- LanceDB embedded store used for both fix-caching (Phase 16) and semantic memory (Phase 17)
 
 ## Session Continuity
 
-Last session: 2026-04-15T13:28:54.000Z
-Stopped at: Phase 19 Plan 04 complete
-Resume: Phase 19 Plan 06 (App Shell + Integration)
+Last session: 2026-04-15T14:28:22.484Z
+Stopped at: v1.3 milestone complete -- all 6 phases shipped
+Resume: v1.3 shipped. Next: v2.0 planning or maintenance

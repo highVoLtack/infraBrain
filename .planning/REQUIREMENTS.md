@@ -16,7 +16,7 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 - [x] **TERM-05**: Terminal output adapts to terminal width (no hardcoded column widths)
 - [x] **TERM-06**: Admin sees step-by-step execution progress with per-step status icons
 - [x] **TERM-07**: Express REST API serves SSE endpoints for live streaming to Ink renderer
-- [ ] **TERM-08**: All existing CLI commands work through Ink renderer (backwards compatible)
+- [x] **TERM-08**: All existing CLI commands work through Ink renderer (backwards compatible)
 
 ### Parallel Execution
 
@@ -140,7 +140,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | TERM-05 | Phase 19 | Complete |
 | TERM-06 | Phase 19 | Complete |
 | TERM-07 | Phase 19 | Complete |
-| TERM-08 | Phase 19 | Pending |
+| TERM-08 | Phase 19 | Complete |
 
 **Coverage:**
 - v1.3 requirements: 40 total
