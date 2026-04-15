@@ -107,10 +107,13 @@ export function SessionPanel({ apiBaseUrl, onSelect, activeFocus }: SessionPanel
     return () => { cancelled = true; };
   }, [apiBaseUrl]);
 
-  // Filter sessions by search query
+  // Filter sessions: remove "unknown" targets and apply search query
   const filteredSessions = useMemo(() => {
-    if (!searchQuery) return sessions;
-    return sessions.filter(s => fuzzyMatch(searchQuery, s.target || s.id));
+    let filtered = sessions.filter(s => s.target && s.target !== 'unknown' && s.eventCount > 0);
+    if (searchQuery) {
+      filtered = filtered.filter(s => fuzzyMatch(searchQuery, s.target || s.id));
+    }
+    return filtered;
   }, [sessions, searchQuery]);
 
   const grouped = useMemo(() => groupSessionsByDate(filteredSessions), [filteredSessions]);

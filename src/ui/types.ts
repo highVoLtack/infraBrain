@@ -130,11 +130,12 @@ export interface DPEVState {
   executionSteps: StepState[];
   pendingApproval?: ApprovalRequest;
   status: 'idle' | 'streaming' | 'awaiting-approval' | 'executing' | 'complete' | 'error';
+  errorMessage?: string;
 }
 
 export type DPEVAction =
   | { type: 'PHASE_START'; phase: string; model: string }
-  | { type: 'PHASE_COMPLETE'; phase: string }
+  | { type: 'PHASE_COMPLETE'; phase: string; model?: string }
   | { type: 'TOKEN'; text: string }
   | { type: 'CACHE_HIT'; provenance: CacheHitProvenance }
   | { type: 'PLAN_READY'; fixPlan: object }

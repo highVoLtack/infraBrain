@@ -46,6 +46,7 @@ export interface CheckCacheParams {
   store: CacheStore | null;
   baseURL: string;
   modelId: string;
+  apiKey?: string;
   cacheConfig: CacheConfig;
   confidenceConfig: ConfidenceConfig;
 }
@@ -60,6 +61,7 @@ export interface StoreFixParams {
   store: CacheStore | null;
   baseURL: string;
   modelId: string;
+  apiKey?: string;
 }
 
 /**
@@ -68,14 +70,14 @@ export interface StoreFixParams {
  * Returns { type: 'miss' } on any failure (graceful degradation).
  */
 export async function checkCache(params: CheckCacheParams): Promise<CacheResult> {
-  const { prompt, filteredDiscovery, store, baseURL, modelId, cacheConfig, confidenceConfig } = params;
+  const { prompt, filteredDiscovery, store, baseURL, modelId, apiKey, cacheConfig, confidenceConfig } = params;
   const miss: CacheResult = { type: 'miss' };
 
   try {
     if (!store || !cacheConfig.enabled) return miss;
 
     const text = formatEmbeddingInput(prompt, filteredDiscovery);
-    const embedding = await generateEmbedding(text, baseURL, modelId);
+    const embedding = await generateEmbedding(text, baseURL, modelId, { apiKey });
     if (!embedding) return miss;
 
     const results = await store.search(embedding, 1);
@@ -143,13 +145,13 @@ export async function checkCache(params: CheckCacheParams): Promise<CacheResult>
  * All errors caught silently (cache write failure is not critical).
  */
 export async function storeFixInCache(params: StoreFixParams): Promise<void> {
-  const { prompt, filteredDiscovery, diagnosis, fixPlan, skillName, sessionId, store, baseURL, modelId } = params;
+  const { prompt, filteredDiscovery, diagnosis, fixPlan, skillName, sessionId, store, baseURL, modelId, apiKey } = params;
 
   try {
     if (!store) return;
 
     const text = formatEmbeddingInput(prompt, filteredDiscovery);
-    const embedding = await generateEmbedding(text, baseURL, modelId);
+    const embedding = await generateEmbedding(text, baseURL, modelId, { apiKey });
     if (!embedding) return;
 
     const now = new Date().toISOString();

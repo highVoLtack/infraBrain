@@ -26,8 +26,6 @@ import type { PanelId, DPEVState } from './types.js';
 
 // ---- Pure logic (testable without React) ----
 
-export type InputMode = 'normal' | 'command';
-
 /**
  * Pure function: parse a /infra: command string into command name and args.
  * Returns null if not a valid /infra: command.
@@ -54,12 +52,13 @@ function IdleView(): React.ReactElement {
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       <Text bold color="cyanBright">InfraBrain v1.3</Text>
       <Text> </Text>
-      <Text dimColor>Type /infra:debug "prompt" to diagnose an issue</Text>
-      <Text dimColor>Type /infra:status to open status dashboard</Text>
-      <Text dimColor>Type /infra:history to browse past sessions</Text>
-      <Text dimColor>Type /infra:resume to load a resumable session</Text>
+      <Text dimColor>Commands:</Text>
+      <Text dimColor>  debug &lt;prompt&gt;   Diagnose an issue</Text>
+      <Text dimColor>  status           Open status dashboard</Text>
+      <Text dimColor>  history          Browse past sessions</Text>
+      <Text dimColor>  resume           Load a resumable session</Text>
       <Text> </Text>
-      <Text dimColor>Shortcuts: Tab=cycle panels  s=status  g=entities  Esc=dismiss</Text>
+      <Text dimColor>Keys: Tab=panels  s=status  g=entities  Esc=back</Text>
     </Box>
   );
 }
@@ -68,31 +67,30 @@ function IdleView(): React.ReactElement {
 
 function CommandInput({
   onSubmit,
-  onCancel,
+  isActive,
 }: {
   onSubmit: (input: string) => void;
-  onCancel: () => void;
+  isActive: boolean;
 }): React.ReactElement {
   const [text, setText] = useState('');
 
   useInput((input, key) => {
-    if (key.escape) {
-      onCancel();
-    } else if (key.return) {
+    if (key.return && text.trim()) {
       onSubmit(text);
       setText('');
     } else if (key.backspace || key.delete) {
       setText((t) => t.slice(0, -1));
-    } else if (input && !key.ctrl && !key.meta) {
+    } else if (input && !key.ctrl && !key.meta && !key.tab && !key.escape) {
       setText((t) => t + input);
     }
-  }, { isActive: true });
+  }, { isActive });
 
   return (
-    <Box paddingX={1}>
-      <Text color="yellow">/infra:</Text>
+    <Box paddingX={1} borderStyle="single" borderColor={isActive ? 'cyanBright' : 'gray'}>
+      <Text color="cyanBright" bold>{'\u276F'} </Text>
       <Text>{text}</Text>
-      <Text color="gray">_</Text>
+      <Text color="gray">{isActive ? '_' : ''}</Text>
+      {!text && <Text dimColor> type a command (e.g. debug "nginx is down")</Text>}
     </Box>
   );
 }
@@ -120,9 +118,6 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
   // DPEV states
   const [activePrompt, setActivePrompt] = useState<string | undefined>();
   const [replaySession, setReplaySession] = useState<DPEVState | undefined>();
-
-  // Input mode
-  const [inputMode, setInputMode] = useState<InputMode>('normal');
 
   // Panel cycling
   const cyclePanel = useCallback(() => {
@@ -179,12 +174,13 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
   // Handle command submission from CommandInput
   const handleCommand = useCallback(
     (input: string) => {
-      const fullCommand = `/infra:${input}`;
-      const parsed = parseInfraCommand(fullCommand);
-      if (!parsed) {
-        setInputMode('normal');
-        return;
-      }
+      const trimmed = input.trim();
+      // Support both "debug ..." and "/infra:debug ..." formats
+      const parsed = trimmed.startsWith('/infra:')
+        ? parseInfraCommand(trimmed)
+        : parseInfraCommand(`/infra:${trimmed}`);
+
+      if (!parsed) return;
 
       switch (parsed.command) {
         case 'debug':
@@ -205,50 +201,29 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
           }
           break;
       }
-      setInputMode('normal');
     },
     [handleSessionSelect],
   );
 
-  // Global keyboard handling (disabled when overlay or command input is active)
+  // Global keyboard handling for overlays and navigation
   useInput(
     (input, key) => {
-      if (showStatusOverlay || inputMode === 'command') return;
+      if (showStatusOverlay) {
+        if (key.escape) setShowStatusOverlay(false);
+        return;
+      }
 
       if (key.tab) {
         cyclePanel();
         return;
       }
 
-      if (input === 's') {
-        setShowStatusOverlay(true);
-        return;
-      }
-
-      if (input === 'g' && mode === 'compact') {
-        setShowEntityOverlay((prev) => !prev);
-        return;
-      }
-
       if (key.escape) {
-        // Return from replay to idle
-        if (replaySession) {
-          setReplaySession(undefined);
-          return;
-        }
-        // Reset active prompt
-        if (activePrompt) {
-          setActivePrompt(undefined);
-          return;
-        }
-      }
-
-      if (input === '/') {
-        setInputMode('command');
-        return;
+        if (replaySession) { setReplaySession(undefined); return; }
+        if (activePrompt) { setActivePrompt(undefined); return; }
       }
     },
-    { isActive: !showStatusOverlay && inputMode !== 'command' },
+    { isActive: true },
   );
 
   // Determine center content
@@ -305,12 +280,10 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
           onDismiss={() => setShowStatusOverlay(false)}
         />
       )}
-      {inputMode === 'command' && (
-        <CommandInput
-          onSubmit={handleCommand}
-          onCancel={() => setInputMode('normal')}
-        />
-      )}
+      <CommandInput
+        onSubmit={handleCommand}
+        isActive={!showStatusOverlay}
+      />
     </Box>
   );
 }

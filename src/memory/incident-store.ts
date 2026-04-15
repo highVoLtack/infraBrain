@@ -18,9 +18,9 @@ const _stores = new Map<string, IncidentStore>();
  * Get or create an IncidentStore for the given data directory.
  * Returns a singleton per directory path.
  */
-export function getIncidentStore(dataDir: string): IncidentStore {
+export function getIncidentStore(dataDir: string, vectorDim?: number): IncidentStore {
   if (!_stores.has(dataDir)) {
-    _stores.set(dataDir, new IncidentStore(dataDir));
+    _stores.set(dataDir, new IncidentStore(dataDir, vectorDim));
   }
   return _stores.get(dataDir)!;
 }
@@ -37,9 +37,11 @@ export class IncidentStore {
   private connection: lancedb.Connection | null = null;
   private table: lancedb.Table | null = null;
   private initPromise: Promise<void> | null = null;
+  private vectorDim: number;
 
-  constructor(dataDir: string) {
+  constructor(dataDir: string, vectorDim = 1024) {
     this.dataDir = dataDir;
+    this.vectorDim = vectorDim;
   }
 
   /**
@@ -71,7 +73,7 @@ export class IncidentStore {
   private _makeSeedRow(): Record<string, unknown> {
     return {
       id: '__seed__',
-      vector: new Array(1024).fill(0),
+      vector: new Array(this.vectorDim).fill(0),
       session_id: '',
       wing: 'wing_incidents',
       prompt: '',

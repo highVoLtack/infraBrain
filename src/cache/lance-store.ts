@@ -17,9 +17,9 @@ const _stores = new Map<string, CacheStore>();
  * Get or create a CacheStore for the given data directory.
  * Returns a singleton per directory path.
  */
-export function getCacheStore(dataDir: string): CacheStore {
+export function getCacheStore(dataDir: string, vectorDim?: number): CacheStore {
   if (!_stores.has(dataDir)) {
-    _stores.set(dataDir, new CacheStore(dataDir));
+    _stores.set(dataDir, new CacheStore(dataDir, vectorDim));
   }
   return _stores.get(dataDir)!;
 }
@@ -36,9 +36,11 @@ export class CacheStore {
   private connection: lancedb.Connection | null = null;
   private table: lancedb.Table | null = null;
   private initPromise: Promise<void> | null = null;
+  private vectorDim: number;
 
-  constructor(dataDir: string) {
+  constructor(dataDir: string, vectorDim = 1024) {
     this.dataDir = dataDir;
+    this.vectorDim = vectorDim;
   }
 
   /**
@@ -70,7 +72,7 @@ export class CacheStore {
   private _makeSeedRow(): Record<string, unknown> {
     return {
       id: '__seed__',
-      vector: new Array(1024).fill(0),
+      vector: new Array(this.vectorDim).fill(0),
       error_signature: '',
       skill_name: '',
       fix_plan: '',

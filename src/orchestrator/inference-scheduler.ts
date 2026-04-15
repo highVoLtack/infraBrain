@@ -7,7 +7,7 @@ import type {
   InferenceMode,
   SchedulerConfig,
 } from './inference-types.js';
-import { extractUniqueBackendUrls } from '../api/routes/health.js';
+import { extractUniqueBackends } from '../api/routes/health.js';
 
 const DEV_MODE = process.env.NODE_ENV !== 'production';
 
@@ -73,18 +73,22 @@ export function createInferenceScheduler(
       return cachedProbe.results;
     }
 
-    const backendUrls = extractUniqueBackendUrls(config);
+    const backendInfos = extractUniqueBackends(config);
 
     // Probe all backends in parallel (Promise.all, not sequential)
     const results: BackendStatus[] = await Promise.all(
-      backendUrls.map(async (baseUrl): Promise<BackendStatus> => {
+      backendInfos.map(async ({ baseUrl, apiKey }): Promise<BackendStatus> => {
         try {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), schedulerConfig.probeTimeoutMs);
           const start = Date.now();
 
-          const response = await fetch(`${baseUrl}/models`, {
+          const headers: Record<string, string> = {};
+          if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+          const cleanUrl = baseUrl.replace(/\/+$/, '');
+          const response = await fetch(`${cleanUrl}/models`, {
             signal: controller.signal,
+            headers,
           });
           const elapsed = Date.now() - start;
           clearTimeout(timeout);

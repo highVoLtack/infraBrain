@@ -8,6 +8,7 @@ export const ModelMapEntrySchema = z.union([
   z.object({
     model: z.string(),
     baseUrl: z.string(),
+    apiKey: z.string().optional(),
   }),
 ]);
 export type ModelMapEntry = z.infer<typeof ModelMapEntrySchema>;
@@ -109,3 +110,22 @@ export const InfraBrainConfigSchema = z.preprocess((val) => {
 }, InfraBrainConfigSchemaInner);
 
 export type InfraBrainConfig = z.infer<typeof InfraBrainConfigSchemaInner>;
+
+/** Resolved embedding config from modelMap.embedding */
+export interface EmbeddingConfig {
+  baseURL: string;
+  modelId: string;
+  apiKey?: string;
+}
+
+/** Extract embedding provider config from InfraBrainConfig */
+export function resolveEmbeddingConfig(config: InfraBrainConfig): EmbeddingConfig {
+  const entry = config.modelMap?.embedding;
+  if (typeof entry === 'object' && entry !== null) {
+    return { baseURL: entry.baseUrl, modelId: entry.model, apiKey: entry.apiKey };
+  }
+  if (typeof entry === 'string') {
+    return { baseURL: config.defaultBaseUrl, modelId: entry };
+  }
+  return { baseURL: config.defaultBaseUrl, modelId: 'bge-m3' };
+}

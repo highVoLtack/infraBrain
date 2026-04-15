@@ -1,5 +1,6 @@
 import type { LLMProvider } from '../llm/types.js';
-import type { ModelRole, ModelMapEntry } from '../config/types.js';
+import type { ModelRole } from '../config/types.js';
+import { resolveEmbeddingConfig } from '../config/types.js';
 import type { AuditLogger } from '../audit/logger.js';
 import type { ValidationResult } from '../safety/types.js';
 import type { SkillRegistry } from '../skills/registry.js';
@@ -203,15 +204,10 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
     : allContainers;
 
   // --- Resolve embedding model config (shared by cache check + memory enrichment) ---
-  const embeddingEntry = input.config?.modelMap?.embedding as ModelMapEntry | undefined;
-  const embeddingBaseURL = typeof embeddingEntry === 'object' && embeddingEntry !== null
-    ? (embeddingEntry as { baseUrl: string }).baseUrl
-    : (input.config?.defaultBaseUrl ?? 'http://localhost:11434/v1');
-  const embeddingModelId = typeof embeddingEntry === 'string'
-    ? embeddingEntry
-    : typeof embeddingEntry === 'object' && embeddingEntry !== null
-      ? (embeddingEntry as { model: string }).model
-      : 'bge-m3';
+  const embCfg = input.config ? resolveEmbeddingConfig(input.config) : { baseURL: 'http://localhost:11434/v1', modelId: 'bge-m3' };
+  const embeddingBaseURL = embCfg.baseURL;
+  const embeddingModelId = embCfg.modelId;
+  const embeddingApiKey = embCfg.apiKey;
 
   // ContextManager used by both paths
   const contextManager = new ContextManager(
@@ -262,6 +258,7 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
         store: cacheStore,
         baseURL: embeddingBaseURL,
         modelId: embeddingModelId,
+        apiKey: embeddingApiKey,
         cacheConfig: {
           enabled: cacheEnabled,
           similarity_threshold: input.config?.cache?.similarityThreshold ?? DEFAULT_CACHE_CONFIG.similarity_threshold,
@@ -352,7 +349,7 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
         const wakeUp = await buildWakeUpContext({
           currentPrompt: prompt,
           memoryConfig,
-          embeddingParams: { baseURL: embeddingBaseURL, modelId: embeddingModelId },
+          embeddingParams: { baseURL: embeddingBaseURL, modelId: embeddingModelId, apiKey: embeddingApiKey },
           incidentStore,
           entityStore,
         });
@@ -521,6 +518,7 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
         store: cacheStore,
         baseURL: embeddingBaseURL,
         modelId: embeddingModelId,
+        apiKey: embeddingApiKey,
         cacheConfig: {
           enabled: cacheEnabled,
           similarity_threshold: input.config?.cache?.similarityThreshold ?? DEFAULT_CACHE_CONFIG.similarity_threshold,
@@ -620,7 +618,7 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
         const wakeUp = await buildWakeUpContext({
           currentPrompt: prompt,
           memoryConfig,
-          embeddingParams: { baseURL: embeddingBaseURL, modelId: embeddingModelId },
+          embeddingParams: { baseURL: embeddingBaseURL, modelId: embeddingModelId, apiKey: embeddingApiKey },
           incidentStore,
           entityStore,
         });

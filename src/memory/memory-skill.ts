@@ -26,6 +26,7 @@ export interface MemoryQueryParams {
   embeddingParams: {
     baseURL: string;
     modelId: string;
+    apiKey?: string;
   };
 }
 
@@ -138,6 +139,7 @@ export async function handleMemoryQuery(params: MemoryQueryParams): Promise<stri
     intent.search_query,
     embeddingParams.baseURL,
     embeddingParams.modelId,
+    { apiKey: embeddingParams.apiKey },
   );
 
   if (!embedding) {

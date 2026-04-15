@@ -1,78 +1,40 @@
 # Model Routing Guide
 
-InfraBrain uses a 7-role model routing system that assigns different LLM models to different tasks based on their requirements. Each role has a specific purpose, latency target, and minimum model size recommendation.
+InfraBrain uses a 7-role model routing system that assigns different LLM models to different tasks. The system is **fully provider-agnostic** -- any backend that speaks the OpenAI-compatible API works: local Ollama, local vLLM, Google Gemini, OpenAI, Anthropic, Groq, Together, Fireworks, or any other provider.
 
-## Role Definitions
+## Quick Setup Recipes
 
-| Role | Purpose | Latency Target | Minimum Size | Recommended |
-|------|---------|---------------|--------------|-------------|
-| triage | Skill selection and classification | <3s | 7B | qwen2.5:7b or similar fast classifier |
-| default | General diagnosis, first-pass analysis | <15s | 32B | qwen3.5:32b-a22b (MoE sweet spot) |
-| strategic | Fix planning, command generation, self-heal corrections | <30s | 70B | llama3.3:70b or qwen3.5:72b-a22b |
-| forensic | Complex multi-step failure analysis, deep reasoning | <60s | 70B+ (CoT) | deepseek-r1:32b or qwen3.5:72b-a22b |
-| worker | Self-heal corrections (first tier before escalation) | <10s | 32B+ | qwen2.5-coder:32b (NOT 7B) |
-| vision | Screenshot and visual evidence analysis | <30s | Vision model | llama3.2-vision |
-| embedding | Semantic search (future Qdrant integration) | <1s | Embedding model | bge-m3 |
+### Local Ollama (simplest)
 
-### Why Worker Needs 32B+
-
-The worker role handles self-healing corrections where the LLM must reason about state changes (e.g., "user already exists" means ALTER not CREATE, "permission denied" means add `-u 0`). During the multi-fault demo, GLM-4.7-Flash (9B) failed to reason about state transitions, generating the same failing command repeatedly. Models below 32B lack the reasoning depth for stateful correction.
-
-## Evidence from Multi-Fault Demo (2026-03-15)
-
-The multi-fault demo validated 5/5 faults across 3 debug-execute cycles. Key observations:
-
-| Observation | Impact | Recommendation |
-|-------------|--------|----------------|
-| Triage with 122B model | 13s per skill selection (target <3s) | Use 7B for triage -- simple classification does not need reasoning |
-| GLM-4.7-Flash (9B) as worker | Failed state reasoning ("already exists -> ALTER") | Minimum 32B for worker role |
-| 122B for diagnosis + planning | 42s total via SSH tunnel -- good quality | Acceptable for strategic/forensic roles |
-| Sanity checker false positive | 47s per retry on legitimate Docker output | Eliminated in Phase 13 via Docker tag whitelist |
-| SSH tunnel vs Cloudflare proxy | Eliminated 100s timeout, diagnosis 300s+ -> 42s | SSH tunnel mandatory for large models |
-| Ollama model swapping | 60s+ per switch, 1 model in VRAM at a time | Multi-GPU or single-model setup recommended |
-
-### Latency Breakdown (SSH Tunnel, 122B Model)
-
-- Triage (skill selection): 13s (too slow -- should be <3s with 7B)
-- Discovery (ground truth): 2-5s (Docker commands, not LLM)
-- Diagnosis (structured object): 25-35s
-- Planning (fix plan generation): 15-20s
-- Self-heal correction (per attempt): 10-15s
-
-## Per-Role Backend Routing
-
-InfraBrain supports routing each role to a different backend server via per-role `baseUrl` configuration. This enables hybrid deployments where fast models run on vLLM while heavy models run on Ollama.
-
-### Config Format
-
-The `modelMap` accepts two entry formats:
-
-| Format | Syntax | Backend |
-|--------|--------|---------|
-| **String** (legacy) | `"triage": "qwen3.5:9b"` | Uses `defaultBaseUrl` |
-| **Object** (per-role) | `"triage": { "model": "qwen3.5:9b", "baseUrl": "http://localhost:8000/v1" }` | Uses own `baseUrl` |
-
-Both formats can be mixed freely within the same `modelMap`.
-
-### defaultBaseUrl
-
-The `defaultBaseUrl` field replaces the legacy `ollamaBaseUrl` field. Existing configs using `ollamaBaseUrl` are automatically migrated at startup (no manual change required).
-
-- String-format modelMap entries resolve against `defaultBaseUrl`
-- Object-format entries use their own `baseUrl`, ignoring `defaultBaseUrl`
-- Default value: `http://localhost:11434/v1` (local Ollama with OpenAI-compatible endpoint)
-- The `/v1` suffix is required -- both Ollama and vLLM serve OpenAI-compatible APIs at this path
-
-### Hybrid Deployment Example
-
-vLLM serves the fast triage model on port 8000, Ollama handles everything else on port 11434:
+No API key needed. Install Ollama, pull models, done.
 
 ```json
 {
   "defaultBaseUrl": "http://localhost:11434/v1",
   "modelMap": {
-    "triage": { "model": "qwen3.5:9b", "baseUrl": "http://localhost:8000/v1" },
+    "default": "llama3.3:70b",
+    "triage": "qwen2.5:7b",
+    "strategic": "llama3.3:70b",
+    "forensic": "deepseek-r1:32b",
+    "worker": "qwen2.5-coder:32b",
+    "vision": "llama3.2-vision",
+    "embedding": "bge-m3"
+  }
+}
+```
+
+`.env`: not needed
+
+### Local vLLM (GPU server)
+
+No API key needed. Run vLLM with `--served-model-name`.
+
+```json
+{
+  "defaultBaseUrl": "http://localhost:8000/v1",
+  "modelMap": {
     "default": "qwen3.5:35b-a3b",
+    "triage": "qwen3.5:9b",
     "strategic": "qwen3.5:122b-a10b",
     "forensic": "qwen3.5:35b-a3b",
     "worker": "qwen3.5:9b",
@@ -82,90 +44,297 @@ vLLM serves the fast triage model on port 8000, Ollama handles everything else o
 }
 ```
 
-In this config:
-- `triage` routes to vLLM at `localhost:8000` (sub-3s latency for skill selection)
-- All other roles route to Ollama at `localhost:11434` via `defaultBaseUrl`
-- The health endpoint (`/health`) probes both backends and reports their status independently
+`.env`: not needed
 
-### Full vLLM Deployment
+### Remote vLLM (RunPod / SSH Tunnel)
 
-When multiple GPUs are available, all roles can point to dedicated vLLM instances:
+No API key needed (RunPod proxy handles auth via URL).
 
 ```json
 {
-  "defaultBaseUrl": "http://localhost:8000/v1",
+  "defaultBaseUrl": "https://YOUR-POD-ID-11434.proxy.runpod.net/v1",
   "modelMap": {
-    "triage": { "model": "qwen3.5:9b", "baseUrl": "http://localhost:8000/v1" },
-    "default": { "model": "qwen3.5:35b-a3b", "baseUrl": "http://localhost:8001/v1" },
-    "strategic": { "model": "qwen3.5:122b-a10b", "baseUrl": "http://localhost:8002/v1" },
-    "forensic": { "model": "qwen3.5:35b-a3b", "baseUrl": "http://localhost:8001/v1" },
-    "worker": { "model": "qwen3.5:9b", "baseUrl": "http://localhost:8000/v1" },
-    "vision": { "model": "qwen3.5:122b-a10b", "baseUrl": "http://localhost:8002/v1" },
-    "embedding": { "model": "bge-m3", "baseUrl": "http://localhost:8003/v1" }
+    "default": "qwen3.5:122b-a10b",
+    "triage": "qwen3.5:122b-a10b",
+    "strategic": "qwen3.5:122b-a10b",
+    "forensic": "qwen3.5:122b-a10b",
+    "worker": "qwen3.5:122b-a10b",
+    "vision": "qwen3.5:122b-a10b",
+    "embedding": "bge-m3"
   }
 }
 ```
 
-## Configuration
+### Google Gemini (cloud, free tier available)
 
-Model assignments are configured in `.infrabrain/config.json` under the `modelMap` section. See `config.example.json` in the project root for a complete reference with all three config formats (legacy, hybrid, full vLLM).
-
-Skills declare their preferred role via `preferred_model` in YAML frontmatter:
-
-```yaml
-preferred_model: strategic  # Routes to modelMap.strategic
+```json
+{
+  "defaultBaseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/",
+  "modelMap": {
+    "default":   { "model": "gemini-2.5-flash",     "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" },
+    "triage":    { "model": "gemini-2.5-flash",     "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" },
+    "strategic": { "model": "gemini-2.5-pro",       "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" },
+    "forensic":  { "model": "gemini-2.5-flash",     "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" },
+    "worker":    { "model": "gemini-2.5-flash",     "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" },
+    "vision":    { "model": "gemini-2.5-flash",     "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" },
+    "embedding": { "model": "gemini-embedding-001", "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" }
+  }
+}
 ```
 
-The routing system resolves the role to the configured model at runtime. If the role maps to the same model as default, a warning is logged but execution continues.
+`.env`:
+```
+GOOGLE_AI_API_KEY=AIza...your-key
+```
 
-## Single-Model Setup
+Get key: https://aistudio.google.com/apikey
 
-When `modelMap` is not configured (or all roles point to the same model), InfraBrain routes every request to the default model. This works but sub-optimally:
+### OpenAI
 
-- Triage is slow (large model doing simple classification)
-- Worker corrections may time out waiting for a large model
-- No parallelism possible (single model in VRAM)
+```json
+{
+  "defaultBaseUrl": "https://api.openai.com/v1",
+  "modelMap": {
+    "default":   { "model": "gpt-4o-mini",          "baseUrl": "https://api.openai.com/v1", "apiKey": "${OPENAI_API_KEY}" },
+    "triage":    { "model": "gpt-4o-mini",          "baseUrl": "https://api.openai.com/v1", "apiKey": "${OPENAI_API_KEY}" },
+    "strategic": { "model": "gpt-4o",               "baseUrl": "https://api.openai.com/v1", "apiKey": "${OPENAI_API_KEY}" },
+    "forensic":  { "model": "gpt-4o",               "baseUrl": "https://api.openai.com/v1", "apiKey": "${OPENAI_API_KEY}" },
+    "worker":    { "model": "gpt-4o-mini",          "baseUrl": "https://api.openai.com/v1", "apiKey": "${OPENAI_API_KEY}" },
+    "vision":    { "model": "gpt-4o",               "baseUrl": "https://api.openai.com/v1", "apiKey": "${OPENAI_API_KEY}" },
+    "embedding": { "model": "text-embedding-3-small","baseUrl": "https://api.openai.com/v1", "apiKey": "${OPENAI_API_KEY}" }
+  }
+}
+```
 
-For production use, multi-GPU enables role-specific model assignment where a fast 7B handles triage while a 70B+ handles strategic planning. See `docs/VLLM-SETUP.md` for vLLM deployment instructions.
+`.env`:
+```
+OPENAI_API_KEY=sk-...your-key
+```
+
+### Groq (ultra-fast cloud inference)
+
+```json
+{
+  "defaultBaseUrl": "https://api.groq.com/openai/v1",
+  "modelMap": {
+    "default":   { "model": "llama-3.3-70b-versatile", "baseUrl": "https://api.groq.com/openai/v1", "apiKey": "${GROQ_API_KEY}" },
+    "triage":    { "model": "llama-3.1-8b-instant",    "baseUrl": "https://api.groq.com/openai/v1", "apiKey": "${GROQ_API_KEY}" },
+    "strategic": { "model": "llama-3.3-70b-versatile", "baseUrl": "https://api.groq.com/openai/v1", "apiKey": "${GROQ_API_KEY}" },
+    "forensic":  { "model": "deepseek-r1-distill-llama-70b", "baseUrl": "https://api.groq.com/openai/v1", "apiKey": "${GROQ_API_KEY}" },
+    "worker":    { "model": "llama-3.1-8b-instant",    "baseUrl": "https://api.groq.com/openai/v1", "apiKey": "${GROQ_API_KEY}" },
+    "vision":    { "model": "llama-3.2-90b-vision-preview", "baseUrl": "https://api.groq.com/openai/v1", "apiKey": "${GROQ_API_KEY}" },
+    "embedding": "bge-m3"
+  }
+}
+```
+
+Note: Groq has no embedding API. Use a local embedding model or pair with Gemini for embeddings (see Hybrid below).
+
+`.env`:
+```
+GROQ_API_KEY=gsk_...your-key
+```
+
+### Hybrid: Cloud LLM + Local Embeddings
+
+Mix providers freely. Each role resolves independently.
+
+```json
+{
+  "defaultBaseUrl": "https://api.groq.com/openai/v1",
+  "modelMap": {
+    "default":   { "model": "llama-3.3-70b-versatile", "baseUrl": "https://api.groq.com/openai/v1", "apiKey": "${GROQ_API_KEY}" },
+    "triage":    { "model": "llama-3.1-8b-instant",    "baseUrl": "https://api.groq.com/openai/v1", "apiKey": "${GROQ_API_KEY}" },
+    "strategic": { "model": "gemini-2.5-pro",          "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" },
+    "forensic":  { "model": "deepseek-r1-distill-llama-70b", "baseUrl": "https://api.groq.com/openai/v1", "apiKey": "${GROQ_API_KEY}" },
+    "worker":    { "model": "llama-3.1-8b-instant",    "baseUrl": "https://api.groq.com/openai/v1", "apiKey": "${GROQ_API_KEY}" },
+    "vision":    { "model": "gpt-4o",                  "baseUrl": "https://api.openai.com/v1", "apiKey": "${OPENAI_API_KEY}" },
+    "embedding": { "model": "bge-m3",                  "baseUrl": "http://localhost:11434/v1" }
+  }
+}
+```
+
+`.env`:
+```
+GROQ_API_KEY=gsk_...
+GOOGLE_AI_API_KEY=AIza...
+OPENAI_API_KEY=sk-...
+```
+
+This routes: Groq for fast inference, Gemini Pro for deep planning, OpenAI for vision, local Ollama for embeddings. Each role is independent.
+
+### Hybrid: Local LLM + Cloud Embeddings
+
+```json
+{
+  "defaultBaseUrl": "http://localhost:11434/v1",
+  "modelMap": {
+    "default": "llama3.3:70b",
+    "triage": "qwen2.5:7b",
+    "strategic": "llama3.3:70b",
+    "forensic": "deepseek-r1:32b",
+    "worker": "qwen2.5-coder:32b",
+    "vision": "llama3.2-vision",
+    "embedding": { "model": "gemini-embedding-001", "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" }
+  }
+}
+```
+
+---
+
+## How It Works
+
+### Config File Location
+
+```
+.infrabrain/config.json    <-- loaded at startup
+```
+
+### Entry Formats
+
+Each role in `modelMap` accepts two formats:
+
+| Format | Syntax | Backend | Auth |
+|--------|--------|---------|------|
+| **String** | `"triage": "qwen2.5:7b"` | Uses `defaultBaseUrl` | No auth |
+| **Object** | `"triage": { "model": "...", "baseUrl": "...", "apiKey": "..." }` | Own baseUrl | Optional Bearer token |
+
+Both formats mix freely within the same `modelMap`.
+
+### Environment Variable Substitution
+
+Config values support `${ENV_VAR}` syntax. The loader reads `.env` at startup, then replaces placeholders from `process.env`.
+
+```json
+"apiKey": "${GOOGLE_AI_API_KEY}"
+```
+
+resolves to the value of `GOOGLE_AI_API_KEY` from `.env` or the shell environment.
+
+**Never put raw API keys in config.json.** Always use `${VAR}` references and keep keys in `.env` (which is gitignored).
+
+### API Key Handling
+
+- **Present**: Sent as `Authorization: Bearer <key>` on every request (LLM calls + health probes)
+- **Absent**: No auth header sent. Local backends (Ollama, vLLM) don't need auth.
+- **Per-role**: Each role can have a different key (or none). Mix cloud + local freely.
+
+### Provider Contract
+
+InfraBrain requires one thing from any backend: **OpenAI-compatible API at the given baseUrl**.
+
+Required endpoints:
+- `POST /chat/completions` (all LLM roles)
+- `POST /embeddings` (embedding role)
+- `GET /models` (health check, optional but recommended)
+
+Providers known to work:
+
+| Provider | baseUrl | Notes |
+|----------|---------|-------|
+| Ollama | `http://localhost:11434/v1` | Local, no auth |
+| vLLM | `http://localhost:8000/v1` | Local, no auth |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | Free tier: 15 RPM |
+| OpenAI | `https://api.openai.com/v1` | Pay per token |
+| Groq | `https://api.groq.com/openai/v1` | Free tier available |
+| Together | `https://api.together.xyz/v1` | Pay per token |
+| Fireworks | `https://api.fireworks.ai/inference/v1` | Pay per token |
+| LiteLLM | `http://localhost:4000/v1` | Proxy for any provider |
+| RunPod (proxy) | `https://POD-ID.proxy.runpod.net/v1` | No auth (URL is token) |
+
+---
+
+## Role Definitions
+
+| Role | Purpose | Latency Target | Minimum Size |
+|------|---------|---------------|--------------|
+| **triage** | Skill selection and classification | <3s | 7B+ |
+| **default** | General diagnosis, first-pass analysis | <15s | 32B+ |
+| **strategic** | Fix planning, command generation, self-heal | <30s | 70B+ |
+| **forensic** | Complex multi-step failure analysis | <60s | 70B+ (CoT) |
+| **worker** | Self-heal corrections (stateful reasoning) | <10s | 32B+ |
+| **vision** | Screenshot and visual evidence analysis | <30s | Vision model |
+| **embedding** | Semantic search for cache + memory | <1s | Embedding model |
+
+### Embedding Dimensions
+
+Different embedding models produce different vector sizes. InfraBrain handles this automatically:
+
+| Model | Dimensions | Provider |
+|-------|-----------|----------|
+| bge-m3 | 1024 | Local (Ollama/vLLM) |
+| gemini-embedding-001 | 3072 | Google Gemini |
+| text-embedding-3-small | 1536 | OpenAI |
+| text-embedding-3-large | 3072 | OpenAI |
+
+When switching embedding models, delete the existing cache/memory LanceDB data to avoid dimension mismatches:
+
+```bash
+rm -rf .infrabrain/cache/fix_cache.lance
+rm -rf .infrabrain/memory/mem_incidents.lance
+rm -rf .infrabrain/memory/mem_entities.lance
+```
+
+The stores will recreate automatically on next startup.
+
+---
+
+## Switching Providers
+
+### Step 1: Edit `.infrabrain/config.json`
+
+Copy one of the recipes above and adjust model names.
+
+### Step 2: Set API keys in `.env`
+
+```bash
+# Add your key(s)
+echo 'GOOGLE_AI_API_KEY=AIza...' >> .env
+echo 'OPENAI_API_KEY=sk-...' >> .env
+```
+
+### Step 3: Restart InfraBrain
+
+```bash
+npm run dev
+```
+
+Check the health endpoint to verify:
+
+```bash
+curl http://localhost:3001/health | jq .
+```
+
+Should show `"connected": true` for all backends and `"available": true` for all roles.
+
+### Step 4: (Optional) Clear vector stores on embedding model change
+
+Only needed when the embedding model changes (different dimensions):
+
+```bash
+rm -rf .infrabrain/cache/fix_cache.lance .infrabrain/memory/mem_*.lance
+```
+
+---
+
+## Skills and Model Preferences
+
+Skills declare their preferred model via frontmatter:
+
+```yaml
+# skills/planning.md
+name: planning
+preferred_model: strategic
+```
+
+At runtime, the pipeline resolves `strategic` to whatever model + backend is configured for that role. Skills are provider-agnostic -- they reference roles, not models.
 
 ## Escalation Path
 
-When self-healing exhausts its attempts at one model tier, the system escalates to more capable models:
+When self-healing exhausts attempts, the system escalates to more capable models:
 
 ```
-worker (qwen2.5-coder:32b)
-  |
-  | max attempts exhausted
-  v
-strategic (llama3.3:70b)
-  |
-  | max attempts exhausted
-  v
-forensic (deepseek-r1:32b or 72b-a22b)
+worker → strategic → forensic
 ```
 
-The escalation logic in `self-healer.ts`:
-
-1. **First attempt**: Worker model generates correction from stderr + step context
-2. **On failure**: Worker retries up to `maxAttempts` (default 5, with bonus attempts for forward progress)
-3. **Exhaustion**: API response includes `escalationAdvice` with the next model tier
-4. **Client retry**: The client can re-submit with the escalated model role
-
-Forward progress detection: If the error type changes between attempts (e.g., "permission denied" becomes "file not found"), the system recognizes this as forward progress and grants bonus attempts rather than escalating prematurely.
-
-### Escalation Advice in API Response
-
-When self-healing exhausts attempts, the response includes:
-
-```json
-{
-  "escalationAdvice": {
-    "currentModel": "worker",
-    "suggestedModel": "strategic",
-    "reason": "Worker model exhausted 5 attempts without resolving the issue",
-    "failedStep": { "command": "...", "error": "..." }
-  }
-}
-```
-
-The client (CLI or API consumer) can then re-submit the fix plan with the suggested model role for another round of self-healing with a more capable model.
+Each escalation switches to the model configured for that role. The escalation chain works regardless of provider -- it could go from local Ollama worker to cloud Gemini strategic to cloud OpenAI forensic.

@@ -21,7 +21,7 @@ import { SkillRegistry } from './skills/registry.js';
 import { getCacheStore } from './cache/lance-store.js';
 import { runStartupInvalidation } from './cache/invalidation.js';
 import { isEmbeddingAvailable } from './cache/embedder.js';
-import type { ModelMapEntry } from './config/types.js';
+import { resolveEmbeddingConfig } from './config/types.js';
 
 // Re-exports for library usage
 export { createProvider } from './llm/provider.js';
@@ -77,17 +77,8 @@ async function main(): Promise<void> {
     console.log(chalk.gray('[Cache] Fix cache initialized'));
 
     // Check if embedding model is available
-    const embeddingEntry = config.modelMap?.embedding as ModelMapEntry | undefined;
-    const embeddingBaseURL = typeof embeddingEntry === 'object' && embeddingEntry !== null
-      ? (embeddingEntry as { baseUrl: string }).baseUrl
-      : (config.defaultBaseUrl ?? 'http://localhost:11434/v1');
-    const embeddingModelId = typeof embeddingEntry === 'string'
-      ? embeddingEntry
-      : typeof embeddingEntry === 'object' && embeddingEntry !== null
-        ? (embeddingEntry as { model: string }).model
-        : 'bge-m3';
-
-    const embeddingOk = await isEmbeddingAvailable(embeddingBaseURL, embeddingModelId);
+    const embCfg = resolveEmbeddingConfig(config);
+    const embeddingOk = await isEmbeddingAvailable(embCfg.baseURL, embCfg.modelId, { apiKey: embCfg.apiKey });
     if (!embeddingOk) {
       console.log(chalk.yellow('[Cache] WARNING: Embedding model not reachable -- cache lookups will degrade gracefully'));
     }

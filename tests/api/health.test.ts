@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
-import { createHealthRoute, extractUniqueBackendUrls } from '../../src/api/routes/health.js';
+import { createHealthRoute, extractUniqueBackends } from '../../src/api/routes/health.js';
 import type { InfraBrainConfig } from '../../src/config/types.js';
 import type { ModelRegistry } from '../../src/llm/types.js';
 import type { ModelRole } from '../../src/config/types.js';
@@ -74,8 +74,9 @@ describe('Health Route', () => {
       },
     });
 
-    const urls = extractUniqueBackendUrls(config);
-    expect(urls).toHaveLength(3);
+    const backends = extractUniqueBackends(config);
+    expect(backends).toHaveLength(3);
+    const urls = backends.map(b => b.baseUrl);
     expect(urls).toContain('http://localhost:11434/v1');
     expect(urls).toContain('http://localhost:8000/v1');
     expect(urls).toContain('http://localhost:8001/v1');

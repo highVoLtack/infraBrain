@@ -497,6 +497,6 @@ describe('DPEVPanel', () => {
       })
     );
 
-    expect(lastFrame()).toContain('Error occurred');
+    expect(lastFrame()).toContain('Error');
   });
 });

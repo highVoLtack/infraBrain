@@ -250,10 +250,10 @@ describe('App', () => {
       React.createElement(App, { apiBaseUrl: 'http://localhost:3000' }),
     );
     expect(lastFrame()).toContain('InfraBrain v1.3');
-    expect(lastFrame()).toContain('/infra:debug');
+    expect(lastFrame()).toContain('debug');
   });
 
-  it('toggles status overlay with s key', async () => {
+  it('opens status overlay via status command', async () => {
     const { lastFrame, stdin } = render(
       React.createElement(App, { apiBaseUrl: 'http://localhost:3000' }),
     );
@@ -261,8 +261,10 @@ describe('App', () => {
     // Initially no overlay
     expect(lastFrame()).not.toContain('STATUS DASHBOARD');
 
-    // Press 's' to open overlay
-    stdin.write('s');
+    // Type 'status' command and press Enter
+    stdin.write('status');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    stdin.write('\r');
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(lastFrame()).toContain('STATUS DASHBOARD');
@@ -273,8 +275,10 @@ describe('App', () => {
       React.createElement(App, { apiBaseUrl: 'http://localhost:3000' }),
     );
 
-    // Open overlay
-    stdin.write('s');
+    // Open overlay via command
+    stdin.write('status');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    stdin.write('\r');
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(lastFrame()).toContain('STATUS DASHBOARD');
 

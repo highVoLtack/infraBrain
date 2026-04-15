@@ -60,7 +60,18 @@ export function dpevReducer(state: DPEVState, action: DPEVAction): DPEVState {
 
     case 'PHASE_COMPLETE': {
       const idx = state.phases.findIndex(p => p.name === action.phase);
-      if (idx === -1) return state;
+      if (idx === -1) {
+        // Phase was never started (e.g. discovery completes instantly) — add it as complete
+        const newPhase: DPEVPhaseState = {
+          name: action.phase,
+          model: action.model ?? '?',
+          startedAt: Date.now(),
+          status: 'complete',
+          tokens: '',
+          completedAt: Date.now(),
+        };
+        return { ...state, phases: [...state.phases, newPhase] };
+      }
       const phases = state.phases.map((p, i) =>
         i === idx
           ? { ...p, status: 'complete' as const, completedAt: Date.now() }
@@ -148,6 +159,7 @@ export function dpevReducer(state: DPEVState, action: DPEVAction): DPEVState {
       return {
         ...state,
         status: 'error',
+        errorMessage: action.message,
       };
     }
 
@@ -161,6 +173,8 @@ export function dpevReducer(state: DPEVState, action: DPEVAction): DPEVState {
 export function useDPEV(apiBaseUrl: string, prompt: string): {
   state: DPEVState;
   dispatch: React.Dispatch<DPEVAction>;
+  connected: boolean;
+  sseError?: string;
 } {
   const [state, dispatch] = useReducer(dpevReducer, initialDPEVState);
 
@@ -172,7 +186,7 @@ export function useDPEV(apiBaseUrl: string, prompt: string): {
           if (d.status === 'active') {
             dispatch({ type: 'PHASE_START', phase: d.phase, model: d.model });
           } else if (d.status === 'complete') {
-            dispatch({ type: 'PHASE_COMPLETE', phase: d.phase });
+            dispatch({ type: 'PHASE_COMPLETE', phase: d.phase, model: d.model });
           }
           break;
         }
@@ -239,10 +253,10 @@ export function useDPEV(apiBaseUrl: string, prompt: string): {
     []
   );
 
-  useSSE(`${apiBaseUrl}/stream/debug`, handleSSEEvent, {
+  const { connected, error: sseError } = useSSE(`${apiBaseUrl}/stream/debug`, handleSSEEvent, {
     method: 'POST',
     body: { prompt },
   });
 
-  return { state, dispatch };
+  return { state, dispatch, connected, sseError };
 }

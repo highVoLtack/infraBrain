@@ -7,10 +7,11 @@ const LLM_TIMEOUT_MS = 600_000; // 10 minutes -- allows for slow RunPod proxy + 
 
 const ROLES: ModelRole[] = ['default', 'strategic', 'forensic', 'worker', 'vision', 'triage', 'embedding'];
 
-function createCompatProvider(baseURL: string) {
+function createCompatProvider(baseURL: string, apiKey?: string) {
   return createOpenAICompatible({
     name: 'infrabrain',
     baseURL,
+    ...(apiKey ? { apiKey } : {}),
     fetch: (url, init) => {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
@@ -32,20 +33,21 @@ export function createModelRegistry(modelMap: ModelMap, defaultBaseUrl: string):
   const models = new Map<ModelRole, { model: LanguageModel; modelId: string }>();
   const providerCache = new Map<string, ReturnType<typeof createCompatProvider>>();
 
-  function getProvider(baseUrl: string) {
-    if (!providerCache.has(baseUrl)) {
-      providerCache.set(baseUrl, createCompatProvider(baseUrl));
+  function getProvider(baseUrl: string, apiKey?: string) {
+    const cacheKey = apiKey ? `${baseUrl}::${apiKey}` : baseUrl;
+    if (!providerCache.has(cacheKey)) {
+      providerCache.set(cacheKey, createCompatProvider(baseUrl, apiKey));
     }
-    return providerCache.get(baseUrl)!;
+    return providerCache.get(cacheKey)!;
   }
 
   for (const role of ROLES) {
     const entry = modelMap[role];
-    const { modelId, baseUrl } = typeof entry === 'string'
-      ? { modelId: entry, baseUrl: defaultBaseUrl }
-      : { modelId: entry.model, baseUrl: entry.baseUrl };
+    const { modelId, baseUrl, apiKey } = typeof entry === 'string'
+      ? { modelId: entry, baseUrl: defaultBaseUrl, apiKey: undefined }
+      : { modelId: entry.model, baseUrl: entry.baseUrl, apiKey: entry.apiKey };
 
-    const provider = getProvider(baseUrl);
+    const provider = getProvider(baseUrl, apiKey);
     models.set(role, { model: provider(modelId), modelId });
   }
 

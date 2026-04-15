@@ -18,7 +18,7 @@ import { countTokens } from '../context/token-counter.js';
 export interface WakeUpParams {
   currentPrompt: string;
   memoryConfig: MemoryConfig;
-  embeddingParams: { baseURL: string; modelId: string };
+  embeddingParams: { baseURL: string; modelId: string; apiKey?: string };
   incidentStore: IncidentStore;
   entityStore: EntityStore;
 }
@@ -81,6 +81,7 @@ export async function buildWakeUpContext(params: WakeUpParams): Promise<WakeUpRe
       currentPrompt,
       embeddingParams.baseURL,
       embeddingParams.modelId,
+      { apiKey: embeddingParams.apiKey },
     );
 
     if (embedding) {

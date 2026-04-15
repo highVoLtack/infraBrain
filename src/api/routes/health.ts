@@ -10,21 +10,32 @@ export interface BackendHealth {
   error?: string;
 }
 
+export interface BackendInfo {
+  baseUrl: string;
+  apiKey?: string;
+}
+
 /**
- * Extract all unique backend base URLs from config.
+ * Extract all unique backend base URLs (with optional apiKey) from config.
  * String entries in modelMap use defaultBaseUrl; object entries use their own baseUrl.
  */
-export function extractUniqueBackendUrls(config: InfraBrainConfig): string[] {
-  const urls = new Set<string>();
-  urls.add(config.defaultBaseUrl);
+export function extractUniqueBackends(config: InfraBrainConfig): BackendInfo[] {
+  const seen = new Map<string, BackendInfo>();
+  seen.set(config.defaultBaseUrl, { baseUrl: config.defaultBaseUrl });
 
   for (const entry of Object.values(config.modelMap)) {
     if (typeof entry === 'object' && entry.baseUrl) {
-      urls.add(entry.baseUrl);
+      const existing = seen.get(entry.baseUrl);
+      // Upgrade: if we already have this URL but without apiKey, add the apiKey
+      if (!existing) {
+        seen.set(entry.baseUrl, { baseUrl: entry.baseUrl, apiKey: entry.apiKey });
+      } else if (!existing.apiKey && entry.apiKey) {
+        existing.apiKey = entry.apiKey;
+      }
     }
   }
 
-  return Array.from(urls);
+  return Array.from(seen.values());
 }
 
 /**
@@ -36,17 +47,20 @@ export function createHealthRoute(config: InfraBrainConfig, registry?: ModelRegi
   const router = Router();
 
   router.get('/', async (_req, res) => {
-    const backendUrls = extractUniqueBackendUrls(config);
+    const backendInfos = extractUniqueBackends(config);
 
     const backends: BackendHealth[] = await Promise.all(
-      backendUrls.map(async (baseUrl): Promise<BackendHealth> => {
+      backendInfos.map(async ({ baseUrl, apiKey }): Promise<BackendHealth> => {
         try {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 3000);
           const start = Date.now();
-          // baseUrl already includes /v1, so endpoint is /v1/models
-          const response = await fetch(`${baseUrl}/models`, {
+          const headers: Record<string, string> = {};
+          if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+          const cleanUrl = baseUrl.replace(/\/+$/, '');
+          const response = await fetch(`${cleanUrl}/models`, {
             signal: controller.signal,
+            headers,
           });
           const elapsed = Date.now() - start;
           clearTimeout(timeout);
@@ -81,7 +95,7 @@ export function createHealthRoute(config: InfraBrainConfig, registry?: ModelRegi
           : config.defaultBaseUrl;
         const backend = backends.find(b => b.baseUrl === roleBaseUrl);
         const available = backend?.connected === true && (backend.models ?? []).some(
-          (name) => name === modelId || name.startsWith(`${modelId}:`),
+          (name) => name === modelId || name.startsWith(`${modelId}:`) || name === `models/${modelId}`,
         );
         return { role, model: modelId, available: !!available };
       });

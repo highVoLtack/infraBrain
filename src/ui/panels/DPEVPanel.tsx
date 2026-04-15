@@ -131,8 +131,9 @@ function DPEVPanelContent({
 
       {/* Error Footer */}
       {state.status === 'error' && (
-        <Box marginTop={1}>
-          <Text color="red" bold>Error occurred</Text>
+        <Box marginTop={1} flexDirection="column">
+          <Text color="red" bold>Error</Text>
+          {state.errorMessage && <Text color="red" wrap="wrap">{state.errorMessage}</Text>}
         </Box>
       )}
     </Box>
@@ -148,7 +149,7 @@ function LiveDPEVPanel({
   apiBaseUrl: string;
   prompt: string;
 }): React.ReactElement {
-  const { state, dispatch } = useDPEV(apiBaseUrl, prompt);
+  const { state, dispatch, connected, sseError } = useDPEV(apiBaseUrl, prompt);
   const [cacheError, setCacheError] = useState<string | undefined>();
   const [approvalError, setApprovalError] = useState<string | undefined>();
 
@@ -200,6 +201,19 @@ function LiveDPEVPanel({
 
   return (
     <Box flexDirection="column" flexGrow={1}>
+      {/* Prompt + status */}
+      <Box paddingX={1} marginBottom={1}>
+        <Text color="cyanBright" bold>{'> '}</Text>
+        <Text>{prompt}</Text>
+        <Text dimColor>  {
+          state.status === 'complete' ? '' :
+          state.status === 'error' ? '' :
+          sseError ? `(error: ${sseError})` :
+          connected ? '(streaming...)' :
+          state.phases.length > 0 ? '' :
+          '(connecting...)'
+        }</Text>
+      </Box>
       <DPEVPanelContent
         state={state}
         apiBaseUrl={apiBaseUrl}

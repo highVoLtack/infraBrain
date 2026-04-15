@@ -25,17 +25,23 @@ export interface HeaderData {
 
 /**
  * Abbreviate a backend URL for display.
- * Strips protocol and /v1 suffix, keeps host:port.
+ * Strips protocol and path suffix, keeps host:port (omits default ports).
  */
 function abbreviateUrl(baseUrl: string): string {
   try {
     const url = new URL(baseUrl);
-    return `${url.hostname}:${url.port || '80'}`;
+    // Omit default ports (80 for http, 443 for https)
+    const port = url.port;
+    if (port && port !== '80' && port !== '443') {
+      return `${url.hostname}:${port}`;
+    }
+    return url.hostname;
   } catch {
     // Fallback: strip common prefixes/suffixes
     return baseUrl
       .replace(/^https?:\/\//, '')
-      .replace(/\/v1\/?$/, '');
+      .replace(/\/v1\/?$/, '')
+      .replace(/\/v1beta\/openai\/?$/, '');
   }
 }
 

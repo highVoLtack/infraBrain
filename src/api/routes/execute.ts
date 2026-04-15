@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { AuditLogger } from '../../audit/logger.js';
-import type { InfraBrainConfig, ModelMapEntry } from '../../config/types.js';
+import type { InfraBrainConfig } from '../../config/types.js';
+import { resolveEmbeddingConfig } from '../../config/types.js';
 import type { RunResult } from '../../execution/types.js';
 import type { LLMProvider } from '../../llm/types.js';
 import type { SkillRegistry } from '../../skills/registry.js';
@@ -194,15 +195,7 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
           await cacheStore.init();
 
           // Resolve embedding model config
-          const embeddingEntry = deps.config.modelMap?.embedding as ModelMapEntry | undefined;
-          const embeddingBaseURL = typeof embeddingEntry === 'object' && embeddingEntry !== null
-            ? (embeddingEntry as { baseUrl: string }).baseUrl
-            : (deps.config.defaultBaseUrl ?? 'http://localhost:11434/v1');
-          const embeddingModelId = typeof embeddingEntry === 'string'
-            ? embeddingEntry
-            : typeof embeddingEntry === 'object' && embeddingEntry !== null
-              ? (embeddingEntry as { model: string }).model
-              : 'bge-m3';
+          const embCfg = resolveEmbeddingConfig(deps.config);
 
           // Store successful fix in cache for future lookups
           if (result.status === 'completed' && skillName) {
@@ -214,8 +207,8 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
               skillName: String(skillName),
               sessionId: String(sessionId),
               store: cacheStore,
-              baseURL: embeddingBaseURL,
-              modelId: embeddingModelId,
+              baseURL: embCfg.baseURL,
+              modelId: embCfg.modelId,
             });
           }
 
@@ -242,16 +235,8 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
           const entityStore = getEntityStore(memDataDir);
           const wal = getMemoryWAL(memDataDir);
 
-          // Resolve embedding params (same pattern as cache block above)
-          const embeddingEntry = deps.config.modelMap?.embedding as ModelMapEntry | undefined;
-          const memEmbeddingBaseURL = typeof embeddingEntry === 'object' && embeddingEntry !== null
-            ? (embeddingEntry as { baseUrl: string }).baseUrl
-            : (deps.config.defaultBaseUrl ?? 'http://localhost:11434/v1');
-          const memEmbeddingModelId = typeof embeddingEntry === 'string'
-            ? embeddingEntry
-            : typeof embeddingEntry === 'object' && embeddingEntry !== null
-              ? (embeddingEntry as { model: string }).model
-              : 'bge-m3';
+          // Resolve embedding params
+          const memEmbCfg = resolveEmbeddingConfig(deps.config);
 
           // Use structured rootCause from DPEVResult when available.
           // req.body.diagnosis is the full free-text diagnosis -- use it for the diagnosis field.
@@ -264,7 +249,7 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
 
           // Format for embedding: rootCause and diagnosis are now semantically distinct
           const embeddingText = formatIncidentEmbeddingInput(rootCause, services, diagnosisText);
-          const vector = await generateEmbedding(embeddingText, memEmbeddingBaseURL, memEmbeddingModelId);
+          const vector = await generateEmbedding(embeddingText, memEmbCfg.baseURL, memEmbCfg.modelId, { apiKey: memEmbCfg.apiKey });
 
           if (vector) {
             // WAL first, then store (MEM-09: audit trail before mutation)
@@ -310,7 +295,7 @@ export function createExecuteRoute(deps: ExecuteRouteDeps): Router {
 
                 // Embed entity with context for richer vectors (per RESEARCH.md open question 2)
                 const entityText = `${entity.entity_type}: ${entity.entity_value} (${entity.relationship_type} incident)`;
-                const entityVector = await generateEmbedding(entityText, memEmbeddingBaseURL, memEmbeddingModelId);
+                const entityVector = await generateEmbedding(entityText, memEmbCfg.baseURL, memEmbCfg.modelId, { apiKey: memEmbCfg.apiKey });
                 if (entityVector) {
                   await entityStore.add(entity, entityVector);
                 }
