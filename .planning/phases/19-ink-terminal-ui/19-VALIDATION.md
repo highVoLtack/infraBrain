@@ -2,7 +2,7 @@
 phase: 19
 slug: ink-terminal-ui
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-04-15
 ---
@@ -19,7 +19,7 @@ created: 2026-04-15
 |----------|-------|
 | **Framework** | Vitest 4.0.18 |
 | **Config file** | `vitest.config.ts` |
-| **Quick run command** | `npx vitest run tests/ui --reporter=verbose` |
+| **Quick run command** | `npx vitest run tests/ui tests/api/stream-*.test.ts --reporter=verbose` |
 | **Full suite command** | `npx vitest run` |
 | **Estimated runtime** | ~30 seconds |
 
@@ -36,33 +36,53 @@ created: 2026-04-15
 
 ## Per-Task Verification Map
 
-| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 19-01-01 | 01 | 1 | TERM-01 | unit | `npx vitest run tests/ui/dpev-panel.test.tsx -t "phase header" -x` | Wave 0 | ⬜ pending |
-| 19-02-01 | 02 | 1 | TERM-02 | unit | `npx vitest run tests/ui/streaming-text.test.tsx -x` | Wave 0 | ⬜ pending |
-| 19-03-01 | 03 | 1 | TERM-03 | unit | `npx vitest run tests/ui/approval.test.tsx -x` | Wave 0 | ⬜ pending |
-| 19-04-01 | 04 | 2 | TERM-04 | unit | `npx vitest run tests/ui/status-dashboard.test.tsx -x` | Wave 0 | ⬜ pending |
-| 19-05-01 | 05 | 2 | TERM-05 | unit | `npx vitest run tests/ui/responsive-layout.test.tsx -x` | Wave 0 | ⬜ pending |
-| 19-06-01 | 06 | 2 | TERM-06 | unit | `npx vitest run tests/ui/step-card.test.tsx -x` | Wave 0 | ⬜ pending |
-| 19-07-01 | 07 | 1 | TERM-07 | integration | `npx vitest run tests/api/stream-debug.test.ts -x` | Wave 0 | ⬜ pending |
-| 19-08-01 | 08 | 3 | TERM-08 | integration | `npx vitest run tests/cli/commands.test.ts -x` | Exists | ⬜ pending |
+| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | Test File | Status |
+|---------|------|------|-------------|-----------|-------------------|-----------|--------|
+| 19-01-T1 | 01 | 1 | TERM-05, TERM-07 | build | `npx tsc --noEmit 2>&1 \| tail -5` | N/A (compilation check) | pending |
+| 19-01-T2 | 01 | 1 | TERM-05, TERM-07 | unit | `npx vitest run tests/ui/hooks.test.tsx --reporter=verbose` | tests/ui/hooks.test.tsx | pending |
+| 19-02-T1 | 02 | 2 | TERM-02, TERM-07 | integration | `npx vitest run tests/api/stream-debug.test.ts --reporter=verbose` | tests/api/stream-debug.test.ts | pending |
+| 19-02-T2 | 02 | 2 | TERM-02, TERM-07 | integration | `npx vitest run tests/api/stream-execute.test.ts --reporter=verbose` | tests/api/stream-execute.test.ts | pending |
+| 19-03-T1 | 03 | 2 | TERM-01, TERM-03, TERM-06 | unit | `npx vitest run tests/ui/components.test.tsx --reporter=verbose` | tests/ui/components.test.tsx | pending |
+| 19-03-T2 | 03 | 2 | TERM-03, TERM-06 | unit | `npx vitest run tests/ui/components.test.tsx --reporter=verbose` | tests/ui/components.test.tsx | pending |
+| 19-04-T1 | 04 | 3 | TERM-01, TERM-02 | unit | `npx vitest run tests/ui/dpev-panel.test.tsx --reporter=verbose` | tests/ui/dpev-panel.test.tsx | pending |
+| 19-04-T2 | 04 | 3 | TERM-01, TERM-02 | unit | `npx vitest run tests/ui/dpev-panel.test.tsx --reporter=verbose` | tests/ui/dpev-panel.test.tsx | pending |
+| 19-05-T1 | 05 | 2 | TERM-04, TERM-05 | unit | `npx vitest run tests/ui/layout.test.tsx --reporter=verbose` | tests/ui/layout.test.tsx | pending |
+| 19-05-T2 | 05 | 2 | TERM-04, TERM-05 | unit | `npx vitest run tests/ui/layout.test.tsx --reporter=verbose` | tests/ui/layout.test.tsx | pending |
+| 19-06-T1 | 06 | 4 | TERM-04, TERM-08 | unit | `npx vitest run tests/ui/app.test.tsx --reporter=verbose` | tests/ui/app.test.tsx | pending |
+| 19-06-T2 | 06 | 4 | TERM-08 | integration | `npx vitest run tests/cli/ tests/ui/app.test.tsx --reporter=verbose` | tests/cli/commands.test.ts, tests/ui/app.test.tsx | pending |
+| 19-06-T3 | 06 | 4 | ALL | checkpoint | `npm test` | Full suite | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
-## Wave 0 Requirements
+## Test File to Plan Mapping
 
-- [ ] `tests/ui/dpev-panel.test.tsx` — stubs for TERM-01 (DPEV phase header display)
-- [ ] `tests/ui/streaming-text.test.tsx` — stubs for TERM-02 (token-by-token streaming render)
-- [ ] `tests/ui/approval.test.tsx` — stubs for TERM-03 (all 3 approval tiers: READ/WRITE/DESTRUCTIVE)
-- [ ] `tests/ui/status-dashboard.test.tsx` — stubs for TERM-04 (header bar + overlay)
-- [ ] `tests/ui/responsive-layout.test.tsx` — stubs for TERM-05 (3 breakpoints: <80, 80-119, >=120)
-- [ ] `tests/ui/step-card.test.tsx` — stubs for TERM-06 (step cards with risk colors)
-- [ ] `tests/api/stream-debug.test.ts` — stubs for TERM-07 (SSE endpoint streaming)
-- [ ] TSConfig JSX configuration: `"jsx": "react-jsx"` in tsconfig.json
-- [ ] Vitest config update: include `tests/ui/**/*.test.tsx` pattern
-- [ ] Framework install: `npm install ink@7 react@19 @inkjs/ui@2 ink-testing-library@4 @types/react@19`
+| Test File | Created By | Requirements Covered |
+|-----------|------------|---------------------|
+| `tests/ui/hooks.test.tsx` | Plan 01 Task 2 | TERM-05, TERM-07 (SSE types, responsive breakpoints, panel cycling) |
+| `tests/api/stream-debug.test.ts` | Plan 02 Task 1 | TERM-02, TERM-07 (SSE streaming, cache hit approval) |
+| `tests/api/stream-execute.test.ts` | Plan 02 Task 2 | TERM-02, TERM-07 (execution streaming, step approval) |
+| `tests/ui/components.test.tsx` | Plan 03 Tasks 1+2 | TERM-01, TERM-03, TERM-06 (streaming text, approval components, step cards) |
+| `tests/ui/dpev-panel.test.tsx` | Plan 04 Tasks 1+2 | TERM-01, TERM-02 (DPEV state machine, panel integration) |
+| `tests/ui/layout.test.tsx` | Plan 05 Tasks 1+2 | TERM-04, TERM-05 (responsive layout, header bar, session/entity panels) |
+| `tests/ui/app.test.tsx` | Plan 06 Task 1 | TERM-04, TERM-08 (root app, status overlay, keyboard routing) |
+| `tests/cli/commands.test.ts` | Plan 06 Task 2 (existing + extended) | TERM-08 (backward CLI compatibility) |
+
+---
+
+## Requirement Coverage
+
+| Requirement | Test Files | Plans |
+|-------------|------------|-------|
+| TERM-01 | components.test.tsx, dpev-panel.test.tsx | 03, 04 |
+| TERM-02 | stream-debug.test.ts, dpev-panel.test.tsx | 02, 04 |
+| TERM-03 | components.test.tsx | 03 |
+| TERM-04 | layout.test.tsx, app.test.tsx | 05, 06 |
+| TERM-05 | hooks.test.tsx, layout.test.tsx | 01, 05 |
+| TERM-06 | components.test.tsx | 03 |
+| TERM-07 | hooks.test.tsx, stream-debug.test.ts, stream-execute.test.ts | 01, 02 |
+| TERM-08 | app.test.tsx, commands.test.ts | 06 |
 
 ---
 
@@ -79,11 +99,12 @@ created: 2026-04-15
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify commands
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Test file to plan mapping is complete and accurate
+- [x] No watch-mode flags
+- [x] Feedback latency < 30s
+- [x] `nyquist_compliant: true` set in frontmatter
+- [x] No references to non-existent plans
 
 **Approval:** pending
