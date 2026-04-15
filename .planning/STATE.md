@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
 status: active
-stopped_at: Phase 19 Plan 05 complete
-last_updated: "2026-04-15T13:17:40.000Z"
-last_activity: 2026-04-15 -- Plan 19-05 complete (Panel layout, header bar, session/entity panels, GET /entities endpoint)
+stopped_at: Phase 19 Plan 04 complete
+last_updated: "2026-04-15T13:28:54.000Z"
+last_activity: 2026-04-15 -- Plan 19-04 complete (DPEV state machine reducer + center panel with accordion)
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 15
-  completed_plans: 15
+  total_plans: 16
+  completed_plans: 16
   percent: 100
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 19 of 19 (Ink Terminal UI)
-Plan: 5 of 6 executed
-Status: Plan 19-05 complete -- Panel layout, header bar, session/entity panels, GET /entities endpoint
-Last activity: 2026-04-15 -- Plan 19-05 complete (Panel layout, header bar, session/entity panels, GET /entities endpoint)
+Plan: 6 of 6 executed (plans 1-5 + plan 4 now complete)
+Status: Plan 19-04 complete -- DPEV state machine reducer + center panel with accordion
+Last activity: 2026-04-15 -- Plan 19-04 complete (DPEV state machine reducer + center panel with accordion)
 
-Progress: [████████░░] 83%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -116,6 +116,10 @@ Progress: [████████░░] 83%
 - [Phase 19-05]: EntityStoreReader interface for dependency injection in entities route
 - [Phase 19-05]: GET /entities queries all 6 entity types and deduplicates (EntityStore.getActive requires entityType param)
 - [Phase 19-05]: Windowed session rendering (max 20) to prevent terminal performance issues per RESEARCH.md Pitfall 3
+- [Phase 19-04]: dpevReducer exported as pure function (not inside hook) for direct unit testing without React context
+- [Phase 19-04]: shouldShowCacheHitBanner disambiguates cache hit vs execution approval by checking pendingApproval absence
+- [Phase 19-04]: APPROVAL_RESPONSE resumes to 'executing' if executionSteps exist, 'streaming' otherwise (context-aware)
+- [Phase 19-04]: DPEVPanel dual-mode: prompt prop activates live SSE streaming, replaySession renders read-only state
 
 ### Pending Todos
 
@@ -129,6 +133,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-15T13:17:40.000Z
-Stopped at: Phase 19 Plan 05 complete
+Last session: 2026-04-15T13:28:54.000Z
+Stopped at: Phase 19 Plan 04 complete
 Resume: Phase 19 Plan 06 (App Shell + Integration)
