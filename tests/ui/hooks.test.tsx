@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { parseSSEStream } from '../../src/ui/hooks/useSSE.js';
+import { getLayoutMode } from '../../src/ui/hooks/useResponsive.js';
+import { usePanel } from '../../src/ui/hooks/usePanel.js';
+import { riskColor, statusIcon, providerBadge, theme } from '../../src/ui/theme.js';
+import { SSE_EVENT_NAMES } from '../../src/ui/types.js';
 
 // ---- parseSSEStream tests ----
 describe('parseSSEStream', () => {
   it('yields event/data pairs from SSE text chunks', async () => {
-    const { parseSSEStream } = await import('../../src/ui/hooks/useSSE.js');
-
     // Mock a ReadableStream with SSE-formatted text
     const sseText =
       'event: dpev:phase\ndata: {"phase":"discovery","model":"qwen3-32b","status":"active"}\n\n' +
@@ -39,8 +42,6 @@ describe('parseSSEStream', () => {
   });
 
   it('handles chunks split across reads', async () => {
-    const { parseSSEStream } = await import('../../src/ui/hooks/useSSE.js');
-
     const chunk1 = 'event: dpev:phase\nda';
     const chunk2 = 'ta: {"phase":"diagnosis"}\n\n';
 
@@ -72,79 +73,45 @@ describe('parseSSEStream', () => {
   });
 });
 
-// ---- useResponsive tests ----
-describe('useResponsive', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
+// ---- useResponsive tests (testing pure breakpoint logic) ----
+describe('useResponsive (getLayoutMode)', () => {
+  it('returns "full" mode for columns >= 120', () => {
+    expect(getLayoutMode(150)).toBe('full');
   });
 
-  it('returns "full" mode for columns >= 120', async () => {
-    vi.doMock('ink', () => ({
-      useWindowSize: () => ({ columns: 150, rows: 40 }),
-    }));
-    const { useResponsive } = await import('../../src/ui/hooks/useResponsive.js');
-    const result = useResponsive();
-    expect(result.mode).toBe('full');
-    expect(result.columns).toBe(150);
-    expect(result.rows).toBe(40);
-    vi.doUnmock('ink');
+  it('returns "compact" mode for columns 80-119', () => {
+    expect(getLayoutMode(100)).toBe('compact');
   });
 
-  it('returns "compact" mode for columns 80-119', async () => {
-    vi.doMock('ink', () => ({
-      useWindowSize: () => ({ columns: 100, rows: 30 }),
-    }));
-    const { useResponsive } = await import('../../src/ui/hooks/useResponsive.js');
-    const result = useResponsive();
-    expect(result.mode).toBe('compact');
-    expect(result.columns).toBe(100);
-    vi.doUnmock('ink');
+  it('returns "minimal" mode for columns < 80', () => {
+    expect(getLayoutMode(60)).toBe('minimal');
   });
 
-  it('returns "minimal" mode for columns < 80', async () => {
-    vi.doMock('ink', () => ({
-      useWindowSize: () => ({ columns: 60, rows: 20 }),
-    }));
-    const { useResponsive } = await import('../../src/ui/hooks/useResponsive.js');
-    const result = useResponsive();
-    expect(result.mode).toBe('minimal');
-    expect(result.columns).toBe(60);
-    vi.doUnmock('ink');
+  it('returns "full" at exactly 120 columns', () => {
+    expect(getLayoutMode(120)).toBe('full');
   });
 
-  it('returns "full" at exactly 120 columns', async () => {
-    vi.doMock('ink', () => ({
-      useWindowSize: () => ({ columns: 120, rows: 35 }),
-    }));
-    const { useResponsive } = await import('../../src/ui/hooks/useResponsive.js');
-    const result = useResponsive();
-    expect(result.mode).toBe('full');
-    vi.doUnmock('ink');
+  it('returns "compact" at exactly 80 columns', () => {
+    expect(getLayoutMode(80)).toBe('compact');
   });
 
-  it('returns "compact" at exactly 80 columns', async () => {
-    vi.doMock('ink', () => ({
-      useWindowSize: () => ({ columns: 80, rows: 25 }),
-    }));
-    const { useResponsive } = await import('../../src/ui/hooks/useResponsive.js');
-    const result = useResponsive();
-    expect(result.mode).toBe('compact');
-    vi.doUnmock('ink');
+  it('returns "minimal" at 79 columns', () => {
+    expect(getLayoutMode(79)).toBe('minimal');
+  });
+
+  it('returns "compact" at 119 columns', () => {
+    expect(getLayoutMode(119)).toBe('compact');
   });
 });
 
 // ---- usePanel tests ----
 describe('usePanel', () => {
   it('starts with "left" as active panel', () => {
-    // Inline implementation test -- usePanel is a plain state hook
-    // We test the exported logic directly
-    const { usePanel } = require('../../src/ui/hooks/usePanel.js');
     const result = usePanel();
     expect(result.activePanel).toBe('left');
   });
 
   it('cycles left -> center -> right -> left', () => {
-    const { usePanel } = require('../../src/ui/hooks/usePanel.js');
     const panel = usePanel();
 
     expect(panel.activePanel).toBe('left');
@@ -157,7 +124,6 @@ describe('usePanel', () => {
   });
 
   it('setPanel sets active panel directly', () => {
-    const { usePanel } = require('../../src/ui/hooks/usePanel.js');
     const panel = usePanel();
 
     panel.setPanel('right');
@@ -170,78 +136,65 @@ describe('usePanel', () => {
 // ---- theme tests ----
 describe('theme', () => {
   describe('riskColor', () => {
-    it('returns green for "read"', async () => {
-      const { riskColor } = await import('../../src/ui/theme.js');
+    it('returns green for "read"', () => {
       expect(riskColor('read')).toBe('green');
     });
 
-    it('returns yellow for "write"', async () => {
-      const { riskColor } = await import('../../src/ui/theme.js');
+    it('returns yellow for "write"', () => {
       expect(riskColor('write')).toBe('yellow');
     });
 
-    it('returns red for "destructive"', async () => {
-      const { riskColor } = await import('../../src/ui/theme.js');
+    it('returns red for "destructive"', () => {
       expect(riskColor('destructive')).toBe('red');
     });
 
-    it('returns gray for "blocked"', async () => {
-      const { riskColor } = await import('../../src/ui/theme.js');
+    it('returns gray for "blocked"', () => {
       expect(riskColor('blocked')).toBe('gray');
     });
 
-    it('returns gray for unknown risk levels', async () => {
-      const { riskColor } = await import('../../src/ui/theme.js');
+    it('returns gray for unknown risk levels', () => {
       expect(riskColor('unknown')).toBe('gray');
     });
   });
 
   describe('statusIcon', () => {
-    it('returns spinner char for "active"', async () => {
-      const { statusIcon } = await import('../../src/ui/theme.js');
-      expect(statusIcon('active')).toBe('\u25CB'); // circle
+    it('returns spinner char for "active"', () => {
+      expect(statusIcon('active')).toBe('\u25CB');
     });
 
-    it('returns checkmark for "complete"', async () => {
-      const { statusIcon } = await import('../../src/ui/theme.js');
-      expect(statusIcon('complete')).toBe('\u2713'); // checkmark
+    it('returns checkmark for "complete"', () => {
+      expect(statusIcon('complete')).toBe('\u2713');
     });
 
-    it('returns cross for "error"', async () => {
-      const { statusIcon } = await import('../../src/ui/theme.js');
-      expect(statusIcon('error')).toBe('\u2717'); // cross
+    it('returns cross for "error"', () => {
+      expect(statusIcon('error')).toBe('\u2717');
     });
 
-    it('returns dot for "pending"', async () => {
-      const { statusIcon } = await import('../../src/ui/theme.js');
-      expect(statusIcon('pending')).toBe('\u00B7'); // middle dot
+    it('returns dot for "pending"', () => {
+      expect(statusIcon('pending')).toBe('\u00B7');
     });
   });
 
   describe('providerBadge', () => {
-    it('returns blue badge for Docker', async () => {
-      const { providerBadge } = await import('../../src/ui/theme.js');
+    it('returns blue badge for Docker', () => {
       const badge = providerBadge('Docker');
       expect(badge.label).toBe('Docker');
       expect(badge.color).toBe('blue');
     });
 
-    it('returns cyan badge for Postgres', async () => {
-      const { providerBadge } = await import('../../src/ui/theme.js');
+    it('returns cyan badge for Postgres', () => {
       const badge = providerBadge('Postgres');
       expect(badge.label).toBe('Postgres');
       expect(badge.color).toBe('cyan');
     });
 
-    it('returns green badge for Nginx', async () => {
-      const { providerBadge } = await import('../../src/ui/theme.js');
+    it('returns green badge for Nginx', () => {
       const badge = providerBadge('Nginx');
       expect(badge.label).toBe('Nginx');
       expect(badge.color).toBe('green');
     });
 
-    it('returns white badge for unknown provider', async () => {
-      const { providerBadge } = await import('../../src/ui/theme.js');
+    it('returns white badge for unknown provider', () => {
       const badge = providerBadge('SomeService');
       expect(badge.label).toBe('SomeService');
       expect(badge.color).toBe('white');
@@ -249,8 +202,7 @@ describe('theme', () => {
   });
 
   describe('theme object', () => {
-    it('exports color palette constants', async () => {
-      const { theme } = await import('../../src/ui/theme.js');
+    it('exports color palette constants', () => {
       expect(theme.headerBg).toBeDefined();
       expect(theme.panelBorder).toBeDefined();
       expect(theme.panelBorderFocused).toBeDefined();
@@ -262,18 +214,8 @@ describe('theme', () => {
 
 // ---- SSEEventMap type coverage ----
 describe('SSEEventMap types', () => {
-  it('covers all required event types', async () => {
-    // Type-level test: verify SSEEventMap has all required keys
-    // This test will fail to compile if any keys are missing
-    const types = await import('../../src/ui/types.js');
-
-    // Runtime check that the type file exports what we expect
-    expect(types).toBeDefined();
-
-    // We verify the type structure exists by checking we can reference it
-    // The real test is that TypeScript compiles this file without error
-    type EventKeys = keyof typeof types.SSE_EVENT_NAMES;
-    const eventNames: Record<string, string> = types.SSE_EVENT_NAMES;
+  it('covers all required event types', () => {
+    const eventNames: Record<string, string> = SSE_EVENT_NAMES;
 
     expect(eventNames['PHASE']).toBe('dpev:phase');
     expect(eventNames['TOKEN']).toBe('dpev:token');
