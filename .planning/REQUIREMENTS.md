@@ -18,6 +18,13 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 - [x] **TERM-07**: Express REST API serves SSE endpoints for live streaming to Ink renderer
 - [x] **TERM-08**: All existing CLI commands work through Ink renderer (backwards compatible)
 
+### Terminal UI Polish (Phase 19.1)
+
+- [ ] **TERM-P01**: SSE streaming sessions persist target name (prompt) and DPEV events to session store, appear in Sessions panel on restart
+- [ ] **TERM-P02**: Session replay loads full DPEV phase timeline (Discovery, Diagnosis, Plan with models and timing) from persisted audit events
+- [ ] **TERM-P03**: Entity panel renders entities from completed execute cycles (extracted from MemPalace entity store, grouped by provider)
+- [ ] **TERM-P04**: Session items show prompt excerpt and outcome (completed/failed/in-progress) instead of "unknown [-]"
+
 ### Parallel Execution
 
 - [x] **EXEC-01**: Discovery commands run in parallel via `Promise.all()` (2-5x speedup)
@@ -141,10 +148,15 @@ Deferred to future release. Tracked but not in current roadmap.
 | TERM-06 | Phase 19 | Complete |
 | TERM-07 | Phase 19 | Complete |
 | TERM-08 | Phase 19 | Complete |
+| TERM-P01 | Phase 19.1 | Planned |
+| TERM-P02 | Phase 19.1 | Planned |
+| TERM-P03 | Phase 19.1 | Planned |
+| TERM-P04 | Phase 19.1 | Planned |
 
 **Coverage:**
-- v1.3 requirements: 40 total
-- Mapped to phases: 40
+- v1.3 requirements: 40 total (complete)
+- v1.3 polish requirements: 4 total (Phase 19.1)
+- Mapped to phases: 44
 - Unmapped: 0
 
 ---

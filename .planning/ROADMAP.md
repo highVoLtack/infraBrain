@@ -62,6 +62,7 @@
 - [x] **Phase 17: MemPalace Semantic Memory** - Native TypeScript incident memory with temporal knowledge graph and semantic search (completed 2026-04-14)
 - [x] **Phase 18: Parallel Inference Pipeline** - Concurrent 9B pre-processing + 122B reasoning via Promise.allSettled (completed 2026-04-15)
 - [x] **Phase 19: Ink/React Terminal UI** - Full terminal renderer with live DPEV tracking, streaming output, and rich dashboard (completed 2026-04-15)
+- [ ] **Phase 19.1: Ink UI Polish** - Session persistence for SSE sessions, session replay with DPEV phases, entity panel population, UX refinements
 
 ## Phase Details
 
@@ -162,9 +163,21 @@ Plans:
 - [x] 19-05-PLAN.md -- Responsive panel layout, header bar, session panel, entity panel
 - [x] 19-06-PLAN.md -- App root, status overlay, index.ts wiring, backward CLI compatibility
 
+### Phase 19.1: Ink UI Polish
+**Goal**: SSE-created sessions appear in session history, replay shows full DPEV phase timeline, entity panel populates from live incidents
+**Depends on**: Phase 19 (Ink UI foundation)
+**Requirements**: TERM-P01, TERM-P02, TERM-P03, TERM-P04
+**Success Criteria** (what must be TRUE):
+  1. A `debug "nginx is down"` session via SSE appears in Sessions panel after restart (with prompt as target name)
+  2. Selecting a past SSE session replays the full DPEV accordion (Discovery, Diagnosis, Plan phases with timing)
+  3. Entity panel shows entities extracted from completed execute cycles (providers, services, containers)
+  4. Session items show prompt excerpt and outcome status instead of "unknown"
+**Plans:** 0/0 plans
+Plans: (to be planned via `/gsd:plan-phase 19.1`)
+
 ## Progress
 
-**Execution Order:** Phases 14 -> 15 -> 16 -> 17 -> 18 -> 19
+**Execution Order:** Phases 14 -> 15 -> 16 -> 17 -> 18 -> 19 -> 19.1
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|

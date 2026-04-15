@@ -139,5 +139,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-15T14:28:22.484Z
-Stopped at: v1.3 milestone complete -- all 6 phases shipped
-Resume: v1.3 shipped. Next: v2.0 planning or maintenance
+Stopped at: Phase 19 verified, Phase 19.1 (Ink UI Polish) added to roadmap
+Resume: `/gsd:plan-phase 19.1` to create plans for session persistence, replay, entity panel
