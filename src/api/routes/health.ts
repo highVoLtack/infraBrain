@@ -90,11 +90,16 @@ export function createHealthRoute(config: InfraBrainConfig, registry?: ModelRegi
     const allConnected = backends.every(b => b.connected);
     const anyConnected = backends.some(b => b.connected);
 
+    // Count distinct connected backend URLs to determine inference mode
+    const connectedUrls = new Set(backends.filter(b => b.connected).map(b => b.baseUrl));
+    const inferenceMode = connectedUrls.size >= 2 ? 'parallel' : 'sequential';
+
     res.json({
       status: 'ok',
       backends,
       ...(registryStatus && { registry: registryStatus }),
       summary: allConnected ? 'all_connected' : anyConnected ? 'partial' : 'all_disconnected',
+      inferenceMode,
     });
   });
 
