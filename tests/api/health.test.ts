@@ -237,4 +237,109 @@ describe('Health Route', () => {
     // fetch should be called exactly once (1 unique backend, not 7 times for 7 roles)
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
+
+  describe('multi-backend inference mode', () => {
+    it('2 distinct baseUrls both connected -> inferenceMode: parallel', async () => {
+      const config = makeConfig({
+        modelMap: {
+          default: 'infrabrain',
+          strategic: 'llama3.3:70b',
+          forensic: { model: 'deepseek-r1:32b', baseUrl: 'http://localhost:8000/v1' },
+          worker: 'qwen2.5-coder:7b',
+          vision: 'llama3.2-vision',
+          triage: 'infrabrain',
+          embedding: 'bge-m3',
+        },
+      });
+      const app = express();
+      app.use('/health', createHealthRoute(config));
+
+      globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('localhost:11434')) {
+          return Promise.resolve({
+            json: () => Promise.resolve({ data: [{ id: 'infrabrain' }] }),
+          });
+        }
+        if (typeof url === 'string' && url.includes('localhost:8000')) {
+          return Promise.resolve({
+            json: () => Promise.resolve({ data: [{ id: 'deepseek-r1:32b' }] }),
+          });
+        }
+        return Promise.reject(new Error('ECONNREFUSED'));
+      }) as any;
+
+      const res = await request(app).get('/health');
+
+      expect(res.status).toBe(200);
+      expect(res.body.inferenceMode).toBe('parallel');
+    });
+
+    it('2 distinct baseUrls, only 1 connected -> inferenceMode: sequential', async () => {
+      const config = makeConfig({
+        modelMap: {
+          default: 'infrabrain',
+          strategic: 'llama3.3:70b',
+          forensic: { model: 'deepseek-r1:32b', baseUrl: 'http://localhost:8000/v1' },
+          worker: 'qwen2.5-coder:7b',
+          vision: 'llama3.2-vision',
+          triage: 'infrabrain',
+          embedding: 'bge-m3',
+        },
+      });
+      const app = express();
+      app.use('/health', createHealthRoute(config));
+
+      globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('localhost:11434')) {
+          return Promise.resolve({
+            json: () => Promise.resolve({ data: [{ id: 'infrabrain' }] }),
+          });
+        }
+        return Promise.reject(new Error('ECONNREFUSED'));
+      }) as any;
+
+      const res = await request(app).get('/health');
+
+      expect(res.status).toBe(200);
+      expect(res.body.inferenceMode).toBe('sequential');
+    });
+
+    it('1 baseUrl (all roles same backend) -> inferenceMode: sequential', async () => {
+      const config = makeConfig(); // All roles use defaultBaseUrl
+      const app = express();
+      app.use('/health', createHealthRoute(config));
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({ data: [{ id: 'infrabrain' }] }),
+      }) as any;
+
+      const res = await request(app).get('/health');
+
+      expect(res.status).toBe(200);
+      expect(res.body.inferenceMode).toBe('sequential');
+    });
+
+    it('0 backends connected -> inferenceMode: sequential', async () => {
+      const config = makeConfig({
+        modelMap: {
+          default: 'infrabrain',
+          strategic: 'llama3.3:70b',
+          forensic: { model: 'deepseek-r1:32b', baseUrl: 'http://localhost:8000/v1' },
+          worker: 'qwen2.5-coder:7b',
+          vision: 'llama3.2-vision',
+          triage: 'infrabrain',
+          embedding: 'bge-m3',
+        },
+      });
+      const app = express();
+      app.use('/health', createHealthRoute(config));
+
+      globalThis.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED')) as any;
+
+      const res = await request(app).get('/health');
+
+      expect(res.status).toBe(200);
+      expect(res.body.inferenceMode).toBe('sequential');
+    });
+  });
 });
