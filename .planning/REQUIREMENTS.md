@@ -20,10 +20,10 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 
 ### Terminal UI Polish (Phase 19.1)
 
-- [ ] **TERM-P01**: SSE streaming sessions persist target name (prompt) and DPEV events to session store, appear in Sessions panel on restart
+- [x] **TERM-P01**: SSE streaming sessions persist target name (prompt) and DPEV events to session store, appear in Sessions panel on restart
 - [ ] **TERM-P02**: Session replay loads full DPEV phase timeline (Discovery, Diagnosis, Plan with models and timing) from persisted audit events
 - [ ] **TERM-P03**: Entity panel renders entities from completed execute cycles (extracted from MemPalace entity store, grouped by provider)
-- [ ] **TERM-P04**: Session items show prompt excerpt and outcome (completed/failed/in-progress) instead of "unknown [-]"
+- [x] **TERM-P04**: Session items show prompt excerpt and outcome (completed/failed/in-progress) instead of "unknown [-]"
 
 ### Parallel Execution
 

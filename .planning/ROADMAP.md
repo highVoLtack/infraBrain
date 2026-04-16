@@ -172,7 +172,7 @@ Plans:
   2. Selecting a past SSE session replays the full DPEV accordion (Discovery, Diagnosis, Plan phases with timing)
   3. Entity panel shows entities extracted from completed execute cycles (providers, services, containers)
   4. Session items show prompt excerpt and outcome status instead of "unknown"
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 19.1-01-PLAN.md -- Backend: SSE session persistence + DPEV phase audit logging
 - [ ] 19.1-02-PLAN.md -- Frontend: Session replay from audit events, entity refresh, session display
@@ -201,7 +201,7 @@ Plans:
 | 17 | v1.3 | 4/4 | Complete | 2026-04-14 |
 | 18 | v1.3 | 2/2 | Complete | 2026-04-15 |
 | 19 | v1.3 | 6/6 | Complete | 2026-04-15 |
-| 19.1 | v1.3 | 0/2 | In Progress | -- |
+| 19.1 | 1/2 | In Progress|  | -- |
 
 ---
 *Roadmap created: 2026-03-07*

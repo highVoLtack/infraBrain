@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
-status: completed
-stopped_at: v1.3 milestone complete -- all 6 phases shipped
-last_updated: "2026-04-15T14:28:29.358Z"
-last_activity: 2026-04-15 -- Plan 19-06 complete (App shell + integration, Ink terminal UI verified end-to-end)
+status: in_progress
+stopped_at: Plan 19.1-01 complete (SSE session persistence + DPEV audit logging)
+last_updated: "2026-04-16T12:14:39Z"
+last_activity: 2026-04-16 -- Plan 19.1-01 complete (SSE session persistence + DPEV phase audit logging)
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
-  total_plans: 21
-  completed_plans: 21
-  percent: 100
+  total_plans: 23
+  completed_plans: 22
+  percent: 96
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 
 ## Current Position
 
-Phase: 19 of 19 (Ink Terminal UI) -- COMPLETE
-Plan: 6 of 6 executed (all plans complete)
-Status: v1.3 milestone complete -- all 6 phases (14-19) shipped
-Last activity: 2026-04-15 -- Plan 19-06 complete (App shell + integration, Ink terminal UI verified end-to-end)
+Phase: 19.1 of 19.1 (Ink UI Polish)
+Plan: 1 of 2 executed
+Status: Plan 19.1-01 complete -- SSE session persistence + DPEV phase audit logging
+Last activity: 2026-04-16 -- Plan 19.1-01 complete (SSE session persistence + DPEV phase audit logging)
 
-Progress: [██████████] 100%
+Progress: [█████████░] 96%
 
 ## Performance Metrics
 
@@ -125,6 +125,10 @@ Progress: [██████████] 100%
 - [Phase 19-06]: Session panel filters 'unknown' entries for clean session display
 - [Phase 19-06]: Persistent command input always visible at bottom of screen
 - [Phase 19-06]: Health check trailing slash fix and API key propagation for Gemini-compatible endpoints
+- [Phase 19.1-01]: DPEV phase audit calls wrapped in try-catch as non-critical path (pipeline never fails due to audit logging)
+- [Phase 19.1-01]: Per-session AuditLogger created per SSE request for correct audit.jsonl routing
+- [Phase 19.1-01]: baseDir added to StreamDebugRouteDeps (defaults to process.cwd()) for session directory derivation
+- [Phase 19.1-01]: Session persistence non-critical: all store operations wrapped in try-catch
 
 ### Pending Todos
 
@@ -138,6 +142,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-15T14:28:22.484Z
-Stopped at: Phase 19 verified, Phase 19.1 (Ink UI Polish) added to roadmap
-Resume: `/gsd:plan-phase 19.1` to create plans for session persistence, replay, entity panel
+Last session: 2026-04-16T12:14:39Z
+Stopped at: Plan 19.1-01 complete (SSE session persistence + DPEV audit logging)
+Resume: `/gsd:execute-phase 19.1` to execute Plan 19.1-02 (replay + entity panel)
