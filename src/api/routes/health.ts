@@ -75,6 +75,9 @@ export function createHealthRoute(config: InfraBrainConfig, registry?: ModelRegi
             responseTimeMs: elapsed,
           };
         } catch (err) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.error(`[HEALTH] Backend probe failed for ${baseUrl}: ${(err as Error).message}`);
+          }
           return {
             baseUrl,
             connected: false,

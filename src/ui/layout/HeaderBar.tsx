@@ -121,11 +121,18 @@ export function HeaderBar({ apiBaseUrl }: HeaderBarProps): React.ReactElement {
       }
     }
 
+    // Fast initial poll (server may still be starting), then slow down
     fetchHealth();
-    intervalId = setInterval(fetchHealth, 30_000);
+    const fastPoll = setInterval(fetchHealth, 3_000);
+    const slowDown = setTimeout(() => {
+      clearInterval(fastPoll);
+      if (!cancelled) intervalId = setInterval(fetchHealth, 30_000);
+    }, 15_000);
 
     return () => {
       cancelled = true;
+      clearInterval(fastPoll);
+      clearTimeout(slowDown);
       if (intervalId) clearInterval(intervalId);
     };
   }, [apiBaseUrl]);

@@ -87,7 +87,6 @@ async function main(): Promise<void> {
   }
 
   // Create Express server
-  const apiBaseUrl = `http://localhost:${config.apiPort}`;
   const { app, start } = createServer({
     provider,
     auditLogger,
@@ -102,8 +101,10 @@ async function main(): Promise<void> {
     lockDir: join(baseDir, '.infrabrain', 'locks'),
   });
 
-  // Start server
+  // Start server (auto-finds free port if configured port is busy)
   const { server } = await start(config.apiPort);
+  const actualPort = (server.address() as { port: number })?.port ?? config.apiPort;
+  const apiBaseUrl = `http://localhost:${actualPort}`;
   console.log(chalk.gray(`[API] Listening on ${apiBaseUrl}`));
 
   // Register CLI commands

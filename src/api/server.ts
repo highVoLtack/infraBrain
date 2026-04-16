@@ -133,13 +133,28 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
   return {
     app,
     start: (port: number) => {
-      return new Promise<ServerInstance>((resolve) => {
+      return new Promise<ServerInstance>((resolve, reject) => {
         const server = app.listen(port, () => {
           // 10 minute timeout for long LLM calls over RunPod proxy
           server.timeout = 600_000;
           server.keepAliveTimeout = 600_000;
           server.headersTimeout = 610_000;
           resolve({ app, server });
+        });
+
+        // If configured port is busy, pick a free one automatically
+        server.on('error', (err: NodeJS.ErrnoException) => {
+          if (err.code === 'EADDRINUSE') {
+            console.log(`[API] Port ${port} in use, finding a free port...`);
+            const fallback = app.listen(0, () => {
+              fallback.timeout = 600_000;
+              fallback.keepAliveTimeout = 600_000;
+              fallback.headersTimeout = 610_000;
+              resolve({ app, server: fallback });
+            });
+          } else {
+            reject(err);
+          }
         });
       });
     },
