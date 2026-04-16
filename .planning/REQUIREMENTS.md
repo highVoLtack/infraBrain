@@ -25,6 +25,15 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 - [x] **TERM-P03**: Entity panel renders entities from completed execute cycles (extracted from MemPalace entity store, grouped by provider)
 - [x] **TERM-P04**: Session items show prompt excerpt and outcome (completed/failed/in-progress) instead of "unknown [-]"
 
+### End-to-End Debug Flow (Phase 19.2)
+
+- [ ] **TERM-E01**: Discovery phase shows spinner/progress indicator in DPEV panel while commands run
+- [ ] **TERM-E02**: After diagnosis+plan, Ink UI shows structured approval prompt (numbered steps with risk badges, Y/N input)
+- [ ] **TERM-E03**: On approval, SSE streams execution step progress (command, running/success/failed status, stdout/stderr per step)
+- [ ] **TERM-E04**: After execution, verification step result renders in panel (fix worked / still failing)
+- [ ] **TERM-E05**: Plan rendering shows structured steps (numbered list with risk badges) not raw Markdown text
+- [ ] **TERM-E06**: Session status updates to completed/failed based on actual execution outcome (not just "diagnosis done")
+
 ### Parallel Execution
 
 - [x] **EXEC-01**: Discovery commands run in parallel via `Promise.all()` (2-5x speedup)
@@ -148,16 +157,22 @@ Deferred to future release. Tracked but not in current roadmap.
 | TERM-06 | Phase 19 | Complete |
 | TERM-07 | Phase 19 | Complete |
 | TERM-08 | Phase 19 | Complete |
-| TERM-P01 | Phase 19.1 | Planned |
-| TERM-P02 | Phase 19.1 | Planned |
-| TERM-P03 | Phase 19.1 | Planned |
-| TERM-P04 | Phase 19.1 | Planned |
+| TERM-P01 | Phase 19.1 | Complete |
+| TERM-P02 | Phase 19.1 | Complete |
+| TERM-P03 | Phase 19.1 | Complete |
+| TERM-P04 | Phase 19.1 | Complete |
+| TERM-E01 | Phase 19.2 | Planned |
+| TERM-E02 | Phase 19.2 | Planned |
+| TERM-E03 | Phase 19.2 | Planned |
+| TERM-E04 | Phase 19.2 | Planned |
+| TERM-E05 | Phase 19.2 | Planned |
+| TERM-E06 | Phase 19.2 | Planned |
 
 **Coverage:**
 - v1.3 requirements: 40 total (complete)
-- v1.3 polish requirements: 4 total (Phase 19.1)
-- Mapped to phases: 44
-- Unmapped: 0
+- v1.3 polish: 4 total (Phase 19.1 complete)
+- v1.3 E2E flow: 6 total (Phase 19.2 planned)
+- Mapped to phases: 50
 
 ---
 *Requirements defined: 2026-04-10*

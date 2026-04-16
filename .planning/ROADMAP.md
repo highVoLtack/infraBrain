@@ -63,6 +63,7 @@
 - [x] **Phase 18: Parallel Inference Pipeline** - Concurrent 9B pre-processing + 122B reasoning via Promise.allSettled (completed 2026-04-15)
 - [x] **Phase 19: Ink/React Terminal UI** - Full terminal renderer with live DPEV tracking, streaming output, and rich dashboard (completed 2026-04-15)
 - [x] **Phase 19.1: Ink UI Polish** - Session persistence for SSE sessions, session replay with DPEV phases, entity panel population, UX refinements (completed 2026-04-16)
+- [ ] **Phase 19.2: End-to-End Debug Flow** - Complete DPEV+E+V in Ink: discovery spinner, plan approval prompt, execution with step progress, verification feedback
 
 ## Phase Details
 
@@ -177,9 +178,23 @@ Plans:
 - [ ] 19.1-01-PLAN.md -- Backend: SSE session persistence + DPEV phase audit logging
 - [ ] 19.1-02-PLAN.md -- Frontend: Session replay from audit events, entity refresh, session display
 
+### Phase 19.2: End-to-End Debug Flow
+**Goal**: User types a debug prompt and InfraBrain diagnoses, shows a plan with approval prompt, executes each step with live progress, and verifies the fix — all in the Ink UI without leaving the terminal
+**Depends on**: Phase 19.1 (session persistence, DPEV phase rendering)
+**Requirements**: TERM-E01, TERM-E02, TERM-E03, TERM-E04, TERM-E05, TERM-E06
+**Success Criteria** (what must be TRUE):
+  1. Discovery phase shows a spinner/progress indicator while commands run (not a blank screen)
+  2. After diagnosis+plan, user sees a structured approval prompt with the fix steps and can approve (Y) or reject (N)
+  3. On approval, each execution step streams progress in the DPEV panel (command, status, stdout/stderr)
+  4. After execution, verification result shows whether the fix worked (e.g. "HTTP 200 ✓" or "still failing")
+  5. Plan rendering shows structured steps (numbered, with risk badges) not raw Markdown
+  6. Session status updates from "in-progress" to "completed" or "failed" based on execution outcome
+**Plans:** 0/0 plans
+Plans: (to be planned via `/gsd:plan-phase 19.2`)
+
 ## Progress
 
-**Execution Order:** Phases 14 -> 15 -> 16 -> 17 -> 18 -> 19 -> 19.1
+**Execution Order:** Phases 14 -> 15 -> 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
