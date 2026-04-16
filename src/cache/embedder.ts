@@ -90,7 +90,7 @@ export async function isEmbeddingAvailable(
   }
 }
 
-/** Get the expected dimensions for a given embedding model, or null if unknown */
-export function getEmbeddingDimensions(modelId: string): number | null {
-  return KNOWN_DIMENSIONS[modelId] ?? detectedDimension;
+/** Get the expected dimensions for a given embedding model (defaults to 1024) */
+export function getEmbeddingDimensions(modelId: string): number {
+  return KNOWN_DIMENSIONS[modelId] ?? detectedDimension ?? 1024;
 }

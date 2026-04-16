@@ -17,9 +17,9 @@ const _stores = new Map<string, CacheStore>();
  * Get or create a CacheStore for the given data directory.
  * Returns a singleton per directory path.
  */
-export function getCacheStore(dataDir: string, vectorDim?: number): CacheStore {
+export function getCacheStore(dataDir: string): CacheStore {
   if (!_stores.has(dataDir)) {
-    _stores.set(dataDir, new CacheStore(dataDir, vectorDim));
+    _stores.set(dataDir, new CacheStore(dataDir));
   }
   return _stores.get(dataDir)!;
 }
@@ -36,19 +36,17 @@ export class CacheStore {
   private connection: lancedb.Connection | null = null;
   private table: lancedb.Table | null = null;
   private initPromise: Promise<void> | null = null;
-  private vectorDim: number;
 
-  constructor(dataDir: string, vectorDim = 1024) {
+  constructor(dataDir: string) {
     this.dataDir = dataDir;
-    this.vectorDim = vectorDim;
   }
 
   /**
-   * Lazy-initialize connection and table.
-   * Creates the fix_cache table if it does not exist.
+   * Lazy-initialize connection. Opens existing table if present.
+   * Table creation deferred to first add() — avoids hardcoding vector dimensions.
    */
   async init(): Promise<void> {
-    if (this.connection && this.table) return;
+    if (this.connection) return;
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = this._doInit();
@@ -61,35 +59,24 @@ export class CacheStore {
 
     if (tableNames.includes(TABLE_NAME)) {
       this.table = await this.connection.openTable(TABLE_NAME);
-    } else {
-      // Create table with a seed row then delete it (LanceDB requires data for schema inference)
-      const seedRow = this._makeSeedRow();
-      this.table = await this.connection.createTable(TABLE_NAME, [seedRow]);
-      await this.table.delete(`id = '${seedRow.id}'`);
     }
+    // If table doesn't exist yet, it will be created on first add()
+    // with the actual vector dimensions from the embedding model
   }
 
-  private _makeSeedRow(): Record<string, unknown> {
-    return {
-      id: '__seed__',
-      vector: new Array(this.vectorDim).fill(0),
-      error_signature: '',
-      skill_name: '',
-      fix_plan: '',
-      diagnosis: '',
-      session_id: '',
-      created_at: new Date().toISOString(),
-      last_used: new Date().toISOString(),
-      hit_count: 0,
-      success_count: 0,
-      fail_count: 0,
-    };
+  /**
+   * Create the table from the first real data row.
+   * LanceDB infers schema from data — no seed row needed.
+   */
+  private async createTableFromRow(row: Record<string, unknown>): Promise<void> {
+    if (!this.connection) return;
+    this.table = await this.connection.createTable(TABLE_NAME, [row]);
   }
 
   private async ensureReady(): Promise<boolean> {
     try {
       await this.init();
-      return this.table !== null;
+      return this.connection !== null;
     } catch (err) {
       console.error('CacheStore init failed:', err);
       return false;
@@ -106,7 +93,8 @@ export class CacheStore {
   ): Promise<Array<Record<string, unknown>>> {
     try {
       if (!(await this.ensureReady())) return [];
-      const results = await this.table!
+      if (!this.table) return []; // Table not yet created (no entries added yet)
+      const results = await this.table
         .search(embedding)
         .distanceType('cosine')
         .limit(limit)
@@ -130,7 +118,11 @@ export class CacheStore {
       if (!(await this.ensureReady())) return null;
       const id = randomUUID();
       const row = { id, vector, ...entry };
-      await this.table!.add([row]);
+      if (!this.table) {
+        await this.createTableFromRow(row);
+      } else {
+        await this.table.add([row]);
+      }
       return id;
     } catch (err) {
       console.error('CacheStore add failed:', err);
@@ -144,7 +136,8 @@ export class CacheStore {
   async deleteBySkill(skillName: string): Promise<boolean> {
     try {
       if (!(await this.ensureReady())) return false;
-      await this.table!.delete(`skill_name = '${skillName}'`);
+      if (!this.table) return true; // No entries yet
+      await this.table.delete(`skill_name = '${skillName}'`);
       return true;
     } catch (err) {
       console.error('CacheStore deleteBySkill failed:', err);
@@ -158,10 +151,10 @@ export class CacheStore {
   async deleteAll(): Promise<boolean> {
     try {
       if (!(await this.ensureReady())) return false;
-      await this.connection!.dropTable(TABLE_NAME);
-      const seedRow = this._makeSeedRow();
-      this.table = await this.connection!.createTable(TABLE_NAME, [seedRow]);
-      await this.table.delete(`id = '${seedRow.id}'`);
+      if (this.table) {
+        await this.connection!.dropTable(TABLE_NAME);
+        this.table = null;
+      }
       return true;
     } catch (err) {
       console.error('CacheStore deleteAll failed:', err);
@@ -175,7 +168,8 @@ export class CacheStore {
   async listAll(): Promise<Array<Record<string, unknown>>> {
     try {
       if (!(await this.ensureReady())) return [];
-      const results = await this.table!.query().toArray();
+      if (!this.table) return [];
+      const results = await this.table.query().toArray();
       return results;
     } catch (err) {
       console.error('CacheStore listAll failed:', err);
@@ -190,7 +184,8 @@ export class CacheStore {
   async getById(id: string): Promise<Record<string, unknown> | null> {
     try {
       if (!(await this.ensureReady())) return null;
-      const results = await this.table!.query()
+      if (!this.table) return null;
+      const results = await this.table.query()
         .where(`id = '${id}'`)
         .limit(1)
         .toArray();
@@ -217,8 +212,9 @@ export class CacheStore {
       if (updates.last_used !== undefined) valuesSql['last_used'] = `'${updates.last_used}'`;
 
       if (Object.keys(valuesSql).length === 0) return true;
+      if (!this.table) return false;
 
-      await this.table!.update({ valuesSql, where: `id = '${id}'` });
+      await this.table.update({ valuesSql, where: `id = '${id}'` });
       return true;
     } catch (err) {
       console.error('CacheStore updateStats failed:', err);

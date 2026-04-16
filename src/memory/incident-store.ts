@@ -18,9 +18,9 @@ const _stores = new Map<string, IncidentStore>();
  * Get or create an IncidentStore for the given data directory.
  * Returns a singleton per directory path.
  */
-export function getIncidentStore(dataDir: string, vectorDim?: number): IncidentStore {
+export function getIncidentStore(dataDir: string): IncidentStore {
   if (!_stores.has(dataDir)) {
-    _stores.set(dataDir, new IncidentStore(dataDir, vectorDim));
+    _stores.set(dataDir, new IncidentStore(dataDir));
   }
   return _stores.get(dataDir)!;
 }
@@ -37,19 +37,17 @@ export class IncidentStore {
   private connection: lancedb.Connection | null = null;
   private table: lancedb.Table | null = null;
   private initPromise: Promise<void> | null = null;
-  private vectorDim: number;
 
-  constructor(dataDir: string, vectorDim = 1024) {
+  constructor(dataDir: string) {
     this.dataDir = dataDir;
-    this.vectorDim = vectorDim;
   }
 
   /**
-   * Lazy-initialize connection and table.
-   * Creates the mem_incidents table if it does not exist.
+   * Lazy-initialize connection. Opens existing table if present.
+   * Table creation deferred to first add() — avoids hardcoding vector dimensions.
    */
   async init(): Promise<void> {
-    if (this.connection && this.table) return;
+    if (this.connection) return;
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = this._doInit();
@@ -62,38 +60,18 @@ export class IncidentStore {
 
     if (tableNames.includes(TABLE_NAME)) {
       this.table = await this.connection.openTable(TABLE_NAME);
-    } else {
-      // Create table with a seed row then delete it (LanceDB requires data for schema inference)
-      const seedRow = this._makeSeedRow();
-      this.table = await this.connection.createTable(TABLE_NAME, [seedRow]);
-      await this.table.delete(`id = '${seedRow.id}'`);
     }
   }
 
-  private _makeSeedRow(): Record<string, unknown> {
-    return {
-      id: '__seed__',
-      vector: new Array(this.vectorDim).fill(0),
-      session_id: '',
-      wing: 'wing_incidents',
-      prompt: '',
-      diagnosis: '',
-      root_cause: '',
-      fix_summary: '',
-      outcome: '',
-      skill_name: '',
-      created_at: new Date().toISOString(),
-      containers: '[]',
-      services: '[]',
-      error_codes: '[]',
-      expert_domain: '',
-    };
+  private async createTableFromRow(row: Record<string, unknown>): Promise<void> {
+    if (!this.connection) return;
+    this.table = await this.connection.createTable(TABLE_NAME, [row]);
   }
 
   private async ensureReady(): Promise<boolean> {
     try {
       await this.init();
-      return this.table !== null;
+      return this.connection !== null;
     } catch (err) {
       console.error('IncidentStore init failed:', err);
       return false;
@@ -112,7 +90,11 @@ export class IncidentStore {
       if (!(await this.ensureReady())) return null;
       const id = randomUUID();
       const row = { id, vector, ...record };
-      await this.table!.add([row]);
+      if (!this.table) {
+        await this.createTableFromRow(row);
+      } else {
+        await this.table.add([row]);
+      }
       return id;
     } catch (err) {
       console.error('IncidentStore add failed:', err);
@@ -131,7 +113,8 @@ export class IncidentStore {
   ): Promise<Array<Record<string, unknown>>> {
     try {
       if (!(await this.ensureReady())) return [];
-      let query = this.table!
+      if (!this.table) return [];
+      let query = this.table
         .search(embedding)
         .distanceType('cosine')
         .limit(limit);
@@ -155,7 +138,8 @@ export class IncidentStore {
   async getRecent(limit: number): Promise<Array<Record<string, unknown>>> {
     try {
       if (!(await this.ensureReady())) return [];
-      const results = await this.table!.query().toArray();
+      if (!this.table) return [];
+      const results = await this.table.query().toArray();
       // Sort by created_at descending and take limit
       results.sort((a, b) => {
         const aTime = new Date(a['created_at'] as string).getTime();
@@ -180,7 +164,8 @@ export class IncidentStore {
   } | null> {
     try {
       if (!(await this.ensureReady())) return null;
-      const rows = await this.table!.query().toArray();
+      if (!this.table) return { totalIncidents: 0, topDomains: [], successRate: 0 };
+      const rows = await this.table.query().toArray();
 
       const totalIncidents = rows.length;
       if (totalIncidents === 0) {

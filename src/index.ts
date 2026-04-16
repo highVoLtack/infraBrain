@@ -20,7 +20,7 @@ import { App } from './ui/App.js';
 import { SkillRegistry } from './skills/registry.js';
 import { getCacheStore } from './cache/lance-store.js';
 import { runStartupInvalidation } from './cache/invalidation.js';
-import { isEmbeddingAvailable } from './cache/embedder.js';
+import { isEmbeddingAvailable, getEmbeddingDimensions } from './cache/embedder.js';
 import { resolveEmbeddingConfig } from './config/types.js';
 
 // Re-exports for library usage
