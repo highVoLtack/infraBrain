@@ -505,4 +505,151 @@ describe('runDPEV pipeline', () => {
       consoleSpy.mockRestore();
     });
   });
+
+  describe('DPEV phase audit logging', () => {
+    function setupStandardMocksForAudit() {
+      vi.mocked(selectSkill).mockResolvedValue({ skill: nginxSkill, reasoning: 'matched' });
+      vi.mocked(runParallelDiscovery).mockResolvedValue({
+        context: 'discovered context',
+        raw: { 'Running containers': 'nginx-demo' },
+      });
+      vi.mocked(runDiagnosis).mockResolvedValue({
+        diagnosis: 'Command: docker restart nginx-demo',
+      });
+      vi.mocked(generateFixPlan).mockResolvedValue({
+        summary: 'Restart nginx',
+        steps: [{ command: 'docker restart nginx-demo', description: 'Restart', rollback: 'n/a', risk: 'write' as const }],
+        complexity: 'simple' as const,
+      });
+      vi.mocked(generatePlanMarkdown).mockReturnValue('## Plan');
+      vi.mocked(formatPlanTable).mockReturnValue('| Step |');
+    }
+
+    it('logs dpev_phase_start and dpev_phase_complete audit events for diagnosis phase', async () => {
+      setupStandardMocksForAudit();
+
+      await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'audit-test',
+      });
+
+      const logCalls = vi.mocked(mockAuditLogger.logExecution).mock.calls;
+      const dpevStartCalls = logCalls.filter(([eventType]) => eventType === 'dpev_phase_start');
+      const dpevCompleteCalls = logCalls.filter(([eventType]) => eventType === 'dpev_phase_complete');
+
+      // Diagnosis phase should have start and complete
+      const diagStart = dpevStartCalls.find(([, details]) => (details as any).phase === 'diagnosis');
+      const diagComplete = dpevCompleteCalls.find(([, details]) => (details as any).phase === 'diagnosis');
+
+      expect(diagStart).toBeDefined();
+      expect(diagComplete).toBeDefined();
+      expect((diagComplete![1] as any).duration_ms).toBeTypeOf('number');
+    });
+
+    it('logs dpev_phase_complete for discovery phase with model and timing', async () => {
+      setupStandardMocksForAudit();
+
+      await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'audit-test-2',
+      });
+
+      const logCalls = vi.mocked(mockAuditLogger.logExecution).mock.calls;
+      const discoveryComplete = logCalls.find(
+        ([eventType, details]) => eventType === 'dpev_phase_complete' && (details as any).phase === 'discovery'
+      );
+
+      expect(discoveryComplete).toBeDefined();
+      expect((discoveryComplete![1] as any).model).toBeDefined();
+      expect((discoveryComplete![1] as any).duration_ms).toBeTypeOf('number');
+    });
+
+    it('logs dpev_phase_start and dpev_phase_complete for plan phase', async () => {
+      setupStandardMocksForAudit();
+
+      await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'audit-test-3',
+      });
+
+      const logCalls = vi.mocked(mockAuditLogger.logExecution).mock.calls;
+      const planStart = logCalls.find(
+        ([eventType, details]) => eventType === 'dpev_phase_start' && (details as any).phase === 'plan'
+      );
+      const planComplete = logCalls.find(
+        ([eventType, details]) => eventType === 'dpev_phase_complete' && (details as any).phase === 'plan'
+      );
+
+      expect(planStart).toBeDefined();
+      expect((planStart![1] as any).model).toBeDefined();
+      expect(planComplete).toBeDefined();
+      expect((planComplete![1] as any).duration_ms).toBeTypeOf('number');
+    });
+
+    it('audit events fire ALONGSIDE onEvent SSE emissions (both should fire)', async () => {
+      setupStandardMocksForAudit();
+      const sseEvents: Array<{ event: string; data: unknown }> = [];
+      const onEvent = (event: string, data: unknown) => {
+        sseEvents.push({ event, data });
+      };
+
+      await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'audit-sse-test',
+        onEvent,
+      });
+
+      // SSE events should still fire
+      const ssePhaseEvents = sseEvents.filter(e => e.event === 'dpev:phase');
+      expect(ssePhaseEvents.length).toBeGreaterThan(0);
+
+      // Audit events should also fire
+      const logCalls = vi.mocked(mockAuditLogger.logExecution).mock.calls;
+      const dpevAuditCalls = logCalls.filter(([eventType]) =>
+        eventType === 'dpev_phase_start' || eventType === 'dpev_phase_complete'
+      );
+      expect(dpevAuditCalls.length).toBeGreaterThan(0);
+    });
+
+    it('pipeline continues without error when auditLogger.logExecution throws', async () => {
+      setupStandardMocksForAudit();
+
+      // Make logExecution throw for dpev events only
+      vi.mocked(mockAuditLogger.logExecution).mockImplementation((eventType: any) => {
+        if (typeof eventType === 'string' && eventType.startsWith('dpev_phase')) {
+          throw new Error('Audit logging failed');
+        }
+        // Non-dpev events succeed (no-op, mock already returns undefined)
+      });
+
+      // Pipeline should complete without throwing
+      const result = await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'audit-error-test',
+      });
+
+      expect(result.diagnosis).toBeDefined();
+      expect(result.skillName).toBe('nginx-troubleshoot');
+    });
+  });
 });

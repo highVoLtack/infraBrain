@@ -32,7 +32,10 @@ export type AuditEventType =
   | 'self_heal_exhausted'
   | 'self_heal_progress'
   | 'config_reverted_after_restart'
-  | 'persistence_fix_failed';
+  | 'persistence_fix_failed'
+  // Phase 19.1: DPEV phase audit events
+  | 'dpev_phase_start'
+  | 'dpev_phase_complete';
 
 export interface AuditEntry {
   timestamp: string;

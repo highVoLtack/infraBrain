@@ -175,6 +175,15 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   // Emit discovery phase events via SSE when streaming
   input.onEvent?.('dpev:phase', { phase: 'discovery', model: triageModelId, status: 'complete' });
 
+  // Audit: log discovery phase completion (non-critical)
+  try {
+    auditLogger.logExecution('dpev_phase_complete', {
+      phase: 'discovery',
+      model: triageModelId,
+      duration_ms: Date.now() - discoveryStart,
+    });
+  } catch { /* audit logging is non-critical */ }
+
   if (discoveryContext) {
     auditLogger.logExecution('discovery_complete', {
       skill: selection.skill.frontmatter.name,
@@ -237,6 +246,7 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   // ---------------------------------------------------------------------------
   let diagnosis: string;
   let structuredDiagnosis: StructuredDiagnosis | undefined;
+  let diagPhaseStart = Date.now();
 
   if (useParallelPath && input.inferenceScheduler) {
     const scheduler = input.inferenceScheduler;
@@ -385,7 +395,16 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
     const { filtered: rawPreFiltered } = preFilterIfLogHeavy(rawEnrichedPrompt);
 
     if (DEV_MODE) console.log(`[PARALLEL] Dispatching 9B-preprocess and 122B-diagnosis concurrently...`);
+    diagPhaseStart = Date.now();
     const parallelStart = Date.now();
+
+    // Audit: log diagnosis phase start for parallel path (non-critical)
+    try {
+      const parallelDiagModelId = preferredRole
+        ? ((provider.registry?.get?.(preferredRole as ModelRole) as any)?.modelId ?? 'default')
+        : ((provider.model as any)?.modelId ?? 'default');
+      auditLogger.logExecution('dpev_phase_start', { phase: 'diagnosis', model: parallelDiagModelId });
+    } catch { /* audit logging is non-critical */ }
 
     // Launch both concurrently via scheduler (unknown type since tasks return different shapes)
     const tasks: InferenceTask<unknown>[] = [
@@ -641,6 +660,12 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
       ? ((provider.registry?.get?.(preferredRole as ModelRole) as any)?.modelId ?? 'default')
       : ((provider.model as any)?.modelId ?? 'default');
     input.onEvent?.('dpev:phase', { phase: 'diagnosis', model: diagModelId, status: 'active' });
+    diagPhaseStart = Date.now();
+
+    // Audit: log diagnosis phase start (non-critical)
+    try {
+      auditLogger.logExecution('dpev_phase_start', { phase: 'diagnosis', model: diagModelId });
+    } catch { /* audit logging is non-critical */ }
 
     // Token-by-token streaming: when onEvent is provided, use streamDiagnosis instead of generateCommand
     // to emit individual token chunks via dpev:token events
@@ -694,6 +719,15 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   }
   input.onEvent?.('dpev:phase', { phase: 'diagnosis', model: 'default', status: 'complete' });
 
+  // Audit: log diagnosis phase completion (non-critical)
+  try {
+    auditLogger.logExecution('dpev_phase_complete', {
+      phase: 'diagnosis',
+      model: 'default',
+      duration_ms: Date.now() - diagPhaseStart,
+    });
+  } catch { /* audit logging is non-critical */ }
+
   // DPEV: enforce diagnosis before plan
   enforceDPEVSequence('plan', completedPhases);
 
@@ -714,6 +748,11 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
 
       // Emit planning phase start
       input.onEvent?.('dpev:phase', { phase: 'plan', model: planModelId, status: 'active' });
+
+      // Audit: log plan phase start (non-critical)
+      try {
+        auditLogger.logExecution('dpev_phase_start', { phase: 'plan', model: planModelId });
+      } catch { /* audit logging is non-critical */ }
 
       // Include discovery context in the diagnosis passed to planner
       const enrichedDiagnosis = discoveryContext
@@ -750,6 +789,15 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
       // Emit plan ready and planning phase complete events
       input.onEvent?.('dpev:plan', { fixPlan, planTable });
       input.onEvent?.('dpev:phase', { phase: 'plan', model: planModelId, status: 'complete' });
+
+      // Audit: log plan phase completion (non-critical)
+      try {
+        auditLogger.logExecution('dpev_phase_complete', {
+          phase: 'plan',
+          model: planModelId,
+          duration_ms: Date.now() - planStart,
+        });
+      } catch { /* audit logging is non-critical */ }
 
       if (DEV_MODE) console.log(`[PLANNING] Complete in ${((Date.now() - planStart) / 1000).toFixed(1)}s — ${fixPlan.steps.length} steps`);
     } catch (planErr) {
