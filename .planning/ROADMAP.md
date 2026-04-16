@@ -62,7 +62,7 @@
 - [x] **Phase 17: MemPalace Semantic Memory** - Native TypeScript incident memory with temporal knowledge graph and semantic search (completed 2026-04-14)
 - [x] **Phase 18: Parallel Inference Pipeline** - Concurrent 9B pre-processing + 122B reasoning via Promise.allSettled (completed 2026-04-15)
 - [x] **Phase 19: Ink/React Terminal UI** - Full terminal renderer with live DPEV tracking, streaming output, and rich dashboard (completed 2026-04-15)
-- [ ] **Phase 19.1: Ink UI Polish** - Session persistence for SSE sessions, session replay with DPEV phases, entity panel population, UX refinements
+- [x] **Phase 19.1: Ink UI Polish** - Session persistence for SSE sessions, session replay with DPEV phases, entity panel population, UX refinements (completed 2026-04-16)
 
 ## Phase Details
 
@@ -172,7 +172,7 @@ Plans:
   2. Selecting a past SSE session replays the full DPEV accordion (Discovery, Diagnosis, Plan phases with timing)
   3. Entity panel shows entities extracted from completed execute cycles (providers, services, containers)
   4. Session items show prompt excerpt and outcome status instead of "unknown"
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 19.1-01-PLAN.md -- Backend: SSE session persistence + DPEV phase audit logging
 - [ ] 19.1-02-PLAN.md -- Frontend: Session replay from audit events, entity refresh, session display
@@ -201,7 +201,7 @@ Plans:
 | 17 | v1.3 | 4/4 | Complete | 2026-04-14 |
 | 18 | v1.3 | 2/2 | Complete | 2026-04-15 |
 | 19 | v1.3 | 6/6 | Complete | 2026-04-15 |
-| 19.1 | 1/2 | In Progress|  | -- |
+| 19.1 | 2/2 | Complete   | 2026-04-16 | -- |
 
 ---
 *Roadmap created: 2026-03-07*

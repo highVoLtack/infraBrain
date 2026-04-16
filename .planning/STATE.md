@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
 status: in_progress
-stopped_at: Plan 19.1-01 complete (SSE session persistence + DPEV audit logging)
-last_updated: "2026-04-16T12:14:39Z"
-last_activity: 2026-04-16 -- Plan 19.1-01 complete (SSE session persistence + DPEV phase audit logging)
+stopped_at: Phase 19.1 COMPLETE (all plans executed)
+last_updated: "2026-04-16T12:26:10Z"
+last_activity: 2026-04-16 -- Plan 19.1-02 complete (session replay + entity panel refresh)
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 23
-  completed_plans: 22
-  percent: 96
+  completed_plans: 23
+  percent: 100
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 19.1 of 19.1 (Ink UI Polish)
-Plan: 1 of 2 executed
-Status: Plan 19.1-01 complete -- SSE session persistence + DPEV phase audit logging
-Last activity: 2026-04-16 -- Plan 19.1-01 complete (SSE session persistence + DPEV phase audit logging)
+Plan: 2 of 2 executed
+Status: Phase 19.1 COMPLETE -- all plans executed (SSE session replay + entity auto-refresh)
+Last activity: 2026-04-16 -- Plan 19.1-02 complete (session replay + entity panel refresh)
 
-Progress: [█████████░] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -129,6 +129,11 @@ Progress: [█████████░] 96%
 - [Phase 19.1-01]: Per-session AuditLogger created per SSE request for correct audit.jsonl routing
 - [Phase 19.1-01]: baseDir added to StreamDebugRouteDeps (defaults to process.cwd()) for session directory derivation
 - [Phase 19.1-01]: Session persistence non-critical: all store operations wrapped in try-catch
+- [Phase 19.1-02]: buildReplayState sorts entries ASC before processing (API returns DESC) for correct phase ordering
+- [Phase 19.1-02]: Backward compat: buildReplayState handles both dpev_phase_start and old phase_start event types
+- [Phase 19.1-02]: Entity refreshKey incremented on session select and prompt dismiss (Esc) for two refresh triggers
+- [Phase 19.1-02]: Session filter removed eventCount>0 gate since Plan 01 provides real targets for in-progress sessions
+- [Phase 19.1-02]: Session panel polls every 10s for fresh data during active SSE sessions
 
 ### Pending Todos
 
@@ -142,6 +147,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-16T12:14:39Z
-Stopped at: Plan 19.1-01 complete (SSE session persistence + DPEV audit logging)
-Resume: `/gsd:execute-phase 19.1` to execute Plan 19.1-02 (replay + entity panel)
+Last session: 2026-04-16T12:26:10Z
+Stopped at: Phase 19.1 COMPLETE -- all plans executed (session replay + entity auto-refresh)
+Resume: All v1.3 phases complete. Milestone review or next milestone planning.
