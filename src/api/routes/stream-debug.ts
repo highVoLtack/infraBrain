@@ -2,11 +2,15 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import type { LLMProvider } from '../../llm/types.js';
 import type { AuditLogger } from '../../audit/logger.js';
+import { AuditLogger as AuditLoggerClass } from '../../audit/logger.js';
 import type { ValidationResult } from '../../safety/types.js';
 import type { SkillRegistry } from '../../skills/registry.js';
 import type { WriteThrough } from '../../state/store.js';
 import type { InfraBrainConfig } from '../../config/types.js';
+import type { SessionState } from '../../state/types.js';
 import { v7 as uuidv7 } from 'uuid';
+import { join } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { runDPEV } from '../../orchestrator/pipeline.js';
 import type { CacheHitProvenance } from '../../orchestrator/pipeline.js';
 
@@ -22,6 +26,7 @@ export interface StreamDebugRouteDeps {
   store?: WriteThrough;
   config?: InfraBrainConfig;
   sessionId?: string;
+  baseDir?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,6 +78,35 @@ export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
 
     const sessionId = deps.sessionId ?? uuidv7();
 
+    // --- Session persistence: create session dir and initial state ---
+    let sessionDir: string | undefined;
+    let sessionState: SessionState | undefined;
+    let sessionAuditLogger: AuditLogger = deps.auditLogger;
+
+    if (deps.store) {
+      try {
+        const baseDir = deps.baseDir ?? process.cwd();
+        sessionDir = join(baseDir, '.infrabrain', 'sessions', sessionId);
+        mkdirSync(sessionDir, { recursive: true });
+        writeFileSync(join(sessionDir, 'audit.jsonl'), '');
+
+        const now = new Date().toISOString();
+        sessionState = {
+          sessionId,
+          createdAt: now,
+          updatedAt: now,
+          status: 'active',
+          target: prompt,
+        };
+        deps.store.persistState(sessionDir, sessionState);
+
+        // Create a fresh AuditLogger for this SSE session
+        sessionAuditLogger = new AuditLoggerClass(deps.store, sessionId, sessionDir);
+      } catch {
+        // Session persistence is non-critical -- continue without it
+      }
+    }
+
     // Create onEvent callback that relays pipeline events to SSE
     const onEvent = (event: string, data: unknown): void => {
       sendEvent(res, event, data);
@@ -110,7 +144,7 @@ export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
         skillOverride: skillOverride as string | undefined,
         provider: deps.provider,
         registry: deps.registry,
-        auditLogger: deps.auditLogger,
+        auditLogger: sessionAuditLogger,
         validator: deps.validator,
         store: deps.store,
         config: deps.config,
@@ -120,9 +154,31 @@ export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
         requestCacheApproval,
       });
 
+      // Update session status to completed
+      if (deps.store && sessionDir && sessionState) {
+        try {
+          deps.store.persistState(sessionDir, {
+            ...sessionState,
+            status: 'completed',
+            updatedAt: new Date().toISOString(),
+          });
+        } catch { /* session persistence is non-critical */ }
+      }
+
       // Send completion event
       sendEvent(res, 'dpev:complete', { sessionId, status: 'success' });
     } catch (err) {
+      // Update session status to failed
+      if (deps.store && sessionDir && sessionState) {
+        try {
+          deps.store.persistState(sessionDir, {
+            ...sessionState,
+            status: 'failed',
+            updatedAt: new Date().toISOString(),
+          });
+        } catch { /* session persistence is non-critical */ }
+      }
+
       // Send error event
       sendEvent(res, 'dpev:error', {
         message: (err as Error).message,

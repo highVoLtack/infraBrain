@@ -109,6 +109,7 @@ export function createServer(deps: ServerDeps): { app: express.Express; start: (
     store: deps.store,
     config: deps.config,
     sessionId: deps.sessionId,
+    baseDir: process.cwd(),
   }));
 
   if (deps.config && deps.sessionId && deps.sessionDir) {

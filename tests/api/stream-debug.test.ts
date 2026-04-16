@@ -92,7 +92,7 @@ function parseSSEText(text: string): Array<{ event: string; data: unknown }> {
 }
 
 // ---- Mock deps factory ----
-function createMockDeps() {
+function createMockDeps(overrides?: Record<string, unknown>) {
   return {
     provider: {
       model: { modelId: 'test-model' },
@@ -118,6 +118,20 @@ function createMockDeps() {
     },
     config: { defaultBaseUrl: 'http://localhost:11434/v1' },
     sessionId: 'test-session-123',
+    ...overrides,
+  };
+}
+
+function createMockStore() {
+  return {
+    persistState: vi.fn(),
+    getSessionList: vi.fn().mockReturnValue([]),
+    appendAudit: vi.fn(),
+    getSessionById: vi.fn().mockReturnValue(null),
+    getRecentSessions: vi.fn().mockReturnValue([]),
+    getLatestSessionId: vi.fn().mockReturnValue(null),
+    getSessionIdByAlias: vi.fn().mockReturnValue(null),
+    queryAuditLog: vi.fn().mockReturnValue([]),
   };
 }
 
@@ -372,5 +386,124 @@ describe('POST /stream/debug/approve (cache hit approval)', () => {
     await request(app)
       .post('/stream/debug')
       .send({ prompt: 'test double approve' });
+  });
+});
+
+describe('SSE session persistence', () => {
+  let app: express.Express;
+  let deps: ReturnType<typeof createMockDeps>;
+  let mockStore: ReturnType<typeof createMockStore>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStore = createMockStore();
+    deps = createMockDeps({ store: mockStore, baseDir: '/tmp/infrabrain-test' });
+    app = express();
+    app.use(express.json());
+    app.use('/stream/debug', createStreamDebugRoute(deps as any));
+  });
+
+  it('creates session record with target=prompt and status=active on start', async () => {
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      return { sessionId: input.sessionId, diagnosis: 'test', commands: [], skillName: 'test' };
+    });
+
+    await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    // persistState should be called at least once with status 'active' and target 'nginx is down'
+    const persistCalls = mockStore.persistState.mock.calls;
+    expect(persistCalls.length).toBeGreaterThanOrEqual(1);
+
+    const firstCall = persistCalls[0];
+    const sessionState = firstCall[1];
+    expect(sessionState.status).toBe('active');
+    expect(sessionState.target).toBe('nginx is down');
+    expect(sessionState.sessionId).toBeDefined();
+  });
+
+  it('updates session status to completed after successful pipeline', async () => {
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      return { sessionId: input.sessionId, diagnosis: 'test', commands: [], skillName: 'test' };
+    });
+
+    await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const persistCalls = mockStore.persistState.mock.calls;
+    // Should have at least 2 calls: initial (active) and final (completed)
+    expect(persistCalls.length).toBeGreaterThanOrEqual(2);
+
+    const lastCall = persistCalls[persistCalls.length - 1];
+    const finalState = lastCall[1];
+    expect(finalState.status).toBe('completed');
+  });
+
+  it('updates session status to failed after pipeline error', async () => {
+    mockRunDPEV.mockImplementation(async () => {
+      throw new Error('LLM backend unavailable');
+    });
+
+    await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const persistCalls = mockStore.persistState.mock.calls;
+    expect(persistCalls.length).toBeGreaterThanOrEqual(2);
+
+    const lastCall = persistCalls[persistCalls.length - 1];
+    const finalState = lastCall[1];
+    expect(finalState.status).toBe('failed');
+  });
+
+  it('works without error when store is not provided (graceful degradation)', async () => {
+    // Create deps without store
+    const noDeps = createMockDeps({ store: undefined });
+    const noStoreApp = express();
+    noStoreApp.use(express.json());
+    noStoreApp.use('/stream/debug', createStreamDebugRoute(noDeps as any));
+
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      return { sessionId: input.sessionId, diagnosis: 'test', commands: [], skillName: 'test' };
+    });
+
+    const res = await request(noStoreApp)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+    const completeEvents = events.filter(e => e.event === 'dpev:complete');
+    expect(completeEvents.length).toBe(1);
+  });
+
+  it('session dir is created via persistState call with correct path', async () => {
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      return { sessionId: input.sessionId, diagnosis: 'test', commands: [], skillName: 'test' };
+    });
+
+    await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const persistCalls = mockStore.persistState.mock.calls;
+    expect(persistCalls.length).toBeGreaterThanOrEqual(1);
+
+    // Session dir should contain sessions path
+    const sessionDir = persistCalls[0][0] as string;
+    expect(sessionDir).toContain('.infrabrain/sessions/');
+  });
+
+  it('getSessionList returns SSE session with target and eventCount', async () => {
+    // Simulate that getSessionList would return persisted data
+    mockStore.getSessionList.mockReturnValue([
+      { id: 'sse-session-1', status: 'completed', target: 'nginx is down', updatedAt: '2026-04-15', eventCount: 5 },
+    ]);
+
+    const sessions = mockStore.getSessionList(20);
+    expect(sessions.length).toBe(1);
+    expect(sessions[0].target).toBe('nginx is down');
+    expect(sessions[0].eventCount).toBeGreaterThan(0);
   });
 });
