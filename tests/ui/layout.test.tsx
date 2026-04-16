@@ -228,6 +228,33 @@ describe('SessionItem formatSessionItem', () => {
     const formatted = formatSessionItem(item);
     expect(formatted.domainBadge).toBe('[N]');
   });
+
+  it('truncates long prompt targets to 40 chars', () => {
+    const longPrompt = 'my nginx container keeps crashing with exit code 137 and I dont know why';
+    const item: SessionItemData = {
+      sessionId: 'xyz12345-0000-0000-0000-000000000000',
+      status: 'completed',
+      target: longPrompt,
+      timestamp: new Date().toISOString(),
+      isActive: false,
+    };
+    const formatted = formatSessionItem(item);
+    expect(formatted.targetName.length).toBeLessThanOrEqual(40);
+    expect(formatted.targetName).toBe('my nginx container keeps crashing wit...');
+  });
+
+  it('does not truncate short targets', () => {
+    const shortTarget = 'nginx-proxy';
+    const item: SessionItemData = {
+      sessionId: 'short123-0000-0000-0000-000000000000',
+      status: 'completed',
+      target: shortTarget,
+      timestamp: new Date().toISOString(),
+      isActive: false,
+    };
+    const formatted = formatSessionItem(item);
+    expect(formatted.targetName).toBe('nginx-proxy');
+  });
 });
 
 // ---- Session grouping tests ----
@@ -396,5 +423,100 @@ describe('GET /entities endpoint', () => {
     const res = await request(app).get('/entities');
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
+  });
+});
+
+// ---- SessionPanel filter tests ----
+import { filterSessions } from '../../src/ui/panels/SessionPanel.js';
+
+describe('SessionPanel filterSessions', () => {
+  it('keeps sessions with real targets regardless of eventCount', () => {
+    const sessions = [
+      { id: 'a', status: 'active', target: 'debug nginx', updatedAt: new Date().toISOString(), eventCount: 0 },
+      { id: 'b', status: 'completed', target: 'fix postgres', updatedAt: new Date().toISOString(), eventCount: 5 },
+    ];
+
+    const filtered = filterSessions(sessions, '');
+    expect(filtered).toHaveLength(2);
+  });
+
+  it('filters out sessions with unknown target', () => {
+    const sessions = [
+      { id: 'a', status: 'completed', target: 'unknown', updatedAt: new Date().toISOString(), eventCount: 3 },
+      { id: 'b', status: 'completed', target: 'nginx fix', updatedAt: new Date().toISOString(), eventCount: 5 },
+    ];
+
+    const filtered = filterSessions(sessions, '');
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0]!.id).toBe('b');
+  });
+
+  it('filters out sessions with empty target', () => {
+    const sessions = [
+      { id: 'a', status: 'completed', target: '', updatedAt: new Date().toISOString(), eventCount: 2 },
+      { id: 'b', status: 'completed', target: 'nginx', updatedAt: new Date().toISOString(), eventCount: 1 },
+    ];
+
+    const filtered = filterSessions(sessions, '');
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0]!.id).toBe('b');
+  });
+
+  it('applies search query filter', () => {
+    const sessions = [
+      { id: 'a', status: 'completed', target: 'nginx proxy', updatedAt: new Date().toISOString(), eventCount: 3 },
+      { id: 'b', status: 'completed', target: 'postgres fix', updatedAt: new Date().toISOString(), eventCount: 5 },
+    ];
+
+    const filtered = filterSessions(sessions, 'nginx');
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0]!.id).toBe('a');
+  });
+});
+
+// ---- EntityPanel refreshKey tests ----
+// EntityPanel refreshKey is tested by verifying the prop is accepted in the interface
+// and the useEffect dependency triggers re-fetch. Since EntityPanel is a React component,
+// we test the re-fetch behavior through a controlled fetch mock.
+
+import React from 'react';
+import { render } from 'ink-testing-library';
+import { EntityPanel } from '../../src/ui/panels/EntityPanel.js';
+
+describe('EntityPanel refreshKey', () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('re-fetches entities when refreshKey changes', async () => {
+    let fetchCount = 0;
+    globalThis.fetch = vi.fn().mockImplementation(() => {
+      fetchCount++;
+      return Promise.resolve({
+        ok: true,
+        json: async () => ([]),
+      });
+    });
+
+    const { rerender } = render(
+      React.createElement(EntityPanel, { apiBaseUrl: 'http://localhost:3000', refreshKey: 0 }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const countAfterFirst = fetchCount;
+
+    // Re-render with new refreshKey
+    rerender(
+      React.createElement(EntityPanel, { apiBaseUrl: 'http://localhost:3000', refreshKey: 1 }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(fetchCount).toBeGreaterThan(countAfterFirst);
   });
 });

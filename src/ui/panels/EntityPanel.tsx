@@ -18,6 +18,8 @@ export interface EntityPanelProps {
   onSelect?: (entityId: string) => void;
   liveEntities?: EntityItem[];
   activeFocus?: boolean;
+  /** Increment to trigger entity re-fetch (e.g. after session completes) */
+  refreshKey?: number;
 }
 
 /** Simple fuzzy match. */
@@ -31,7 +33,7 @@ function fuzzyMatch(query: string, target: string): boolean {
   return qi === q.length;
 }
 
-export function EntityPanel({ apiBaseUrl, onSelect, liveEntities, activeFocus }: EntityPanelProps): React.ReactElement {
+export function EntityPanel({ apiBaseUrl, onSelect, liveEntities, activeFocus, refreshKey }: EntityPanelProps): React.ReactElement {
   const [apiEntities, setApiEntities] = useState<EntityItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState(false);
@@ -63,7 +65,7 @@ export function EntityPanel({ apiBaseUrl, onSelect, liveEntities, activeFocus }:
 
     fetchEntities();
     return () => { cancelled = true; };
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, refreshKey]);
 
   // Merge API entities with live entities (avoiding duplicates)
   const allEntities = useMemo(() => {

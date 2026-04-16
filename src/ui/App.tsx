@@ -240,6 +240,9 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
   const [activePrompt, setActivePrompt] = useState<string | undefined>();
   const [replaySession, setReplaySession] = useState<DPEVState | undefined>();
 
+  // Entity refresh counter -- increment to trigger EntityPanel re-fetch
+  const [entityRefreshKey, setEntityRefreshKey] = useState(0);
+
   // Panel cycling
   const cyclePanel = useCallback(() => {
     setActivePanel((current) => {
@@ -259,6 +262,7 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
           setReplaySession(replayState);
           setActivePrompt(undefined);
           setActivePanel('center');
+          setEntityRefreshKey(k => k + 1);
         }
       } catch {
         // Graceful degradation
@@ -332,7 +336,7 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
 
       if (key.escape) {
         if (replaySession) { setReplaySession(undefined); return; }
-        if (activePrompt) { setActivePrompt(undefined); return; }
+        if (activePrompt) { setActivePrompt(undefined); setEntityRefreshKey(k => k + 1); return; }
       }
     },
     { isActive: true },
@@ -376,6 +380,7 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
           <EntityPanel
             apiBaseUrl={apiBaseUrl}
             activeFocus={activePanel === 'right' && !showStatusOverlay}
+            refreshKey={entityRefreshKey}
           />
         }
         showEntityOverlay={showEntityOverlay}
@@ -383,6 +388,7 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
           <EntityPanel
             apiBaseUrl={apiBaseUrl}
             activeFocus={showEntityOverlay && !showStatusOverlay}
+            refreshKey={entityRefreshKey}
           />
         }
       />

@@ -71,11 +71,17 @@ function formatTimeAgo(timestamp: string): string {
  * Pure function: format session data for display.
  * Exported for unit testing without React context.
  */
+/** Truncate string to maxLen, appending "..." if needed. */
+function truncateTarget(target: string, maxLen: number = 40): string {
+  if (target.length <= maxLen) return target;
+  return target.slice(0, maxLen - 3) + '...';
+}
+
 export function formatSessionItem(data: SessionItemData): FormattedSessionItem {
   return {
     icon: getStatusIcon(data.status),
     shortId: data.sessionId.substring(0, 8),
-    targetName: data.target || data.skillName || 'unknown',
+    targetName: truncateTarget(data.target || data.skillName || 'unknown'),
     domainBadge: getDomainBadge(data.expertDomain),
     timeAgo: formatTimeAgo(data.timestamp),
     isActive: data.isActive ?? false,

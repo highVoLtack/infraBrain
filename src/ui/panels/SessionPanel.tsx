@@ -71,6 +71,21 @@ function fuzzyMatch(query: string, target: string): boolean {
   return qi === q.length;
 }
 
+/**
+ * Pure function: filter sessions by removing unknown/empty targets and applying search.
+ * After Plan 01, SSE sessions have real targets and event counts, so we only filter
+ * truly empty sessions (unknown target). eventCount is no longer used for filtering
+ * since in-progress sessions may have 0 events initially.
+ * Exported for unit testing.
+ */
+export function filterSessions(sessions: SessionEntry[], searchQuery: string): SessionEntry[] {
+  let filtered = sessions.filter(s => s.target && s.target !== 'unknown');
+  if (searchQuery) {
+    filtered = filtered.filter(s => fuzzyMatch(searchQuery, s.target || s.id));
+  }
+  return filtered;
+}
+
 // ---- React Component ----
 
 export interface SessionPanelProps {
@@ -87,7 +102,7 @@ export function SessionPanel({ apiBaseUrl, onSelect, activeFocus }: SessionPanel
   const [searchMode, setSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch sessions on mount
+  // Fetch sessions on mount and poll every 10 seconds for fresh data
   useEffect(() => {
     let cancelled = false;
 
@@ -104,16 +119,13 @@ export function SessionPanel({ apiBaseUrl, onSelect, activeFocus }: SessionPanel
     }
 
     fetchSessions();
-    return () => { cancelled = true; };
+    const interval = setInterval(fetchSessions, 10_000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [apiBaseUrl]);
 
-  // Filter sessions: remove "unknown" targets and apply search query
+  // Filter sessions using extracted pure function
   const filteredSessions = useMemo(() => {
-    let filtered = sessions.filter(s => s.target && s.target !== 'unknown' && s.eventCount > 0);
-    if (searchQuery) {
-      filtered = filtered.filter(s => fuzzyMatch(searchQuery, s.target || s.id));
-    }
-    return filtered;
+    return filterSessions(sessions, searchQuery);
   }, [sessions, searchQuery]);
 
   const grouped = useMemo(() => groupSessionsByDate(filteredSessions), [filteredSessions]);
