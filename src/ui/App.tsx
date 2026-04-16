@@ -22,9 +22,126 @@ import { DPEVPanel } from './panels/DPEVPanel.js';
 import { SessionPanel } from './panels/SessionPanel.js';
 import { EntityPanel } from './panels/EntityPanel.js';
 import { useResponsive } from './hooks/useResponsive.js';
-import type { PanelId, DPEVState } from './types.js';
+import type { PanelId, DPEVState, DPEVPhaseState, StepState } from './types.js';
 
 // ---- Pure logic (testable without React) ----
+
+/**
+ * Pure function: build a DPEVState from audit event entries.
+ * Handles both new dpev_phase_start/complete and old phase_start/complete event types.
+ * Sorts entries by timestamp ASC before processing (API may return DESC order).
+ * Exported for unit testing.
+ */
+export function buildReplayState(
+  sessionId: string,
+  entries: Array<Record<string, unknown>>,
+): DPEVState {
+  // Sort entries by timestamp ascending (API returns newest first)
+  const sorted = [...entries].sort((a, b) => {
+    const ta = new Date(a.timestamp as string).getTime();
+    const tb = new Date(b.timestamp as string).getTime();
+    return ta - tb;
+  });
+
+  const phases: DPEVPhaseState[] = [];
+  const executionSteps: StepState[] = [];
+
+  for (const entry of sorted) {
+    const eventType = entry.eventType as string;
+
+    // Handle new dpev_phase_start events
+    if (eventType === 'dpev_phase_start') {
+      const meta = entry.metadata as Record<string, unknown> | undefined;
+      phases.push({
+        name: (meta?.phase as string) || 'unknown',
+        model: (meta?.model as string) || '?',
+        startedAt: new Date(entry.timestamp as string).getTime(),
+        status: 'active',
+        tokens: '',
+      });
+    } else if (eventType === 'dpev_phase_complete') {
+      const meta = entry.metadata as Record<string, unknown> | undefined;
+      const phaseName = (meta?.phase as string) || 'unknown';
+      const existing = phases.find(p => p.name === phaseName);
+      if (existing) {
+        existing.status = 'complete';
+        existing.completedAt = existing.startedAt + ((meta?.duration_ms as number) || 0);
+      } else {
+        // Phase arrived as complete without prior start (robust handling)
+        const ts = new Date(entry.timestamp as string).getTime();
+        phases.push({
+          name: phaseName,
+          model: (meta?.model as string) || '?',
+          startedAt: ts - ((meta?.duration_ms as number) || 0),
+          completedAt: ts,
+          status: 'complete',
+          tokens: '',
+        });
+      }
+    }
+
+    // Handle old phase_start/phase_complete event types (backward compat)
+    if (eventType === 'phase_start') {
+      const details = entry.details as Record<string, unknown> | undefined;
+      const phaseName = (details?.phase as string) || 'unknown';
+      if (!phases.some(p => p.name === phaseName)) {
+        phases.push({
+          name: phaseName,
+          model: (details?.model as string) || '?',
+          startedAt: new Date(entry.timestamp as string).getTime(),
+          status: 'active',
+          tokens: '',
+        });
+      }
+    } else if (eventType === 'phase_complete') {
+      const details = entry.details as Record<string, unknown> | undefined;
+      const phaseName = (details?.phase as string) || 'unknown';
+      const existing = phases.find(p => p.name === phaseName);
+      if (existing) {
+        existing.status = 'complete';
+        const durationMs = (details?.duration_ms as number) || 0;
+        if (durationMs > 0) {
+          existing.completedAt = existing.startedAt + durationMs;
+        } else {
+          existing.completedAt = new Date(entry.timestamp as string).getTime();
+        }
+      } else {
+        const ts = new Date(entry.timestamp as string).getTime();
+        const durationMs = (details?.duration_ms as number) || 0;
+        phases.push({
+          name: phaseName,
+          model: (details?.model as string) || '?',
+          startedAt: durationMs > 0 ? ts - durationMs : ts,
+          completedAt: ts,
+          status: 'complete',
+          tokens: '',
+        });
+      }
+    }
+
+    // Extract execution step events for replay
+    if (eventType === 'execution_start' || eventType === 'step_complete' || eventType === 'step_failed') {
+      const meta = entry.metadata as Record<string, unknown> | undefined;
+      if (meta?.command) {
+        executionSteps.push({
+          stepIndex: (meta.stepIndex as number) ?? executionSteps.length,
+          total: (meta.totalSteps as number) ?? 0,
+          command: meta.command as string,
+          risk: (meta.risk as string) ?? 'safe',
+          status: eventType === 'step_failed' ? 'failed' : 'success',
+        });
+      }
+    }
+  }
+
+  return {
+    sessionId,
+    phases,
+    activePhaseIndex: -1,
+    executionSteps,
+    status: 'complete',
+  };
+}
 
 /**
  * Pure function: parse a /infra: command string into command name and args.
@@ -138,32 +255,7 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
         const res = await fetch(`${apiBaseUrl}/history?session=${sessionId}&verbose=true`);
         if (res.ok) {
           const data = await res.json() as { entries: Array<Record<string, unknown>> };
-          // Build a minimal DPEVState for replay
-          const replayState: DPEVState = {
-            sessionId,
-            phases: [],
-            activePhaseIndex: -1,
-            executionSteps: [],
-            status: 'complete',
-          };
-
-          // Extract phases from audit entries if available
-          for (const entry of (data.entries || [])) {
-            if (entry.eventType === 'phase_start' || entry.eventType === 'phase_complete') {
-              const phaseName = (entry.details as Record<string, unknown>)?.phase as string;
-              if (phaseName && !replayState.phases.some(p => p.name === phaseName)) {
-                replayState.phases.push({
-                  name: phaseName,
-                  model: ((entry.details as Record<string, unknown>)?.model as string) || '?',
-                  startedAt: new Date(entry.timestamp as string).getTime(),
-                  status: 'complete',
-                  tokens: '',
-                  completedAt: new Date(entry.timestamp as string).getTime(),
-                });
-              }
-            }
-          }
-
+          const replayState = buildReplayState(sessionId, data.entries || []);
           setReplaySession(replayState);
           setActivePrompt(undefined);
           setActivePanel('center');

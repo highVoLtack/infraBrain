@@ -7,7 +7,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from 'ink-testing-library';
-import { App, parseInfraCommand } from '../../src/ui/App.js';
+import { App, parseInfraCommand, buildReplayState } from '../../src/ui/App.js';
 import {
   StatusOverlay,
   parseOverlayData,
@@ -45,6 +45,113 @@ describe('parseInfraCommand', () => {
   it('handles whitespace gracefully', () => {
     const result = parseInfraCommand('  /infra:debug "test"  ');
     expect(result).toEqual({ command: 'debug', args: 'test' });
+  });
+});
+
+// ---- Pure function tests: buildReplayState ----
+
+describe('buildReplayState', () => {
+  it('builds DPEVPhaseState from dpev_phase_start and dpev_phase_complete', () => {
+    const entries = [
+      {
+        eventType: 'dpev_phase_start',
+        timestamp: '2026-04-16T10:00:00.000Z',
+        metadata: { phase: 'discovery', model: 'qwen3-0.6b' },
+      },
+      {
+        eventType: 'dpev_phase_complete',
+        timestamp: '2026-04-16T10:00:01.200Z',
+        metadata: { phase: 'discovery', model: 'qwen3-0.6b', duration_ms: 1200 },
+      },
+    ];
+
+    const state = buildReplayState('sess-001', entries);
+    expect(state.phases).toHaveLength(1);
+    expect(state.phases[0]!.name).toBe('discovery');
+    expect(state.phases[0]!.model).toBe('qwen3-0.6b');
+    expect(state.phases[0]!.status).toBe('complete');
+    expect(state.phases[0]!.completedAt).toBe(state.phases[0]!.startedAt + 1200);
+  });
+
+  it('builds multiple phase entries in order from discovery, diagnosis, plan', () => {
+    const entries = [
+      { eventType: 'dpev_phase_start', timestamp: '2026-04-16T10:00:00.000Z', metadata: { phase: 'discovery', model: 'qwen3-0.6b' } },
+      { eventType: 'dpev_phase_complete', timestamp: '2026-04-16T10:00:01.000Z', metadata: { phase: 'discovery', model: 'qwen3-0.6b', duration_ms: 1000 } },
+      { eventType: 'dpev_phase_start', timestamp: '2026-04-16T10:00:02.000Z', metadata: { phase: 'diagnosis', model: 'qwen3-32b' } },
+      { eventType: 'dpev_phase_complete', timestamp: '2026-04-16T10:00:05.000Z', metadata: { phase: 'diagnosis', model: 'qwen3-32b', duration_ms: 3000 } },
+      { eventType: 'dpev_phase_start', timestamp: '2026-04-16T10:00:06.000Z', metadata: { phase: 'plan', model: 'qwen3-14b' } },
+      { eventType: 'dpev_phase_complete', timestamp: '2026-04-16T10:00:08.000Z', metadata: { phase: 'plan', model: 'qwen3-14b', duration_ms: 2000 } },
+    ];
+
+    const state = buildReplayState('sess-002', entries);
+    expect(state.phases).toHaveLength(3);
+    expect(state.phases[0]!.name).toBe('discovery');
+    expect(state.phases[1]!.name).toBe('diagnosis');
+    expect(state.phases[2]!.name).toBe('plan');
+    expect(state.status).toBe('complete');
+  });
+
+  it('returns empty phases array when no dpev_phase events exist', () => {
+    const entries = [
+      { eventType: 'session_start', timestamp: '2026-04-16T10:00:00.000Z', metadata: {} },
+      { eventType: 'session_end', timestamp: '2026-04-16T10:00:05.000Z', metadata: {} },
+    ];
+
+    const state = buildReplayState('sess-003', entries);
+    expect(state.phases).toHaveLength(0);
+    expect(state.sessionId).toBe('sess-003');
+    expect(state.status).toBe('complete');
+  });
+
+  it('computes completedAt from startedAt + duration_ms', () => {
+    const entries = [
+      { eventType: 'dpev_phase_start', timestamp: '2026-04-16T10:00:00.000Z', metadata: { phase: 'discovery', model: 'qwen3-0.6b' } },
+      { eventType: 'dpev_phase_complete', timestamp: '2026-04-16T10:00:02.500Z', metadata: { phase: 'discovery', model: 'qwen3-0.6b', duration_ms: 2500 } },
+    ];
+
+    const state = buildReplayState('sess-004', entries);
+    const phase = state.phases[0]!;
+    const expectedStart = new Date('2026-04-16T10:00:00.000Z').getTime();
+    expect(phase.startedAt).toBe(expectedStart);
+    expect(phase.completedAt).toBe(expectedStart + 2500);
+  });
+
+  it('handles entries in reverse (DESC) order by sorting them ASC before processing', () => {
+    // API returns newest first -- buildReplayState should handle this
+    const entries = [
+      { eventType: 'dpev_phase_complete', timestamp: '2026-04-16T10:00:05.000Z', metadata: { phase: 'diagnosis', model: 'qwen3-32b', duration_ms: 3000 } },
+      { eventType: 'dpev_phase_start', timestamp: '2026-04-16T10:00:02.000Z', metadata: { phase: 'diagnosis', model: 'qwen3-32b' } },
+      { eventType: 'dpev_phase_complete', timestamp: '2026-04-16T10:00:01.000Z', metadata: { phase: 'discovery', model: 'qwen3-0.6b', duration_ms: 1000 } },
+      { eventType: 'dpev_phase_start', timestamp: '2026-04-16T10:00:00.000Z', metadata: { phase: 'discovery', model: 'qwen3-0.6b' } },
+    ];
+
+    const state = buildReplayState('sess-005', entries);
+    expect(state.phases).toHaveLength(2);
+    // After sorting ASC, discovery start comes first
+    expect(state.phases[0]!.name).toBe('discovery');
+    expect(state.phases[0]!.status).toBe('complete');
+    expect(state.phases[1]!.name).toBe('diagnosis');
+    expect(state.phases[1]!.status).toBe('complete');
+  });
+
+  it('also handles old phase_start/phase_complete event types for backward compat', () => {
+    const entries = [
+      {
+        eventType: 'phase_start',
+        timestamp: '2026-04-16T10:00:00.000Z',
+        details: { phase: 'discovery', model: 'qwen3-0.6b' },
+      },
+      {
+        eventType: 'phase_complete',
+        timestamp: '2026-04-16T10:00:01.000Z',
+        details: { phase: 'discovery', model: 'qwen3-0.6b', duration_ms: 1000 },
+      },
+    ];
+
+    const state = buildReplayState('sess-006', entries);
+    expect(state.phases).toHaveLength(1);
+    expect(state.phases[0]!.name).toBe('discovery');
+    expect(state.phases[0]!.status).toBe('complete');
   });
 });
 
