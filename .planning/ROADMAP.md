@@ -64,6 +64,7 @@
 - [x] **Phase 19: Ink/React Terminal UI** - Full terminal renderer with live DPEV tracking, streaming output, and rich dashboard (completed 2026-04-15)
 - [x] **Phase 19.1: Ink UI Polish** - Session persistence for SSE sessions, session replay with DPEV phases, entity panel population, UX refinements (completed 2026-04-16)
 - [x] **Phase 19.2: End-to-End Debug Flow** - Complete DPEV+E+V in Ink: discovery spinner, plan approval prompt, execution with step progress, verification feedback (completed 2026-04-17)
+- [ ] **Phase 19.3: Markdown Rendering in Ink** - Replace raw Markdown-ish text output (diagnosis root cause, fix plan narrative) with a proper terminal Markdown renderer so headings, code blocks, lists, and inline code are styled in the Ink UI
 
 ## Phase Details
 
@@ -195,9 +196,22 @@ Plans:
 - [x] 19.2-02-PLAN.md -- Frontend: PlanView component + DPEVPhaseHeader timer fix + reducer extensions
 - [x] 19.2-03-PLAN.md -- Integration: DPEVPanel wiring + full suite validation
 
+### Phase 19.3: Markdown Rendering in Ink
+**Goal**: The diagnosis root cause, fix plan narrative, and any multi-line LLM output in the Ink UI render as styled Markdown (headings bold, code blocks highlighted, lists indented, inline code differentiated) instead of raw `## heading` / ``` fences / `**bold**` characters
+**Depends on**: Phase 19.2 (DPEVPanel renders plan/diagnosis text — this phase restyles the existing output)
+**Requirements**: TERM-M01, TERM-M02, TERM-M03 (to be defined during /gsd-discuss-phase)
+**Success Criteria** (what must be TRUE):
+  1. A single Markdown rendering component (`MarkdownView`) is used for all diagnosis + plan text in DPEVPanel and any replay views
+  2. Headings, inline code, code blocks, ordered/unordered lists, and bold/italic render with distinguishable Ink styling (color, boldness, indentation)
+  3. The renderer degrades gracefully on plain text (no Markdown tokens → identical output to a plain `<Text>`)
+  4. Renderer library is chosen from real options compared in RESEARCH.md (`marked-terminal`, `@inkjs/ui`, `ink-markdown`, `cli-markdown`, or a handwritten thin parser) with pros/cons documented
+  5. Bundle size increase is capped; if a dependency adds >150KB to the bundle, the handwritten option is preferred
+  6. Snapshot tests cover all 6 Markdown feature groups (headings, code blocks, inline code, bold/italic, lists, plain-text passthrough)
+**Plans:** 0/? plans — research + planning pending
+
 ## Progress
 
-**Execution Order:** Phases 14 -> 15 -> 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2
+**Execution Order:** Phases 14 -> 15 -> 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2 -> 19.3
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
@@ -221,7 +235,8 @@ Plans:
 | 19 | v1.3 | 6/6 | Complete | 2026-04-15 |
 | 19.1 | v1.3 | 2/2 | Complete | 2026-04-16 |
 | 19.2 | v1.3 | 3/3 | Complete   | 2026-04-17 |
+| 19.3 | v1.3 | 0/? | Planned    | -- |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-04-15 -- Phase 19.2 planned (3 plans)*
+*Last updated: 2026-04-17 -- Phase 19.3 (Markdown Rendering) added to roadmap*
