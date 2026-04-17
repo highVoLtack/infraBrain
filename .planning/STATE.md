@@ -145,6 +145,18 @@ Progress: [██████████] 100%
   local Ollama when available, or (c) multi-model consensus. Not UX — separate phase or todo cleanup
   after Phase 19.3 (DPEV Observability) ships. Captured 2026-04-17.
 
+- **[V2-CAVEMAN-001]** Nano-LLM Distillation Pipeline (v2.0 feature).
+  Build Caveman distillation: Qwen 2.5 1.5B-multilingual (or similar nano) compresses completed
+  session artifacts into emoji + hanzi high-density encoding. Target: 80-90% token savings on
+  long-term memory so a whole year of IT history fits into one Gemini prompt. Writes distilled_payload
+  column (schema prepared in Phase 17.1). Belongs to v2.0 — not before. Captured 2026-04-17.
+
+- **[V2-DUAL-RETRIEVAL-001]** Dual-Track LanceDB Retrieval (v2.0 feature).
+  Retrieval stays on raw-text BGE-M3 vectors (embeddings need natural language for accurate similarity),
+  but the payload that gets injected into the LLM context is the distilled_payload (compressed
+  emoji/hanzi). Orthogonal to [V2-CAVEMAN-001] — this is the READ side, Caveman is the WRITE side.
+  Both ship together in v2.0. Captured 2026-04-17.
+
 ### Blockers/Concerns
 
 - MemPalace TypeScript data model: RESOLVED -- native TypeScript implementation shipped in Phase 17

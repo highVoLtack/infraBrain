@@ -60,6 +60,7 @@
 - [x] **Phase 15: Auto-Compact Context Management** - Token counting and automatic context compaction at 83% threshold with ground truth pinning (completed 2026-04-10)
 - [x] **Phase 16: Qdrant Fix-Caching** - Vector similarity search returns cached fixes in 2s instead of 113s LLM reasoning (completed 2026-04-10)
 - [x] **Phase 17: MemPalace Semantic Memory** - Native TypeScript incident memory with temporal knowledge graph and semantic search (completed 2026-04-14)
+- [ ] **Phase 17.1: Memory Schema Prep for Caveman** - Extend LanceDB tables with distilled_payload, distiller_model_id, raw_text_hash, compression_ratio columns so v2.0 Nano-LLM distillation can retro-fill existing entries. Backend only, no UI change.
 - [x] **Phase 18: Parallel Inference Pipeline** - Concurrent 9B pre-processing + 122B reasoning via Promise.allSettled (completed 2026-04-15)
 - [x] **Phase 19: Ink/React Terminal UI** - Full terminal renderer with live DPEV tracking, streaming output, and rich dashboard (completed 2026-04-15)
 - [x] **Phase 19.1: Ink UI Polish** - Session persistence for SSE sessions, session replay with DPEV phases, entity panel population, UX refinements (completed 2026-04-16)
@@ -131,6 +132,24 @@ Plans:
 - [x] 17-02-PLAN.md -- IncidentStore, EntityStore, entity extractor, memory scoring (data layer)
 - [x] 17-03-PLAN.md -- Memory search, wake-up context, pipeline [MEMORY] integration
 - [x] 17-04-PLAN.md -- Intent classifier, memory skill, incident auto-filing
+
+### Phase 17.1: Memory Schema Prep for Caveman
+**Goal**: LanceDB tables (mem_incidents, mem_entities, fix_cache) carry the columns required by the v2.0 Caveman/Nano-LLM distillation pipeline, so when the distiller ships it can retro-fill historical entries rather than starting from scratch. No distillation logic itself — just schema.
+**Depends on**: Phase 17 (MemPalace tables exist), Phase 16 (fix-cache table exists)
+**Requirements**: MEM-S01, MEM-S02, MEM-S03 (to be finalized during /gsd-discuss-phase or /gsd-plan-phase)
+**Success Criteria** (what must be TRUE):
+  1. mem_incidents table has columns: distilled_payload (string/blob, nullable), distiller_model_id (string, nullable), raw_text_hash (string, SHA-256 of raw incident text), compression_ratio (float, nullable)
+  2. mem_entities table has the same distillation columns where applicable
+  3. fix_cache table has raw_text_hash at minimum (enables dedupe during retro-distillation)
+  4. Existing rows keep working — migration is additive, new columns default to NULL, no rewrite of the raw text or vector fields
+  5. Write path for all new incidents computes raw_text_hash immediately; distilled_payload fields stay NULL until v2.0 distiller runs
+  6. Search path is untouched — vector column (BGE-M3 embeddings of raw text) still drives retrieval; distilled_payload is retrieval-side only, not indexed
+**Out of scope**:
+  - Nano-LLM distillation pipeline (v2.0 phase)
+  - Emoji/Hanzi encoder/decoder (v2.0 phase)
+  - Dual-track retrieval injection (inject distilled_payload in LLM context) — v2.0 phase
+  - UI surfacing of compression metrics — handled in Phase 19.3 as v2.0 placeholder
+**Plans:** 0/? plans — research + planning pending
 
 ### Phase 18: Parallel Inference Pipeline
 **Goal**: 9B models pre-process logs and extract patterns while 122B reasons about diagnosis, cutting total inference time
@@ -245,8 +264,9 @@ Plans:
 | 19 | v1.3 | 6/6 | Complete | 2026-04-15 |
 | 19.1 | v1.3 | 2/2 | Complete | 2026-04-16 |
 | 19.2 | v1.3 | 3/3 | Complete   | 2026-04-17 |
+| 17.1 | v1.3 | 0/? | Planned    | -- |
 | 19.3 | v1.3 | 0/? | Planned    | -- |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-04-17 -- Phase 19.3 renamed + expanded to "DPEV Observability & Magic" (8 TERM-UX0x requirements)*
+*Last updated: 2026-04-17 -- Phase 17.1 (Caveman schema prep) added + Phase 19.3 discussed (4 UX areas decided, 8 TERM-UX0x + v2.0 placeholders)*
