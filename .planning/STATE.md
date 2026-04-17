@@ -138,7 +138,12 @@ Progress: [██████████] 100%
 
 ### Pending Todos
 
-None yet.
+- **[MODEL-QUALITY-001]** Investigate Gemini 2.5-pro vs. Ollama 122B infra-diagnosis quality.
+  User observed "damals Ollama 122B hat's gepackt, jetzt mit Gemini wackelt's" during Phase 19.2 live UAT.
+  Scope: side-by-side same broken-nginx scenario, same prompts, compare diagnosis accuracy + fix-plan
+  viability. Outcome decides whether (a) Gemini prompts need tuning, (b) route strategic calls to
+  local Ollama when available, or (c) multi-model consensus. Not UX — separate phase or todo cleanup
+  after Phase 19.3 (DPEV Observability) ships. Captured 2026-04-17.
 
 ### Blockers/Concerns
 
