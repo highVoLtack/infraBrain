@@ -61,8 +61,14 @@ export function createProvider(model: LanguageModel, registry?: ModelRegistry): 
         yield chunk;
       }
 
+      // Gemini's streaming OpenAI-compat endpoint does not report usage.
+      // Silence the noisy `undefined` dump — only log when we actually have numbers.
       const usage = await result.usage;
-      console.debug('[LLM] streamDiagnosis usage:', usage);
+      if (usage?.totalTokens !== undefined) {
+        console.debug(
+          `[LLM] streamDiagnosis usage: in=${usage.inputTokens ?? '–'} out=${usage.outputTokens ?? '–'} total=${usage.totalTokens}`,
+        );
+      }
     },
 
     async generateCommand(prompt: string, systemPrompt: string, role?: ModelRole): Promise<string> {
@@ -87,7 +93,11 @@ export function createProvider(model: LanguageModel, registry?: ModelRegistry): 
       });
 
       const modelId = (targetModel as any).modelId ?? 'unknown';
-      console.debug(`[LLM] generateCommand (model: ${modelId}, role: ${role ?? 'default'}) usage:`, usage);
+      if (usage?.totalTokens !== undefined) {
+        console.debug(
+          `[LLM] generateCommand ${modelId} (${role ?? 'default'}) usage: in=${usage.inputTokens ?? '–'} out=${usage.outputTokens ?? '–'} total=${usage.totalTokens}`,
+        );
+      }
       return text;
     },
   };
