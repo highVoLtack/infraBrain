@@ -9,7 +9,7 @@ export interface SessionState {
   sessionId: string;
   createdAt: string;
   updatedAt: string;
-  status: 'active' | 'completed' | 'failed';
+  status: 'active' | 'plan-ready' | 'completed' | 'failed';
   target?: string;
   currentPlan?: FixPlanState;
   resumeMetadata?: ResumeMetadata;

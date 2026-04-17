@@ -8,11 +8,16 @@ import type { SkillRegistry } from '../../skills/registry.js';
 import type { WriteThrough } from '../../state/store.js';
 import type { InfraBrainConfig } from '../../config/types.js';
 import type { SessionState } from '../../state/types.js';
+import type { FixStep } from '../../orchestrator/types.js';
 import { v7 as uuidv7 } from 'uuid';
 import { join } from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { runDPEV } from '../../orchestrator/pipeline.js';
-import type { CacheHitProvenance } from '../../orchestrator/pipeline.js';
+import type { CacheHitProvenance, DPEVResult } from '../../orchestrator/pipeline.js';
+import { executePlan } from '../../execution/executor.js';
+import { runCommand } from '../../execution/runner.js';
+import { runParallelDiscovery } from '../../orchestrator/discovery.js';
+import { DEFAULT_CONFIG } from '../../config/defaults.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,10 +51,16 @@ function sendEvent(res: Response, event: string, data: unknown): void {
 }
 
 // ---------------------------------------------------------------------------
-// Module-scoped approval map for concurrent session safety
+// Module-scoped approval maps for concurrent session safety
 // ---------------------------------------------------------------------------
 
 const cacheApprovals = new Map<string, { resolve: (useCache: boolean) => void }>();
+const planApprovals = new Map<string, { resolve: (approved: boolean) => void }>();
+const stepApprovals = new Map<string, { resolve: (approved: boolean) => void }>();
+
+function stepApprovalKey(sessionId: string, stepIndex: number): string {
+  return `${sessionId}:${stepIndex}`;
+}
 
 // ---------------------------------------------------------------------------
 // Route Factory
@@ -57,13 +68,17 @@ const cacheApprovals = new Map<string, { resolve: (useCache: boolean) => void }>
 
 /**
  * Create the /stream/debug route.
- * POST / streams DPEV pipeline events via SSE.
- * POST /approve resolves pending cache hit decisions.
+ * POST / streams DPEV pipeline events via SSE, then gates on plan approval,
+ *        chains execution through the same SSE, runs verification, and
+ *        emits a final dpev:complete with the real execution outcome.
+ * POST /approve         -- cache hit approval
+ * POST /plan-approve    -- plan approval gate (TERM-E02 backend)
+ * POST /step-approve    -- per-step approval for write/destructive steps
  */
 export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
   const router = Router();
 
-  // POST / -- SSE streaming DPEV pipeline
+  // POST / -- SSE streaming DPEV pipeline + execution + verification
   router.post('/', async (req: Request, res: Response) => {
     const { prompt, skill: skillOverride, noCache } = req.body ?? {};
 
@@ -107,6 +122,20 @@ export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
       }
     }
 
+    // Persist session state helper (no-op if store unavailable)
+    const updateSessionStatus = (status: SessionState['status']): void => {
+      if (deps.store && sessionDir && sessionState) {
+        try {
+          sessionState = {
+            ...sessionState,
+            status,
+            updatedAt: new Date().toISOString(),
+          };
+          deps.store.persistState(sessionDir, sessionState);
+        } catch { /* session persistence is non-critical */ }
+      }
+    };
+
     // Create onEvent callback that relays pipeline events to SSE
     const onEvent = (event: string, data: unknown): void => {
       sendEvent(res, event, data);
@@ -129,17 +158,30 @@ export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
       });
     };
 
-    // Handle client disconnect
+    // Handle client disconnect -- reject all pending approvals for this session
     req.on('close', () => {
-      const pending = cacheApprovals.get(sessionId);
-      if (pending) {
-        pending.resolve(false); // Reject cache on disconnect
+      const cachePending = cacheApprovals.get(sessionId);
+      if (cachePending) {
+        cachePending.resolve(false);
         cacheApprovals.delete(sessionId);
+      }
+      const planPending = planApprovals.get(sessionId);
+      if (planPending) {
+        planPending.resolve(false);
+        planApprovals.delete(sessionId);
+      }
+      for (const key of Array.from(stepApprovals.keys())) {
+        if (key.startsWith(`${sessionId}:`)) {
+          stepApprovals.get(key)?.resolve(false);
+          stepApprovals.delete(key);
+        }
       }
     });
 
+    let dpevResult: DPEVResult | undefined;
+
     try {
-      await runDPEV({
+      dpevResult = await runDPEV({
         prompt,
         skillOverride: skillOverride as string | undefined,
         provider: deps.provider,
@@ -154,39 +196,67 @@ export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
         requestCacheApproval,
       });
 
-      // Update session status to completed
-      if (deps.store && sessionDir && sessionState) {
-        try {
-          deps.store.persistState(sessionDir, {
-            ...sessionState,
-            status: 'completed',
-            updatedAt: new Date().toISOString(),
-          });
-        } catch { /* session persistence is non-critical */ }
+      // --- Plan approval gate (TERM-E02 backend) ---
+      // Only gate if we have a fixPlan with steps. Cache hits + hallucination errors bypass.
+      const hasActionablePlan = !!(dpevResult.fixPlan && dpevResult.fixPlan.steps.length > 0);
+
+      if (hasActionablePlan) {
+        // Mark session as plan-ready (not completed) while we wait
+        updateSessionStatus('plan-ready');
+
+        // Emit plan approval event and wait for user response
+        sendEvent(res, 'dpev:plan-approval', {
+          fixPlan: dpevResult.fixPlan,
+          sessionId,
+        });
+
+        const approved = await new Promise<boolean>((resolve) => {
+          planApprovals.set(sessionId, { resolve });
+        });
+        planApprovals.delete(sessionId);
+
+        if (!approved) {
+          // User rejected plan -- end cleanly, status completed with plan_rejected
+          updateSessionStatus('completed');
+          sendEvent(res, 'dpev:complete', { sessionId, status: 'plan_rejected' });
+          res.end();
+          return;
+        }
+
+        // User approved plan -- chain to execution
+        await runExecutionAndVerification({
+          res,
+          sessionId,
+          sessionDir,
+          dpevResult,
+          deps,
+          sessionAuditLogger,
+          updateSessionStatus,
+        });
+        return;
       }
 
-      // Send completion event
+      // No actionable plan: legacy behavior -- mark completed, emit dpev:complete
+      updateSessionStatus('completed');
       sendEvent(res, 'dpev:complete', { sessionId, status: 'success' });
     } catch (err) {
-      // Update session status to failed
-      if (deps.store && sessionDir && sessionState) {
-        try {
-          deps.store.persistState(sessionDir, {
-            ...sessionState,
-            status: 'failed',
-            updatedAt: new Date().toISOString(),
-          });
-        } catch { /* session persistence is non-critical */ }
-      }
-
-      // Send error event
+      // Pipeline error -- mark failed, emit dpev:error
+      updateSessionStatus('failed');
       sendEvent(res, 'dpev:error', {
         message: (err as Error).message,
       });
     } finally {
-      // Clean up approval map
+      // Clean up approval map for this session
       cacheApprovals.delete(sessionId);
-      res.end();
+      planApprovals.delete(sessionId);
+      for (const key of Array.from(stepApprovals.keys())) {
+        if (key.startsWith(`${sessionId}:`)) {
+          stepApprovals.delete(key);
+        }
+      }
+      if (!res.writableEnded) {
+        res.end();
+      }
     }
   });
 
@@ -212,5 +282,207 @@ export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
     res.status(200).json({ ok: true });
   });
 
+  // POST /plan-approve -- plan approval gate (TERM-E02 backend)
+  router.post('/plan-approve', (req: Request, res: Response) => {
+    const { sessionId, approved } = req.body ?? {};
+
+    if (!sessionId || typeof sessionId !== 'string') {
+      res.status(400).json({ error: 'sessionId is required' });
+      return;
+    }
+
+    const pending = planApprovals.get(sessionId);
+    if (!pending) {
+      res.status(404).json({ error: 'No pending plan approval for this session' });
+      return;
+    }
+
+    pending.resolve(!!approved);
+    planApprovals.delete(sessionId);
+
+    res.status(200).json({ ok: true });
+  });
+
+  // POST /step-approve -- per-step approval for write/destructive steps
+  router.post('/step-approve', (req: Request, res: Response) => {
+    const { sessionId, stepIndex, approved } = req.body ?? {};
+
+    if (!sessionId || typeof sessionId !== 'string') {
+      res.status(400).json({ error: 'sessionId is required' });
+      return;
+    }
+    if (typeof stepIndex !== 'number') {
+      res.status(400).json({ error: 'stepIndex is required' });
+      return;
+    }
+
+    const key = stepApprovalKey(sessionId, stepIndex);
+    const pending = stepApprovals.get(key);
+    if (!pending) {
+      res.status(404).json({ error: 'No pending step approval for this session/step' });
+      return;
+    }
+
+    pending.resolve(!!approved);
+    stepApprovals.delete(key);
+
+    res.status(200).json({ ok: true });
+  });
+
   return router;
+}
+
+// ---------------------------------------------------------------------------
+// Execution + Verification helper
+// ---------------------------------------------------------------------------
+
+interface ExecuteAndVerifyArgs {
+  res: Response;
+  sessionId: string;
+  sessionDir: string | undefined;
+  dpevResult: DPEVResult;
+  deps: StreamDebugRouteDeps;
+  sessionAuditLogger: AuditLogger;
+  updateSessionStatus: (status: SessionState['status']) => void;
+}
+
+async function runExecutionAndVerification(args: ExecuteAndVerifyArgs): Promise<void> {
+  const { res, sessionId, sessionDir, dpevResult, deps, sessionAuditLogger, updateSessionStatus } = args;
+  const fixPlan = dpevResult.fixPlan!;
+  const target = dpevResult.target ?? 'unknown';
+  const config = deps.config ?? DEFAULT_CONFIG;
+
+  // --- Execution phase ---
+  sendEvent(res, 'dpev:phase', { phase: 'execution', model: 'executor', status: 'active' });
+
+  try {
+    sessionAuditLogger.logExecution('dpev_phase_start', { phase: 'execution', model: 'executor' });
+  } catch { /* non-critical */ }
+
+  // Emit initial exec:step pending events (same pattern as stream-execute.ts)
+  for (let i = 0; i < fixPlan.steps.length; i++) {
+    sendEvent(res, 'exec:step', {
+      stepIndex: i,
+      total: fixPlan.steps.length,
+      command: fixPlan.steps[i].command,
+      risk: fixPlan.steps[i].risk,
+      status: 'pending',
+      target,
+    });
+  }
+
+  const executionStart = Date.now();
+  let executionResult: Awaited<ReturnType<typeof executePlan>> | undefined;
+
+  try {
+    executionResult = await executePlan(fixPlan, target, {
+      runner: {
+        run: async (executable: string, execArgs: string[], runOptions) => {
+          return runCommand(executable, execArgs, runOptions);
+        },
+      },
+      requestApproval: async (command: string, risk: FixStep['risk']) => {
+        if (risk === 'read') {
+          return { approved: true };
+        }
+
+        const stepIndex = fixPlan.steps.findIndex(s => s.command === command);
+        const effectiveIndex = stepIndex >= 0 ? stepIndex : 0;
+
+        sendEvent(res, 'exec:approval', {
+          command,
+          riskLevel: risk,
+          target,
+          stepIndex: effectiveIndex,
+        });
+
+        return new Promise<{ approved: boolean }>((resolve) => {
+          const key = stepApprovalKey(sessionId, effectiveIndex);
+          stepApprovals.set(key, {
+            resolve: (approved: boolean) => resolve({ approved }),
+          });
+        });
+      },
+      auditLogger: sessionAuditLogger,
+      config,
+      sessionId,
+      sessionDir: sessionDir ?? join(process.cwd(), '.infrabrain', 'sessions', sessionId),
+    });
+
+    // Emit final step results
+    for (const stepResult of executionResult.stepResults) {
+      sendEvent(res, 'exec:step', {
+        stepIndex: stepResult.stepIndex,
+        total: fixPlan.steps.length,
+        command: fixPlan.steps[stepResult.stepIndex]?.command ?? '',
+        risk: fixPlan.steps[stepResult.stepIndex]?.risk ?? 'read',
+        status: stepResult.status,
+        stdout: stepResult.runResult?.stdout,
+        stderr: stepResult.runResult?.stderr,
+        target,
+      });
+    }
+  } catch (err) {
+    sendEvent(res, 'dpev:error', {
+      message: `Execution failed: ${(err as Error).message}`,
+      phase: 'execution',
+    });
+    updateSessionStatus('failed');
+    sendEvent(res, 'dpev:complete', { sessionId, status: 'failed' });
+    return;
+  }
+
+  sendEvent(res, 'dpev:phase', { phase: 'execution', model: 'executor', status: 'complete' });
+
+  try {
+    sessionAuditLogger.logExecution('dpev_phase_complete', {
+      phase: 'execution',
+      model: 'executor',
+      duration_ms: Date.now() - executionStart,
+    });
+  } catch { /* non-critical */ }
+
+  // --- Verification phase ---
+  sendEvent(res, 'dpev:phase', { phase: 'verification', model: 'executor', status: 'active' });
+
+  try {
+    sessionAuditLogger.logExecution('dpev_phase_start', { phase: 'verification', model: 'executor' });
+  } catch { /* non-critical */ }
+
+  const verificationStart = Date.now();
+  let verificationPassed = executionResult.status === 'completed';
+  let freshDiscovery: Record<string, string> = {};
+
+  try {
+    if (dpevResult.discoveryCommands && dpevResult.discoveryCommands.length > 0) {
+      const { raw } = await runParallelDiscovery(dpevResult.discoveryCommands);
+      freshDiscovery = raw;
+    }
+  } catch {
+    // Verification re-run is non-critical -- proceed with execution status alone
+  }
+
+  sendEvent(res, 'dpev:verification', {
+    passed: verificationPassed,
+    discoveryOutput: freshDiscovery,
+  });
+
+  sendEvent(res, 'dpev:phase', { phase: 'verification', model: 'executor', status: 'complete' });
+
+  try {
+    sessionAuditLogger.logExecution('dpev_phase_complete', {
+      phase: 'verification',
+      model: 'executor',
+      duration_ms: Date.now() - verificationStart,
+    });
+  } catch { /* non-critical */ }
+
+  // --- Final session status ---
+  if (executionResult.status === 'completed') {
+    updateSessionStatus('completed');
+    sendEvent(res, 'dpev:complete', { sessionId, status: 'success' });
+  } else {
+    updateSessionStatus('failed');
+    sendEvent(res, 'dpev:complete', { sessionId, status: 'failed' });
+  }
 }

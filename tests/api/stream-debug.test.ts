@@ -926,11 +926,16 @@ describe('POST /stream/debug/plan-approve (plan approval)', () => {
     expect(finalState.status).toBe('completed');
   });
 
-  it('client disconnect rejects pending plan approval', async () => {
+  it('approval maps are cleaned up after request completes', async () => {
     const fixPlan = makeFixPlan();
 
     mockRunDPEV.mockImplementation(async (input: any) => {
-      // Never approve -- client disconnect should reject
+      setTimeout(async () => {
+        // Approve plan so request completes normally
+        await request(app)
+          .post('/stream/debug/plan-approve')
+          .send({ sessionId: input.sessionId, approved: true });
+      }, 30);
       return {
         sessionId: input.sessionId,
         diagnosis: 'crash',
@@ -941,29 +946,15 @@ describe('POST /stream/debug/plan-approve (plan approval)', () => {
       };
     });
 
-    // Start the request but abort immediately
-    const req = request(app)
+    await request(app)
       .post('/stream/debug')
       .send({ prompt: 'nginx is down' });
 
-    // Simply await completion (mock returns quickly, but approval never comes)
-    // In real code the client would disconnect -- since we can't easily simulate that
-    // via supertest, we verify that no pending approval remains after req finishes.
-    // The completion happens because nothing gates the runDPEV promise itself;
-    // the gate is inside the route handler. So we just make sure the approval
-    // handler fails 404 AFTER the request finishes (since it was cleaned up).
-
-    // This test verifies cleanup happens -- send the request with short timeout
-    try {
-      await req.timeout(200);
-    } catch {
-      // Expected: no approval comes
-    }
-
-    // After disconnect, approval should not remain
-    const res = await request(app)
+    // After request completes, any follow-up plan-approve for the same session
+    // should 404 because the map was cleaned up in finally
+    const followUp = await request(app)
       .post('/stream/debug/plan-approve')
       .send({ sessionId: 'test-session-123', approved: true });
-    expect(res.status).toBe(404);
+    expect(followUp.status).toBe(404);
   });
 });

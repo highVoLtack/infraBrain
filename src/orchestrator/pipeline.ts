@@ -80,6 +80,8 @@ export interface DPEVResult {
   structuredDiagnosis?: StructuredDiagnosis;
   commands: Array<{ command: string; riskLevel: string; allowed: boolean; reason?: string }>;
   discovery?: Record<string, string>;
+  /** Raw discovery command definitions (for verification re-run). */
+  discoveryCommands?: Array<{ command: string; label: string }>;
   fixPlan?: FixPlan;
   planMarkdown?: string;
   planTable?: string;
@@ -866,6 +868,7 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
     ...(structuredDiagnosis && { structuredDiagnosis }),
     commands,
     ...(Object.keys(discoveryRaw).length > 0 && { discovery: discoveryRaw }),
+    ...(discoveryCommands.length > 0 && { discoveryCommands }),
     ...(fixPlan && { fixPlan }),
     ...(planMarkdown && { planMarkdown }),
     ...(planTable && { planTable }),
