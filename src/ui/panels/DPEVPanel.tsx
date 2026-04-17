@@ -21,6 +21,7 @@ import { StepCard } from '../components/StepCard.js';
 import { ApprovalWrite } from '../components/ApprovalWrite.js';
 import { ApprovalDestructive } from '../components/ApprovalDestructive.js';
 import { CacheHitBanner } from '../components/CacheHitBanner.js';
+import { PlanView } from '../components/PlanView.js';
 import type { DPEVState } from '../types.js';
 
 export interface DPEVPanelProps {
@@ -52,11 +53,13 @@ function DPEVPanelContent({
   apiBaseUrl,
   onCacheResponse,
   onApprovalResponse,
+  onPlanApprovalResponse,
 }: {
   state: DPEVState;
   apiBaseUrl: string;
   onCacheResponse: (useCache: boolean) => void;
   onApprovalResponse: (approved: boolean) => void;
+  onPlanApprovalResponse: (approved: boolean) => void;
 }): React.ReactElement {
   const showCacheHit = shouldShowCacheHitBanner(state);
 
@@ -88,6 +91,20 @@ function DPEVPanelContent({
         />
       )}
 
+      {/* Plan Approval: structured plan + Y/N gate when status === 'plan-approval' */}
+      {state.status === 'plan-approval' && state.fixPlan && (
+        <Box flexDirection="column" marginTop={1}>
+          <PlanView fixPlan={state.fixPlan} />
+          <Box marginTop={1}>
+            <ApprovalWrite
+              command="Execute this plan?"
+              riskLevel="write"
+              onResponse={onPlanApprovalResponse}
+            />
+          </Box>
+        </Box>
+      )}
+
       {/* Execution Steps */}
       {state.executionSteps.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
@@ -102,7 +119,7 @@ function DPEVPanelContent({
         </Box>
       )}
 
-      {/* Pending Approval Gate */}
+      {/* Pending Approval Gate (per-step approval during execution) */}
       {state.pendingApproval && state.status === 'awaiting-approval' && (
         <Box marginTop={1}>
           {getApprovalType(state.pendingApproval.riskLevel) === 'destructive' ? (
@@ -117,6 +134,25 @@ function DPEVPanelContent({
               riskLevel={state.pendingApproval.riskLevel}
               onResponse={onApprovalResponse}
             />
+          )}
+        </Box>
+      )}
+
+      {/* Verification Result (data-only: renders regardless of status) */}
+      {state.verificationResult && (
+        <Box marginTop={1} flexDirection="column">
+          <Text bold>Verification</Text>
+          {state.verificationResult.passed ? (
+            <Box gap={1}>
+              <Text color="green">{'\u2713'}</Text>
+              <Text color="green" bold>Fix verified</Text>
+            </Box>
+          ) : (
+            <Box gap={1}>
+              <Text color="red">{'\u2717'}</Text>
+              <Text color="red" bold>Fix failed</Text>
+              <Text dimColor>({state.verificationResult.executionStatus})</Text>
+            </Box>
           )}
         </Box>
       )}
@@ -152,6 +188,7 @@ function LiveDPEVPanel({
   const { state, dispatch, connected, sseError } = useDPEV(apiBaseUrl, prompt);
   const [cacheError, setCacheError] = useState<string | undefined>();
   const [approvalError, setApprovalError] = useState<string | undefined>();
+  const [planApprovalError, setPlanApprovalError] = useState<string | undefined>();
 
   const handleCacheResponse = useCallback(
     async (useCache: boolean) => {
@@ -174,15 +211,39 @@ function LiveDPEVPanel({
     [apiBaseUrl, state.sessionId, dispatch]
   );
 
+  const handlePlanApprovalResponse = useCallback(
+    async (approved: boolean) => {
+      try {
+        setPlanApprovalError(undefined);
+        const res = await fetch(`${apiBaseUrl}/stream/debug/plan-approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: state.sessionId, approved }),
+        });
+        if (res.ok) {
+          dispatch({ type: 'APPROVAL_RESPONSE', approved });
+        } else {
+          setPlanApprovalError(`Plan approval failed: HTTP ${res.status}`);
+        }
+      } catch (err) {
+        setPlanApprovalError(err instanceof Error ? err.message : 'Plan approval failed');
+      }
+    },
+    [apiBaseUrl, state.sessionId, dispatch]
+  );
+
   const handleApprovalResponse = useCallback(
     async (approved: boolean) => {
       if (!state.pendingApproval) return;
       try {
         setApprovalError(undefined);
-        const res = await fetch(`${apiBaseUrl}/stream/execute/approve`, {
+        // Route to stream-debug step-approve (Plan 01 moved all approvals
+        // through /stream/debug to keep a single SSE connection for the UI).
+        const res = await fetch(`${apiBaseUrl}/stream/debug/step-approve`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            sessionId: state.sessionId,
             stepIndex: state.pendingApproval.stepIndex,
             approved,
           }),
@@ -196,7 +257,7 @@ function LiveDPEVPanel({
         setApprovalError(err instanceof Error ? err.message : 'Approval failed');
       }
     },
-    [apiBaseUrl, state.pendingApproval, dispatch]
+    [apiBaseUrl, state.sessionId, state.pendingApproval, dispatch]
   );
 
   return (
@@ -219,9 +280,11 @@ function LiveDPEVPanel({
         apiBaseUrl={apiBaseUrl}
         onCacheResponse={handleCacheResponse}
         onApprovalResponse={handleApprovalResponse}
+        onPlanApprovalResponse={handlePlanApprovalResponse}
       />
       {cacheError && <Text color="red">{cacheError}</Text>}
       {approvalError && <Text color="red">{approvalError}</Text>}
+      {planApprovalError && <Text color="red">{planApprovalError}</Text>}
     </Box>
   );
 }
@@ -241,6 +304,7 @@ export function DPEVPanel({
         apiBaseUrl={apiBaseUrl}
         onCacheResponse={() => {}}
         onApprovalResponse={() => {}}
+        onPlanApprovalResponse={() => {}}
       />
     );
   }
