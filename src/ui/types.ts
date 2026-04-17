@@ -13,6 +13,8 @@ export const SSE_EVENT_NAMES = {
   DIAGNOSIS: 'dpev:diagnosis',
   CACHE_HIT: 'dpev:cache-hit',
   PLAN: 'dpev:plan',
+  PLAN_APPROVAL: 'dpev:plan-approval',
+  VERIFICATION: 'dpev:verification',
   STEP: 'exec:step',
   APPROVAL: 'exec:approval',
   COMPLETE: 'dpev:complete',
@@ -48,6 +50,15 @@ export interface SSEEventMap {
   'dpev:plan': {
     fixPlan: object;
     planTable: string;
+  };
+  'dpev:plan-approval': {
+    fixPlan: object;
+    sessionId: string;
+  };
+  'dpev:verification': {
+    passed: boolean;
+    executionStatus: string;
+    discoveryOutput?: Record<string, string>;
   };
   'exec:step': {
     stepIndex: number;
@@ -129,7 +140,9 @@ export interface DPEVState {
   fixPlan?: object;
   executionSteps: StepState[];
   pendingApproval?: ApprovalRequest;
-  status: 'idle' | 'streaming' | 'awaiting-approval' | 'executing' | 'complete' | 'error';
+  planApprovalPending?: boolean;
+  verificationResult?: { passed: boolean; executionStatus: string };
+  status: 'idle' | 'streaming' | 'awaiting-approval' | 'plan-approval' | 'executing' | 'complete' | 'error';
   errorMessage?: string;
 }
 
@@ -139,8 +152,10 @@ export type DPEVAction =
   | { type: 'TOKEN'; text: string }
   | { type: 'CACHE_HIT'; provenance: CacheHitProvenance }
   | { type: 'PLAN_READY'; fixPlan: object }
+  | { type: 'PLAN_APPROVAL_REQUIRED'; fixPlan: object; sessionId: string }
   | { type: 'STEP_UPDATE'; stepIndex: number; status: string; stdout?: string; stderr?: string }
   | { type: 'APPROVAL_REQUIRED'; command: string; riskLevel: string; target: string; stepIndex: number }
   | { type: 'APPROVAL_RESPONSE'; approved: boolean }
+  | { type: 'VERIFICATION_RESULT'; passed: boolean; executionStatus: string }
   | { type: 'COMPLETE'; sessionId: string; status: string }
   | { type: 'ERROR'; message: string; phase?: string };
