@@ -6,6 +6,7 @@
 import type { LanguageModel } from 'ai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { LLM_RETRY_OPTIONS } from '../llm/retry.js';
 
 /** Hardcoded core noise patterns for common infrastructure noise. */
 export const NOISE_PATTERNS: RegExp[] = [
@@ -81,6 +82,7 @@ export async function filterNoise(
             relevant: z.array(z.string()),
           }),
           prompt: `You are an infrastructure diagnosis assistant. Given these log/command output lines, return ONLY the lines relevant to diagnosing infrastructure problems. Discard noise, status messages, and irrelevant output.\n\nLines:\n${unrecognized.map((l, i) => `${i}: ${l}`).join('\n')}`,
+          ...LLM_RETRY_OPTIONS,
         });
 
         const relevantSet = new Set(object.relevant);

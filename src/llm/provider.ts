@@ -3,6 +3,7 @@ import type { LanguageModel } from 'ai';
 import type { ModelRole } from '../config/types.js';
 import type { LLMProvider, ModelRegistry, TaskBudget } from './types.js';
 import { checkBudget } from './token-budget.js';
+import { LLM_RETRY_OPTIONS } from './retry.js';
 
 const DIAGNOSIS_BUDGET = 4096;
 const COMMAND_BUDGET = 2048;
@@ -53,6 +54,7 @@ export function createProvider(model: LanguageModel, registry?: ModelRegistry): 
         system: systemPrompt,
         prompt,
         maxOutputTokens: DIAGNOSIS_BUDGET,
+        ...LLM_RETRY_OPTIONS,
       });
 
       for await (const chunk of result.textStream) {
@@ -81,6 +83,7 @@ export function createProvider(model: LanguageModel, registry?: ModelRegistry): 
         system: systemPrompt,
         prompt,
         maxOutputTokens: outputLimit,
+        ...LLM_RETRY_OPTIONS,
       });
 
       const modelId = (targetModel as any).modelId ?? 'unknown';

@@ -3,6 +3,7 @@ import type { LanguageModel } from 'ai';
 import chalk from 'chalk';
 import type { SkillFile } from '../skills/types.js';
 import type { ModelRegistry } from '../llm/types.js';
+import { LLM_RETRY_OPTIONS } from '../llm/retry.js';
 import { FixPlanSchema, type FixPlan } from './types.js';
 import { buildMessages } from './context.js';
 
@@ -42,6 +43,7 @@ export async function generateFixPlan(options: GenerateFixPlanOptions): Promise<
     schema: FixPlanSchema,
     system,
     messages: allMessages.map((m) => ({ role: m.role, content: m.content })),
+    ...LLM_RETRY_OPTIONS,
   });
 
   return object;

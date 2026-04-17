@@ -1,5 +1,6 @@
 import { generateText } from 'ai';
 import type { FixStep } from '../orchestrator/types.js';
+import { LLM_RETRY_OPTIONS } from '../llm/retry.js';
 import type { RunResult, SelfHealResult, SelfHealContext, CorrectionAttempt } from './types.js';
 import type { SkillFile } from '../skills/types.js';
 import { enforceSkillAllowlist } from '../skills/allowlist.js';
@@ -249,6 +250,7 @@ export async function verifyEffect(
       model: context.model,
       prompt,
       maxTokens: 200,
+      ...LLM_RETRY_OPTIONS,
     });
 
     const verificationCommand = extractCommandFromLLMResponse(text);
@@ -365,6 +367,7 @@ export async function selfHealStep(
       model: context.model,
       prompt,
       maxTokens: 500,
+      ...LLM_RETRY_OPTIONS,
     });
 
     // 5. Parse LLM response

@@ -6,6 +6,7 @@
 
 import { embed } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { LLM_RETRY_OPTIONS } from '../llm/retry.js';
 
 /** Known embedding dimensions per model family. Used for validation. */
 const KNOWN_DIMENSIONS: Record<string, number> = {
@@ -54,7 +55,7 @@ export async function generateEmbedding(
     });
 
     const model = provider.textEmbeddingModel(modelId);
-    const result = await embed({ model, value: text });
+    const result = await embed({ model, value: text, ...LLM_RETRY_OPTIONS });
 
     // Validate dimensions: use known table or lock to first observed
     const expected = KNOWN_DIMENSIONS[modelId] ?? detectedDimension;

@@ -8,6 +8,7 @@
 import type { LanguageModel } from 'ai';
 import type { Observation, EvictionResult } from './types.js';
 import { countTokens } from './token-counter.js';
+import { LLM_RETRY_OPTIONS } from '../llm/retry.js';
 
 export interface TieredEvictionParams {
   observations: Observation[];
@@ -89,6 +90,7 @@ export async function tieredEviction(params: TieredEvictionParams): Promise<Evic
         model: workerModel,
         schema: z.object({ summary: z.string() }),
         prompt: `Summarize these infrastructure diagnostic observations into the key findings only. Remove redundancy.\n\n${allContent}`,
+        ...LLM_RETRY_OPTIONS,
       });
 
       const summaryTokens = countTokens(object.summary);

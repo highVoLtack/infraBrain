@@ -10,6 +10,7 @@
 import { generateObject } from 'ai';
 import type { LanguageModel } from 'ai';
 import { z } from 'zod';
+import { LLM_RETRY_OPTIONS } from '../llm/retry.js';
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -82,6 +83,7 @@ export async function classifyIntent(
       schema: IntentSchema,
       system: buildClassifierSystemPrompt(),
       prompt,
+      ...LLM_RETRY_OPTIONS,
     });
 
     return object;

@@ -1,6 +1,7 @@
 import { generateObject } from 'ai';
 import type { LLMProvider } from '../llm/types.js';
 import type { ModelRole } from '../config/types.js';
+import { LLM_RETRY_OPTIONS } from '../llm/retry.js';
 import type { AuditLogger } from '../audit/logger.js';
 import type { RewriteRule } from '../execution/dynamic-rewriter.js';
 import { dynamicRewrite } from '../execution/dynamic-rewriter.js';
@@ -319,6 +320,7 @@ export async function runDiagnosis(input: DiagnosisInput): Promise<DiagnosisResu
         schema: StructuredDiagnosisSchema,
         system: systemPrompt,
         prompt,
+        ...LLM_RETRY_OPTIONS,
       });
       // Apply dynamic rewrite rules to structured diagnosis fix plan
       if (rewriteRules.length > 0 && targetContainers.length > 0) {

@@ -2,6 +2,7 @@ import { generateObject } from 'ai';
 import type { LanguageModel } from 'ai';
 import type { SkillRegistry, EnrichedSkillSummary } from '../skills/registry.js';
 import type { SkillFile } from '../skills/types.js';
+import { LLM_RETRY_OPTIONS } from '../llm/retry.js';
 import { SkillSelectionSchema } from './types.js';
 import { buildRoutingPrompt, ROUTING_CONSTITUTION } from './context.js';
 
@@ -83,6 +84,7 @@ export async function selectSkill(options: SelectSkillOptions): Promise<SelectSk
     schema: SkillSelectionSchema,
     system: ROUTING_CONSTITUTION,
     prompt,
+    ...LLM_RETRY_OPTIONS,
   });
 
   const skill = registry.get(object.selectedSkill);
