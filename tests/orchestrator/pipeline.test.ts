@@ -652,4 +652,150 @@ describe('runDPEV pipeline', () => {
       expect(result.skillName).toBe('nginx-troubleshoot');
     });
   });
+
+  describe('discovery active SSE event (TERM-E01)', () => {
+    function setupStandardMocksForDiscovery() {
+      vi.mocked(selectSkill).mockResolvedValue({ skill: nginxSkill, reasoning: 'matched' });
+      vi.mocked(runParallelDiscovery).mockResolvedValue({
+        context: 'discovered context',
+        raw: { 'Running containers': 'nginx-demo' },
+      });
+      vi.mocked(runDiagnosis).mockResolvedValue({
+        diagnosis: 'Command: docker restart nginx-demo',
+      });
+      vi.mocked(generateFixPlan).mockResolvedValue({
+        summary: 'Restart nginx',
+        steps: [{ command: 'docker restart nginx-demo', description: 'Restart', rollback: 'n/a', risk: 'write' as const }],
+        complexity: 'simple' as const,
+      });
+      vi.mocked(generatePlanMarkdown).mockReturnValue('## Plan');
+      vi.mocked(formatPlanTable).mockReturnValue('| Step |');
+    }
+
+    it('emits dpev:phase {discovery, active} BEFORE discovery commands run', async () => {
+      setupStandardMocksForDiscovery();
+
+      const sseEvents: Array<{ event: string; data: unknown }> = [];
+      let discoveryActiveEventSeenBeforeDiscovery = false;
+
+      vi.mocked(runParallelDiscovery).mockImplementation(async () => {
+        // When discovery is being called, the active event should already be in sseEvents
+        const activeEventIndex = sseEvents.findIndex(
+          (e) => e.event === 'dpev:phase' &&
+                 (e.data as any).phase === 'discovery' &&
+                 (e.data as any).status === 'active'
+        );
+        discoveryActiveEventSeenBeforeDiscovery = activeEventIndex !== -1;
+        return { context: 'discovered context', raw: { 'Running containers': 'nginx-demo' } };
+      });
+
+      const onEvent = (event: string, data: unknown) => {
+        sseEvents.push({ event, data });
+      };
+
+      await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'discovery-active-test',
+        onEvent,
+      });
+
+      expect(discoveryActiveEventSeenBeforeDiscovery).toBe(true);
+    });
+
+    it('emits discovery active event with triage model ID', async () => {
+      setupStandardMocksForDiscovery();
+
+      // Override provider registry to return a specific triage model id
+      mockProvider.registry!.get = vi.fn((role: any) => {
+        if (role === 'triage') return { modelId: 'qwen3-triage-model' } as any;
+        return { modelId: 'default-model' } as any;
+      });
+      mockProvider.registry!.getDefault = vi.fn(() => ({ modelId: 'default-model' } as any));
+
+      const sseEvents: Array<{ event: string; data: unknown }> = [];
+      const onEvent = (event: string, data: unknown) => {
+        sseEvents.push({ event, data });
+      };
+
+      await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'discovery-model-test',
+        onEvent,
+      });
+
+      const discoveryActiveEvents = sseEvents.filter(
+        (e) => e.event === 'dpev:phase' &&
+               (e.data as any).phase === 'discovery' &&
+               (e.data as any).status === 'active'
+      );
+
+      expect(discoveryActiveEvents.length).toBe(1);
+      expect((discoveryActiveEvents[0].data as any).model).toBe('qwen3-triage-model');
+    });
+
+    it('emits discovery complete event after discovery (existing behavior preserved)', async () => {
+      setupStandardMocksForDiscovery();
+
+      const sseEvents: Array<{ event: string; data: unknown }> = [];
+      const onEvent = (event: string, data: unknown) => {
+        sseEvents.push({ event, data });
+      };
+
+      await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'discovery-complete-test',
+        onEvent,
+      });
+
+      const discoveryEvents = sseEvents.filter(
+        (e) => e.event === 'dpev:phase' && (e.data as any).phase === 'discovery'
+      );
+
+      // Should have BOTH active (new) and complete (existing)
+      const activeEvent = discoveryEvents.find((e) => (e.data as any).status === 'active');
+      const completeEvent = discoveryEvents.find((e) => (e.data as any).status === 'complete');
+
+      expect(activeEvent).toBeDefined();
+      expect(completeEvent).toBeDefined();
+
+      // Active must come before complete
+      const activeIndex = discoveryEvents.indexOf(activeEvent!);
+      const completeIndex = discoveryEvents.indexOf(completeEvent!);
+      expect(activeIndex).toBeLessThan(completeIndex);
+    });
+
+    it('logs dpev_phase_start audit event for discovery phase', async () => {
+      setupStandardMocksForDiscovery();
+
+      await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'discovery-audit-test',
+      });
+
+      const logCalls = vi.mocked(mockAuditLogger.logExecution).mock.calls;
+      const discoveryStart = logCalls.find(
+        ([eventType, details]) =>
+          eventType === 'dpev_phase_start' && (details as any).phase === 'discovery'
+      );
+
+      expect(discoveryStart).toBeDefined();
+      expect((discoveryStart![1] as any).model).toBeDefined();
+    });
+  });
 });
