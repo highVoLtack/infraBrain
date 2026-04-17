@@ -92,6 +92,15 @@ export function dpevReducer(state: DPEVState, action: DPEVAction): DPEVState {
       return { ...state, fixPlan: action.fixPlan };
     }
 
+    case 'PLAN_APPROVAL_REQUIRED': {
+      return {
+        ...state,
+        fixPlan: action.fixPlan,
+        planApprovalPending: true,
+        status: 'plan-approval' as const,
+      };
+    }
+
     case 'STEP_UPDATE': {
       const stepStatus = action.status as StepState['status'];
       const existingIdx = state.executionSteps.findIndex(
@@ -138,12 +147,33 @@ export function dpevReducer(state: DPEVState, action: DPEVAction): DPEVState {
     }
 
     case 'APPROVAL_RESPONSE': {
+      // Plan-level approval response: the user approved/rejected the entire fix plan
+      // before any step has executed. Route to 'executing' (begin execution) on approve
+      // and 'complete' (abort pipeline) on reject.
+      if (state.planApprovalPending) {
+        return {
+          ...state,
+          planApprovalPending: false,
+          status: action.approved ? 'executing' as const : 'complete' as const,
+        };
+      }
+      // Step-level approval response (existing behaviour): resume execution.
       // Resume to 'executing' if we have execution steps, otherwise 'streaming'
       const resumeStatus = state.executionSteps.length > 0 ? 'executing' as const : 'streaming' as const;
       return {
         ...state,
         pendingApproval: undefined,
         status: resumeStatus,
+      };
+    }
+
+    case 'VERIFICATION_RESULT': {
+      return {
+        ...state,
+        verificationResult: {
+          passed: action.passed,
+          executionStatus: action.executionStatus,
+        },
       };
     }
 
@@ -214,6 +244,24 @@ export function useDPEV(apiBaseUrl: string, prompt: string): {
         case 'dpev:plan': {
           const d = data as SSEEventMap['dpev:plan'];
           dispatch({ type: 'PLAN_READY', fixPlan: d.fixPlan });
+          break;
+        }
+        case 'dpev:plan-approval': {
+          const d = data as SSEEventMap['dpev:plan-approval'];
+          dispatch({
+            type: 'PLAN_APPROVAL_REQUIRED',
+            fixPlan: d.fixPlan,
+            sessionId: d.sessionId,
+          });
+          break;
+        }
+        case 'dpev:verification': {
+          const d = data as SSEEventMap['dpev:verification'];
+          dispatch({
+            type: 'VERIFICATION_RESULT',
+            passed: d.passed,
+            executionStatus: d.executionStatus,
+          });
           break;
         }
         case 'exec:step': {
