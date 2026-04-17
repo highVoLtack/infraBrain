@@ -175,8 +175,8 @@ Plans:
   4. Session items show prompt excerpt and outcome status instead of "unknown"
 **Plans:** 2/2 plans complete
 Plans:
-- [ ] 19.1-01-PLAN.md -- Backend: SSE session persistence + DPEV phase audit logging
-- [ ] 19.1-02-PLAN.md -- Frontend: Session replay from audit events, entity refresh, session display
+- [x] 19.1-01-PLAN.md -- Backend: SSE session persistence + DPEV phase audit logging
+- [x] 19.1-02-PLAN.md -- Frontend: Session replay from audit events, entity refresh, session display
 
 ### Phase 19.2: End-to-End Debug Flow
 **Goal**: User types a debug prompt and InfraBrain diagnoses, shows a plan with approval prompt, executes each step with live progress, and verifies the fix — all in the Ink UI without leaving the terminal
@@ -189,8 +189,11 @@ Plans:
   4. After execution, verification result shows whether the fix worked (e.g. "HTTP 200 ✓" or "still failing")
   5. Plan rendering shows structured steps (numbered, with risk badges) not raw Markdown
   6. Session status updates from "in-progress" to "completed" or "failed" based on execution outcome
-**Plans:** 0/0 plans
-Plans: (to be planned via `/gsd:plan-phase 19.2`)
+**Plans:** 3 plans
+Plans:
+- [ ] 19.2-01-PLAN.md -- Backend: pipeline discovery event + stream-debug execution chaining + verification
+- [ ] 19.2-02-PLAN.md -- Frontend: PlanView component + DPEVPhaseHeader timer fix + reducer extensions
+- [ ] 19.2-03-PLAN.md -- Integration: DPEVPanel wiring + full suite validation
 
 ## Progress
 
@@ -216,8 +219,9 @@ Plans: (to be planned via `/gsd:plan-phase 19.2`)
 | 17 | v1.3 | 4/4 | Complete | 2026-04-14 |
 | 18 | v1.3 | 2/2 | Complete | 2026-04-15 |
 | 19 | v1.3 | 6/6 | Complete | 2026-04-15 |
-| 19.1 | 2/2 | Complete    | 2026-04-16 | -- |
+| 19.1 | v1.3 | 2/2 | Complete | 2026-04-16 |
+| 19.2 | v1.3 | 0/3 | Planned | -- |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-04-15 -- Phase 19.1 planned (2 plans)*
+*Last updated: 2026-04-15 -- Phase 19.2 planned (3 plans)*
