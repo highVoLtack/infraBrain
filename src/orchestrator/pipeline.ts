@@ -127,6 +127,11 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   if (DEV_MODE) console.log(`[TRIAGE] Selecting skill via ${triageModelId}...`);
   const triageStart = Date.now();
 
+  // Emit routing active event BEFORE selectSkill so the UI surfaces activity
+  // during the 30-60s triage LLM call. Without this, users see dead silence
+  // between prompt submit and the first discovery event (#issue: dpev-flow-not-live).
+  input.onEvent?.('dpev:phase', { phase: 'routing', model: triageModelId, status: 'active' });
+
   const selection = await selectSkill({
     model: triageModel,
     userInput: prompt,
@@ -134,6 +139,8 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
     skillOverride: skillOverride as string | undefined,
   });
   if (DEV_MODE) console.log(`[TRIAGE] Selected "${selection.skill.frontmatter.name}" in ${((Date.now() - triageStart) / 1000).toFixed(1)}s`);
+
+  input.onEvent?.('dpev:phase', { phase: 'routing', model: triageModelId, status: 'complete' });
 
   const skillMessage = `Using skill: ${selection.skill.frontmatter.name} -- ${selection.reasoning}`;
   auditLogger.logSkillSelection(

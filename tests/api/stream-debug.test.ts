@@ -444,8 +444,29 @@ describe('SSE session persistence', () => {
   });
 
   it('updates session status to completed after successful pipeline', async () => {
+    const fixPlan = {
+      summary: 'Restart nginx',
+      steps: [
+        { command: 'docker ps', description: 'Check', rollback: 'n/a', risk: 'read' as const },
+      ],
+      complexity: 'simple' as const,
+    };
+    mockExecutePlan.mockResolvedValue({ status: 'completed', stepResults: [] });
+
     mockRunDPEV.mockImplementation(async (input: any) => {
-      return { sessionId: input.sessionId, diagnosis: 'test', commands: [], skillName: 'test' };
+      setTimeout(async () => {
+        await request(app)
+          .post('/stream/debug/plan-approve')
+          .send({ sessionId: input.sessionId, approved: true });
+      }, 30);
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'test',
+        commands: [],
+        skillName: 'test',
+        fixPlan,
+        target: 'nginx-demo',
+      };
     });
 
     await request(app)
@@ -905,7 +926,7 @@ describe('POST /stream/debug/plan-approve (plan approval)', () => {
     expect(hasPlanReady).toBe(true);
   });
 
-  it('no fixPlan results in current behavior: status completed, no execution', async () => {
+  it('no fixPlan is treated as failure: emits dpev:error + dpev:complete failed, no execution', async () => {
     mockRunDPEV.mockImplementation(async (input: any) => {
       return {
         sessionId: input.sessionId,
@@ -920,14 +941,22 @@ describe('POST /stream/debug/plan-approve (plan approval)', () => {
       .send({ prompt: 'nginx is down' });
 
     const events = parseSSEText(res.text);
+
+    const errorEvents = events.filter(e => e.event === 'dpev:error');
+    expect(errorEvents.length).toBe(1);
+    expect((errorEvents[0].data as any).phase).toBe('plan');
+    expect((errorEvents[0].data as any).message).toMatch(/no actionable steps/i);
+
     const completeEvents = events.filter(e => e.event === 'dpev:complete');
     expect(completeEvents.length).toBe(1);
+    expect((completeEvents[0].data as any).status).toBe('failed');
+
     expect(mockExecutePlan).not.toHaveBeenCalled();
 
     const persistCalls = mockStore.persistState.mock.calls;
     const lastCall = persistCalls[persistCalls.length - 1];
     const finalState = lastCall[1];
-    expect(finalState.status).toBe('completed');
+    expect(finalState.status).toBe('failed');
   });
 
   it('approval maps are cleaned up after request completes', async () => {

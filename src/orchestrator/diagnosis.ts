@@ -340,6 +340,15 @@ export async function runDiagnosis(input: DiagnosisInput): Promise<DiagnosisResu
     diagnosis = await provider.generateCommand(prompt, systemPrompt, preferredRole);
   }
 
+  // Guard against empty diagnosis — some LLMs return empty strings for ambiguous
+  // or typo-heavy prompts instead of throwing. Surface a user-actionable error
+  // rather than letting empty output flow into planning (which also silently fails).
+  if (!diagnosis || diagnosis.trim().length === 0) {
+    throw new Error(
+      'Diagnosis returned empty output. The LLM could not process the prompt. Try rephrasing (e.g. avoid typos or use specific service names).',
+    );
+  }
+
   // Sanity checker: only for free-text diagnosis (structured is Zod-validated)
   if (!structuredDiagnosis) {
     const violations = checkForHallucinations(diagnosis);

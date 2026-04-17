@@ -706,6 +706,47 @@ describe('runDPEV pipeline', () => {
       expect(discoveryActiveEventSeenBeforeDiscovery).toBe(true);
     });
 
+    it('emits dpev:phase {routing, active} BEFORE selectSkill runs (closes triage silence gap)', async () => {
+      setupStandardMocksForDiscovery();
+
+      const sseEvents: Array<{ event: string; data: unknown }> = [];
+      let routingActiveSeenBeforeTriage = false;
+
+      vi.mocked(selectSkill).mockImplementation(async () => {
+        const idx = sseEvents.findIndex(
+          (e) => e.event === 'dpev:phase' &&
+                 (e.data as any).phase === 'routing' &&
+                 (e.data as any).status === 'active'
+        );
+        routingActiveSeenBeforeTriage = idx !== -1;
+        return { skill: nginxSkill, reasoning: 'matched' };
+      });
+
+      const onEvent = (event: string, data: unknown) => {
+        sseEvents.push({ event, data });
+      };
+
+      await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'routing-active-test',
+        onEvent,
+      });
+
+      expect(routingActiveSeenBeforeTriage).toBe(true);
+
+      const routingEvents = sseEvents.filter(
+        (e) => e.event === 'dpev:phase' && (e.data as any).phase === 'routing'
+      );
+      const activeEvent = routingEvents.find((e) => (e.data as any).status === 'active');
+      const completeEvent = routingEvents.find((e) => (e.data as any).status === 'complete');
+      expect(activeEvent).toBeDefined();
+      expect(completeEvent).toBeDefined();
+    });
+
     it('emits discovery active event with triage model ID', async () => {
       setupStandardMocksForDiscovery();
 

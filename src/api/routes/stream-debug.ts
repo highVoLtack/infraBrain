@@ -236,9 +236,17 @@ export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
         return;
       }
 
-      // No actionable plan: legacy behavior -- mark completed, emit dpev:complete
-      updateSessionStatus('completed');
-      sendEvent(res, 'dpev:complete', { sessionId, status: 'success' });
+      // No actionable plan: treat as failure (not success).
+      // fixPlan is undefined when the LLM planner silently fails (e.g. typo prompt
+      // produces unparseable output). Emitting dpev:complete success here would
+      // hide the failure behind a misleading "Session complete" banner.
+      updateSessionStatus('failed');
+      sendEvent(res, 'dpev:error', {
+        message:
+          'Planning produced no actionable steps. Try rephrasing your prompt (e.g. check for typos and use specific service names).',
+        phase: 'plan',
+      });
+      sendEvent(res, 'dpev:complete', { sessionId, status: 'failed' });
     } catch (err) {
       // Pipeline error -- mark failed, emit dpev:error
       updateSessionStatus('failed');

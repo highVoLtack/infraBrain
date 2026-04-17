@@ -346,7 +346,7 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
   let centerContent: React.ReactElement;
   if (activePrompt) {
     centerContent = (
-      <DPEVPanel apiBaseUrl={apiBaseUrl} prompt={activePrompt} />
+      <DPEVPanel key={activePrompt} apiBaseUrl={apiBaseUrl} prompt={activePrompt} />
     );
   } else if (replaySession) {
     centerContent = (

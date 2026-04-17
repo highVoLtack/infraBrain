@@ -25,7 +25,7 @@ export const SSE_EVENT_NAMES = {
 
 export interface SSEEventMap {
   'dpev:phase': {
-    phase: 'discovery' | 'diagnosis' | 'plan' | 'execution' | 'verification';
+    phase: 'routing' | 'discovery' | 'diagnosis' | 'plan' | 'execution' | 'verification';
     model: string;
     status: 'active' | 'complete';
   };
