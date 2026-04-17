@@ -95,6 +95,7 @@ export function dpevReducer(state: DPEVState, action: DPEVAction): DPEVState {
     case 'PLAN_APPROVAL_REQUIRED': {
       return {
         ...state,
+        sessionId: action.sessionId,
         fixPlan: action.fixPlan,
         planApprovalPending: true,
         status: 'plan-approval' as const,
