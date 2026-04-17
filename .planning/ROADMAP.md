@@ -236,7 +236,15 @@ Plans:
   - Multi-session split view
   - Theming / colour palette overhaul
 
-**Plans:** 0/? plans — research covers UX01 only, more research + planning pending
+**Plans:** 0/6 plans — planning complete (2026-04-17)
+
+Plans:
+- [ ] 19.3-01-PLAN.md — Foundation: REQUIREMENTS + pricing table + Markdown parser + MarkdownView component (Wave 1)
+- [ ] 19.3-02-PLAN.md — Backend: session-usage aggregator + substatus/usage/session_summary SSE events + /status dashboard payload (Wave 2)
+- [ ] 19.3-03-PLAN.md — Frontend state layer: dpevReducer + SSE handler extensions + DPEVPhaseHeader timer color + substatus slot (Wave 3)
+- [ ] 19.3-04-PLAN.md — DPEVPanel wiring: focus/expand/markdown/usage/substatus/session-summary + stable keys + live UAT checkpoint (Wave 4)
+- [ ] 19.3-05-PLAN.md — StatusOverlay live poll + cumulative/session split + latest-call row + Intelligence Efficiency section (Wave 4)
+- [ ] 19.3-06-PLAN.md — Session replay parity: buildReplayState populates steps + expandedPhases + phase-closing E2E UAT checkpoint (Wave 5)
 
 ## Progress
 
@@ -265,8 +273,8 @@ Plans:
 | 19.1 | v1.3 | 2/2 | Complete | 2026-04-16 |
 | 19.2 | v1.3 | 3/3 | Complete   | 2026-04-17 |
 | 17.1 | v1.3 | 0/? | Planned    | -- |
-| 19.3 | v1.3 | 0/? | Planned    | -- |
+| 19.3 | v1.3 | 0/6 | Planned    | -- |
 
 ---
 *Roadmap created: 2026-03-07*
-*Last updated: 2026-04-17 -- Phase 17.1 (Caveman schema prep) added + Phase 19.3 discussed (4 UX areas decided, 8 TERM-UX0x + v2.0 placeholders)*
+*Last updated: 2026-04-17 -- Phase 19.3 planned (6 plans, Waves 1-5, covers TERM-UX01..UX08)*
