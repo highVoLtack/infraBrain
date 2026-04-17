@@ -28,10 +28,10 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 ### End-to-End Debug Flow (Phase 19.2)
 
 - [ ] **TERM-E01**: Discovery phase shows spinner/progress indicator in DPEV panel while commands run
-- [ ] **TERM-E02**: After diagnosis+plan, Ink UI shows structured approval prompt (numbered steps with risk badges, Y/N input)
+- [x] **TERM-E02**: After diagnosis+plan, Ink UI shows structured approval prompt (numbered steps with risk badges, Y/N input)
 - [ ] **TERM-E03**: On approval, SSE streams execution step progress (command, running/success/failed status, stdout/stderr per step)
 - [ ] **TERM-E04**: After execution, verification step result renders in panel (fix worked / still failing)
-- [ ] **TERM-E05**: Plan rendering shows structured steps (numbered list with risk badges) not raw Markdown text
+- [x] **TERM-E05**: Plan rendering shows structured steps (numbered list with risk badges) not raw Markdown text
 - [ ] **TERM-E06**: Session status updates to completed/failed based on actual execution outcome (not just "diagnosis done")
 
 ### Parallel Execution
@@ -162,10 +162,10 @@ Deferred to future release. Tracked but not in current roadmap.
 | TERM-P03 | Phase 19.1 | Complete |
 | TERM-P04 | Phase 19.1 | Complete |
 | TERM-E01 | Phase 19.2 | Planned |
-| TERM-E02 | Phase 19.2 | Planned |
+| TERM-E02 | Phase 19.2 | Complete |
 | TERM-E03 | Phase 19.2 | Planned |
 | TERM-E04 | Phase 19.2 | Planned |
-| TERM-E05 | Phase 19.2 | Planned |
+| TERM-E05 | Phase 19.2 | Complete |
 | TERM-E06 | Phase 19.2 | Planned |
 
 **Coverage:**
