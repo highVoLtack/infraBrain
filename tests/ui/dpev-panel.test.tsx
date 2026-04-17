@@ -286,6 +286,18 @@ describe('dpevReducer', () => {
       expect(next.fixPlan).toEqual(fixPlan);
       expect(next.status).toBe('plan-approval');
     });
+
+    it('still sets planApprovalPending=true when fixPlan is an empty object', () => {
+      const state = makeInitialState({ status: 'streaming' });
+      const next = dpevReducer(state, {
+        type: 'PLAN_APPROVAL_REQUIRED',
+        fixPlan: {},
+        sessionId: 'sess-plan-empty',
+      });
+      expect(next.planApprovalPending).toBe(true);
+      expect(next.fixPlan).toEqual({});
+      expect(next.status).toBe('plan-approval');
+    });
   });
 
   describe('APPROVAL_RESPONSE during plan approval', () => {
@@ -372,6 +384,20 @@ describe('dpevReducer', () => {
         executionStatus: 'success',
       });
       expect(next.status).toBe('executing');
+    });
+
+    it('still stores verificationResult when status is already error (data-only action)', () => {
+      const state = makeInitialState({ status: 'error', errorMessage: 'Executor halted' });
+      const next = dpevReducer(state, {
+        type: 'VERIFICATION_RESULT',
+        passed: false,
+        executionStatus: 'halted',
+      });
+      // Status stays 'error' (data-only action never mutates status)
+      expect(next.status).toBe('error');
+      expect(next.verificationResult).toEqual({ passed: false, executionStatus: 'halted' });
+      // Error message preserved
+      expect(next.errorMessage).toBe('Executor halted');
     });
   });
 
