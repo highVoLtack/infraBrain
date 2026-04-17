@@ -27,14 +27,17 @@ export function DPEVPhaseHeader({ phase }: DPEVPhaseHeaderProps): React.ReactEle
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    if (phase.status === 'active') {
+    // Only tick for truly live phases. In replay mode, buildReplayState
+    // may temporarily set status='active' with a pre-computed completedAt;
+    // those should render a fixed elapsed time, not a running timer.
+    if (phase.status === 'active' && phase.completedAt === undefined) {
       const interval = setInterval(() => {
         setNow(Date.now());
       }, 1000);
       return () => clearInterval(interval);
     }
     return undefined;
-  }, [phase.status]);
+  }, [phase.status, phase.completedAt]);
 
   const endTime = phase.completedAt ?? now;
   const elapsedSeconds = Math.floor((endTime - phase.startedAt) / 1000);

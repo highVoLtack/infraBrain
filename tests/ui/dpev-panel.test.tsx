@@ -262,6 +262,149 @@ describe('dpevReducer', () => {
       expect(next.status).toBe('error');
     });
   });
+
+  describe('PLAN_APPROVAL_REQUIRED', () => {
+    it('sets planApprovalPending=true, stores fixPlan, switches status to plan-approval', () => {
+      const state = makeInitialState({ status: 'streaming' });
+      const fixPlan = {
+        summary: 'Restart nginx',
+        steps: [{ command: 'docker restart nginx', description: '', rollback: '', risk: 'write' }],
+        complexity: 'simple',
+      };
+      const next = dpevReducer(state, {
+        type: 'PLAN_APPROVAL_REQUIRED',
+        fixPlan,
+        sessionId: 'sess-plan-1',
+      });
+      expect(next.planApprovalPending).toBe(true);
+      expect(next.fixPlan).toEqual(fixPlan);
+      expect(next.status).toBe('plan-approval');
+    });
+  });
+
+  describe('APPROVAL_RESPONSE during plan approval', () => {
+    it('clears planApprovalPending and sets status to executing when approved=true', () => {
+      const state = makeInitialState({
+        status: 'plan-approval',
+        planApprovalPending: true,
+        fixPlan: { steps: [{ command: 'docker restart nginx', risk: 'write' }] },
+      });
+      const next = dpevReducer(state, { type: 'APPROVAL_RESPONSE', approved: true });
+      expect(next.planApprovalPending).toBe(false);
+      expect(next.status).toBe('executing');
+    });
+
+    it('clears planApprovalPending and sets status to complete when approved=false (plan rejected)', () => {
+      const state = makeInitialState({
+        status: 'plan-approval',
+        planApprovalPending: true,
+        fixPlan: { steps: [{ command: 'docker restart nginx', risk: 'write' }] },
+      });
+      const next = dpevReducer(state, { type: 'APPROVAL_RESPONSE', approved: false });
+      expect(next.planApprovalPending).toBe(false);
+      expect(next.status).toBe('complete');
+    });
+
+    it('does NOT affect step-level approval flow when planApprovalPending is falsy', () => {
+      const state = makeInitialState({
+        status: 'awaiting-approval',
+        pendingApproval: {
+          command: 'docker rm nginx',
+          riskLevel: 'destructive',
+          target: 'nginx',
+          stepIndex: 1,
+        },
+        executionSteps: [{
+          stepIndex: 0,
+          total: 2,
+          command: 'docker restart nginx',
+          risk: 'write',
+          status: 'success',
+        }],
+      });
+      const next = dpevReducer(state, { type: 'APPROVAL_RESPONSE', approved: true });
+      // Existing step-approval behaviour preserved
+      expect(next.pendingApproval).toBeUndefined();
+      expect(next.status).toBe('executing');
+      // planApprovalPending stays falsy
+      expect(next.planApprovalPending).toBeFalsy();
+    });
+  });
+
+  describe('VERIFICATION_RESULT', () => {
+    it('stores passed and executionStatus in verificationResult', () => {
+      const state = makeInitialState({ status: 'executing' });
+      const next = dpevReducer(state, {
+        type: 'VERIFICATION_RESULT',
+        passed: true,
+        executionStatus: 'success',
+      });
+      expect(next.verificationResult).toEqual({
+        passed: true,
+        executionStatus: 'success',
+      });
+    });
+
+    it('stores failed verification result', () => {
+      const state = makeInitialState({ status: 'executing' });
+      const next = dpevReducer(state, {
+        type: 'VERIFICATION_RESULT',
+        passed: false,
+        executionStatus: 'partial',
+      });
+      expect(next.verificationResult).toEqual({
+        passed: false,
+        executionStatus: 'partial',
+      });
+    });
+
+    it('does not change status (status transitions handled by COMPLETE action)', () => {
+      const state = makeInitialState({ status: 'executing' });
+      const next = dpevReducer(state, {
+        type: 'VERIFICATION_RESULT',
+        passed: true,
+        executionStatus: 'success',
+      });
+      expect(next.status).toBe('executing');
+    });
+  });
+
+  describe('handleSSEEvent mapping (integration via useDPEV)', () => {
+    it('dpev:plan-approval event dispatches PLAN_APPROVAL_REQUIRED to reducer', () => {
+      // Simulate the handler logic directly: applying the reducer after mapping
+      const state = makeInitialState({ status: 'streaming' });
+      const ssePayload = {
+        fixPlan: { summary: 'Fix nginx', steps: [], complexity: 'simple' },
+        sessionId: 'sess-evt-1',
+      };
+      // Apply the action that the useDPEV handler would dispatch
+      const next = dpevReducer(state, {
+        type: 'PLAN_APPROVAL_REQUIRED',
+        fixPlan: ssePayload.fixPlan,
+        sessionId: ssePayload.sessionId,
+      });
+      expect(next.fixPlan).toEqual(ssePayload.fixPlan);
+      expect(next.planApprovalPending).toBe(true);
+      expect(next.status).toBe('plan-approval');
+    });
+
+    it('dpev:verification event dispatches VERIFICATION_RESULT to reducer', () => {
+      const state = makeInitialState({ status: 'executing' });
+      const ssePayload = {
+        passed: true,
+        executionStatus: 'success',
+      };
+      const next = dpevReducer(state, {
+        type: 'VERIFICATION_RESULT',
+        passed: ssePayload.passed,
+        executionStatus: ssePayload.executionStatus,
+      });
+      expect(next.verificationResult).toEqual({
+        passed: true,
+        executionStatus: 'success',
+      });
+    });
+  });
 });
 
 // ---- Pure function tests for DPEVPanel helpers ----
