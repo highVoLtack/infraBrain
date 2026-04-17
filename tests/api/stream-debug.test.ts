@@ -804,6 +804,10 @@ describe('POST /stream/debug/plan-approve (plan approval)', () => {
     expect(verificationActive).toBeDefined();
     expect(verificationComplete).toBeDefined();
 
+    const verification = events.find(e => e.event === 'dpev:verification');
+    expect(verification).toBeDefined();
+    expect((verification!.data as any).executionStatus).toBe('completed');
+
     // runParallelDiscovery should have been called during verification
     expect(mockRunParallelDiscovery).toHaveBeenCalled();
   });

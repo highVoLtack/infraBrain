@@ -464,6 +464,7 @@ async function runExecutionAndVerification(args: ExecuteAndVerifyArgs): Promise<
 
   sendEvent(res, 'dpev:verification', {
     passed: verificationPassed,
+    executionStatus: executionResult.status,
     discoveryOutput: freshDiscovery,
   });
 
