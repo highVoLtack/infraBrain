@@ -76,6 +76,195 @@ describe('DPEVPhaseHeader', () => {
     // checkmark: \u2713
     expect(frame).toContain('\u2713');
   });
+
+  it('does NOT start setInterval in replay mode (status=active with completedAt defined)', async () => {
+    const { DPEVPhaseHeader } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    // Spy on setInterval to detect whether a timer was started
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+    setIntervalSpy.mockClear();
+    // Replay mode: phase is in 'active' status but has completedAt set (from replay rebuild)
+    const started = 1_000_000;
+    const completed = 1_005_000; // 5 seconds elapsed
+    const phase = {
+      name: 'discovery',
+      model: 'Qwen3-32B',
+      startedAt: started,
+      completedAt: completed,
+      status: 'active' as const,
+      tokens: '',
+    };
+    const { lastFrame, unmount } = render(React.createElement(DPEVPhaseHeader, { phase }));
+    const initialFrame = lastFrame() ?? '';
+    // Should show fixed elapsed time (5s) from startedAt to completedAt
+    expect(initialFrame).toContain('5s');
+    // CORE BUG CHECK: setInterval must NOT have been called (no wasted timer in replay mode)
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+    unmount();
+    setIntervalSpy.mockRestore();
+  });
+
+  it('shows fixed elapsed time when completedAt is defined (complete phase)', async () => {
+    const { DPEVPhaseHeader } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    const started = 1_000_000;
+    const completed = 1_012_000; // 12 seconds elapsed
+    const phase = {
+      name: 'discovery',
+      model: 'Qwen3-32B',
+      startedAt: started,
+      completedAt: completed,
+      status: 'complete' as const,
+      tokens: '',
+    };
+    const { lastFrame } = render(React.createElement(DPEVPhaseHeader, { phase }));
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('12s');
+  });
+
+  it('starts timer ONLY when status=active AND completedAt is undefined', async () => {
+    const { DPEVPhaseHeader } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    // Live mode: active phase with no completedAt — timer should tick
+    const baseTime = 2_000_000;
+    vi.setSystemTime(baseTime);
+    const phase = {
+      name: 'diagnosis',
+      model: 'Qwen3-32B',
+      startedAt: baseTime - 2000, // started 2s ago
+      status: 'active' as const,
+      tokens: '',
+    };
+    const { lastFrame, rerender } = render(React.createElement(DPEVPhaseHeader, { phase }));
+    const initialFrame = lastFrame() ?? '';
+    // At start, elapsed is 2s
+    expect(initialFrame).toContain('2s');
+    // Advance timers by 3s — timer should tick once per second, so three setInterval callbacks fire
+    vi.advanceTimersByTime(3000);
+    rerender(React.createElement(DPEVPhaseHeader, { phase }));
+    const afterTickFrame = lastFrame() ?? '';
+    // Now elapsed should be 5s (2s initial + 3s ticked)
+    expect(afterTickFrame).toContain('5s');
+  });
+});
+
+// ---- PlanView Tests ----
+describe('formatPlanSteps', () => {
+  it('extracts steps with index, command, description, risk, rollback from valid fixPlan', async () => {
+    const { formatPlanSteps } = await import('../../src/ui/components/PlanView.js');
+    const fixPlan = {
+      summary: 'Restart nginx',
+      steps: [
+        { command: 'docker exec nginx nginx -t', description: 'Test config', rollback: '', risk: 'read' },
+        { command: 'docker restart nginx', description: 'Restart service', rollback: 'docker start nginx', risk: 'write' },
+      ],
+      complexity: 'simple',
+    };
+    const steps = formatPlanSteps(fixPlan);
+    expect(steps).toHaveLength(2);
+    expect(steps[0].index).toBe(0);
+    expect(steps[0].command).toBe('docker exec nginx nginx -t');
+    expect(steps[0].description).toBe('Test config');
+    expect(steps[0].risk).toBe('read');
+    expect(steps[0].rollback).toBe('');
+    expect(steps[1].index).toBe(1);
+    expect(steps[1].risk).toBe('write');
+    expect(steps[1].rollback).toBe('docker start nginx');
+  });
+
+  it('returns empty array for undefined fixPlan', async () => {
+    const { formatPlanSteps } = await import('../../src/ui/components/PlanView.js');
+    expect(formatPlanSteps(undefined)).toEqual([]);
+  });
+
+  it('returns empty array for null fixPlan', async () => {
+    const { formatPlanSteps } = await import('../../src/ui/components/PlanView.js');
+    // @ts-expect-error testing runtime null handling
+    expect(formatPlanSteps(null)).toEqual([]);
+  });
+
+  it('returns empty array when steps is not an array', async () => {
+    const { formatPlanSteps } = await import('../../src/ui/components/PlanView.js');
+    expect(formatPlanSteps({ steps: 'not an array' })).toEqual([]);
+    expect(formatPlanSteps({})).toEqual([]);
+  });
+
+  it('fills missing fields with sensible defaults', async () => {
+    const { formatPlanSteps } = await import('../../src/ui/components/PlanView.js');
+    const fixPlan = {
+      steps: [
+        { command: 'ls' }, // missing description, risk, rollback
+      ],
+    };
+    const steps = formatPlanSteps(fixPlan);
+    expect(steps[0].command).toBe('ls');
+    expect(steps[0].description).toBe('');
+    expect(steps[0].risk).toBe('read'); // default
+    expect(steps[0].rollback).toBe('');
+  });
+});
+
+describe('PlanView', () => {
+  it('renders numbered steps with risk badges', async () => {
+    const { PlanView } = await import('../../src/ui/components/PlanView.js');
+    const fixPlan = {
+      summary: 'Restart nginx service',
+      steps: [
+        { command: 'docker exec nginx nginx -t', description: 'Test config', rollback: '', risk: 'read' },
+        { command: 'docker restart nginx', description: 'Restart service', rollback: 'docker start nginx', risk: 'write' },
+      ],
+      complexity: 'simple',
+    };
+    const { lastFrame } = render(React.createElement(PlanView, { fixPlan }));
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('1.');
+    expect(frame).toContain('2.');
+    expect(frame).toContain('docker exec nginx nginx -t');
+    expect(frame).toContain('docker restart nginx');
+    expect(frame).toContain('[read]');
+    expect(frame).toContain('[write]');
+  });
+
+  it('renders step descriptions', async () => {
+    const { PlanView } = await import('../../src/ui/components/PlanView.js');
+    const fixPlan = {
+      summary: 'Restart nginx',
+      steps: [
+        { command: 'docker restart nginx', description: 'Restart the nginx service to apply config', rollback: '', risk: 'write' },
+      ],
+      complexity: 'simple',
+    };
+    const { lastFrame } = render(React.createElement(PlanView, { fixPlan }));
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('Restart the nginx service to apply config');
+  });
+
+  it('renders plan summary and complexity badge', async () => {
+    const { PlanView } = await import('../../src/ui/components/PlanView.js');
+    const fixPlan = {
+      summary: 'Fix nginx 502 error',
+      steps: [
+        { command: 'docker restart nginx', description: '', rollback: '', risk: 'write' },
+      ],
+      complexity: 'moderate',
+    };
+    const { lastFrame } = render(React.createElement(PlanView, { fixPlan }));
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('Fix nginx 502 error');
+    expect(frame).toContain('moderate');
+  });
+
+  it('renders empty state when no steps exist', async () => {
+    const { PlanView } = await import('../../src/ui/components/PlanView.js');
+    const { lastFrame } = render(React.createElement(PlanView, { fixPlan: undefined }));
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('No fix plan available');
+  });
+
+  it('renders empty state when fixPlan has no steps', async () => {
+    const { PlanView } = await import('../../src/ui/components/PlanView.js');
+    const fixPlan = { summary: 'Empty plan', steps: [], complexity: 'simple' };
+    const { lastFrame } = render(React.createElement(PlanView, { fixPlan }));
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('No fix plan available');
+  });
 });
 
 // ---- CacheHitBanner Tests ----
