@@ -161,6 +161,15 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   const discoveryCommands = selection.skill.frontmatter.discovery ?? [];
   if (DEV_MODE) console.log(`[DISCOVERY] Running ${discoveryCommands.length} discovery commands...`);
   const discoveryStart = Date.now();
+
+  // Emit discovery active event BEFORE commands run (TERM-E01: enables UI spinner)
+  input.onEvent?.('dpev:phase', { phase: 'discovery', model: triageModelId, status: 'active' });
+
+  // Audit: log discovery phase start (non-critical)
+  try {
+    auditLogger.logExecution('dpev_phase_start', { phase: 'discovery', model: triageModelId });
+  } catch { /* audit logging is non-critical */ }
+
   const { context: discoveryContext, raw: discoveryRaw } = await runParallelDiscovery(discoveryCommands);
 
   if (DEV_MODE) {
