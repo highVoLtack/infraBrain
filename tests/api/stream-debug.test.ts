@@ -58,6 +58,26 @@ vi.mock('../../src/cache/embedder.js', () => ({
   formatEmbeddingInput: vi.fn().mockReturnValue('formatted'),
 }));
 
+// Mock executePlan for execution chaining tests
+const mockExecutePlan = vi.fn();
+vi.mock('../../src/execution/executor.js', () => ({
+  executePlan: (...args: unknown[]) => mockExecutePlan(...args),
+}));
+
+// Mock runner + discovery so no real child_processes fire
+vi.mock('../../src/execution/runner.js', () => ({
+  runCommand: vi.fn().mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 }),
+  parseCommand: vi.fn().mockReturnValue({ executable: 'echo', args: ['test'] }),
+  needsShell: vi.fn().mockReturnValue(false),
+  runShellCommand: vi.fn().mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 }),
+  findDbContainer: vi.fn(),
+}));
+
+const mockRunParallelDiscovery = vi.fn();
+vi.mock('../../src/orchestrator/discovery.js', () => ({
+  runParallelDiscovery: (...args: unknown[]) => mockRunParallelDiscovery(...args),
+}));
+
 // Mock the pipeline with controllable event emission
 const mockRunDPEV = vi.fn();
 vi.mock('../../src/orchestrator/pipeline.js', () => ({
@@ -505,5 +525,445 @@ describe('SSE session persistence', () => {
     expect(sessions.length).toBe(1);
     expect(sessions[0].target).toBe('nginx is down');
     expect(sessions[0].eventCount).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Plan approval gate + execution chaining + verification (TERM-E03, E04, E06)
+// ---------------------------------------------------------------------------
+
+describe('POST /stream/debug/plan-approve (plan approval)', () => {
+  let app: express.Express;
+  let deps: ReturnType<typeof createMockDeps>;
+  let mockStore: ReturnType<typeof createMockStore>;
+
+  function makeFixPlan(opts?: { steps?: Array<{ command: string; risk: 'read' | 'write' | 'destructive' }> }) {
+    const steps = opts?.steps ?? [
+      { command: 'docker ps', risk: 'read' as const },
+    ];
+    return {
+      summary: 'Restart nginx',
+      steps: steps.map((s, i) => ({
+        command: s.command,
+        description: `Step ${i}`,
+        rollback: 'n/a',
+        risk: s.risk,
+      })),
+      complexity: 'simple' as const,
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStore = createMockStore();
+    deps = createMockDeps({ store: mockStore, baseDir: '/tmp/infrabrain-test' });
+    app = express();
+    app.use(express.json());
+    app.use('/stream/debug', createStreamDebugRoute(deps as any));
+
+    // Default: mockRunParallelDiscovery returns empty
+    mockRunParallelDiscovery.mockResolvedValue({ context: '', raw: {} });
+    // Default: executePlan returns completed
+    mockExecutePlan.mockResolvedValue({ status: 'completed', stepResults: [] });
+  });
+
+  it('returns 400 when sessionId missing on plan-approve', async () => {
+    const res = await request(app)
+      .post('/stream/debug/plan-approve')
+      .send({ approved: true })
+      .expect(400);
+    expect(res.body.error).toContain('sessionId');
+  });
+
+  it('returns 404 when no pending plan approval for this session', async () => {
+    const res = await request(app)
+      .post('/stream/debug/plan-approve')
+      .send({ sessionId: 'nonexistent', approved: true })
+      .expect(404);
+    expect(res.body.error).toContain('No pending plan approval');
+  });
+
+  it('sends dpev:plan-approval event when fixPlan exists', async () => {
+    const fixPlan = makeFixPlan();
+
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      // Simulate pipeline returning a fix plan; SSE handler should gate after this
+      setTimeout(async () => {
+        await request(app)
+          .post('/stream/debug/plan-approve')
+          .send({ sessionId: input.sessionId, approved: false });
+      }, 30);
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'nginx is crashing',
+        commands: [],
+        skillName: 'nginx',
+        fixPlan,
+        target: 'nginx-demo',
+      };
+    });
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+    const planApprovalEvents = events.filter(e => e.event === 'dpev:plan-approval');
+    expect(planApprovalEvents.length).toBe(1);
+    expect((planApprovalEvents[0].data as any).fixPlan).toBeDefined();
+    expect((planApprovalEvents[0].data as any).fixPlan.steps.length).toBe(1);
+  });
+
+  it('rejected plan results in dpev:complete with status plan_rejected', async () => {
+    const fixPlan = makeFixPlan();
+
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      setTimeout(async () => {
+        await request(app)
+          .post('/stream/debug/plan-approve')
+          .send({ sessionId: input.sessionId, approved: false });
+      }, 30);
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'nginx is crashing',
+        commands: [],
+        skillName: 'nginx',
+        fixPlan,
+        target: 'nginx-demo',
+      };
+    });
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+    const completeEvents = events.filter(e => e.event === 'dpev:complete');
+    expect(completeEvents.length).toBe(1);
+    expect((completeEvents[0].data as any).status).toBe('plan_rejected');
+
+    // executePlan should NOT be called when user rejects the plan
+    expect(mockExecutePlan).not.toHaveBeenCalled();
+  });
+
+  it('approved plan chains to execution via exec:step events', async () => {
+    const fixPlan = makeFixPlan({
+      steps: [
+        { command: 'docker logs nginx', risk: 'read' },
+        { command: 'docker restart nginx', risk: 'write' },
+      ],
+    });
+
+    mockExecutePlan.mockResolvedValue({
+      status: 'completed',
+      stepResults: [
+        { stepIndex: 0, status: 'success', retries: 0, damageCost: 0, runResult: { stdout: 'logs', stderr: '', exitCode: 0 } },
+        { stepIndex: 1, status: 'success', retries: 0, damageCost: 0, runResult: { stdout: 'done', stderr: '', exitCode: 0 } },
+      ],
+    });
+
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      setTimeout(async () => {
+        await request(app)
+          .post('/stream/debug/plan-approve')
+          .send({ sessionId: input.sessionId, approved: true });
+      }, 30);
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'nginx crash',
+        commands: [],
+        skillName: 'nginx',
+        fixPlan,
+        target: 'nginx-demo',
+      };
+    });
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+
+    // Should see execution phase active/complete
+    const executionActive = events.find(
+      e => e.event === 'dpev:phase' && (e.data as any).phase === 'execution' && (e.data as any).status === 'active'
+    );
+    const executionComplete = events.find(
+      e => e.event === 'dpev:phase' && (e.data as any).phase === 'execution' && (e.data as any).status === 'complete'
+    );
+    expect(executionActive).toBeDefined();
+    expect(executionComplete).toBeDefined();
+
+    // Should see exec:step events
+    const stepEvents = events.filter(e => e.event === 'exec:step');
+    expect(stepEvents.length).toBeGreaterThan(0);
+
+    // executePlan should be called
+    expect(mockExecutePlan).toHaveBeenCalledTimes(1);
+  });
+
+  it('per-step approval for write steps via POST /step-approve', async () => {
+    const fixPlan = makeFixPlan({
+      steps: [
+        { command: 'docker restart nginx', risk: 'write' },
+      ],
+    });
+
+    let requestApprovalCallback: ((command: string, risk: any) => Promise<{ approved: boolean }>) | undefined;
+
+    mockExecutePlan.mockImplementation(async (_plan: any, _target: any, execDeps: any) => {
+      requestApprovalCallback = execDeps.requestApproval;
+      // Simulate a write-step approval call
+      const approvalResult = await execDeps.requestApproval('docker restart nginx', 'write');
+      return {
+        status: 'completed',
+        stepResults: [
+          { stepIndex: 0, status: approvalResult.approved ? 'success' : 'skipped', retries: 0, damageCost: 0 },
+        ],
+      };
+    });
+
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      setTimeout(async () => {
+        // Approve the plan
+        await request(app)
+          .post('/stream/debug/plan-approve')
+          .send({ sessionId: input.sessionId, approved: true });
+
+        // Then approve step 0
+        setTimeout(async () => {
+          await request(app)
+            .post('/stream/debug/step-approve')
+            .send({ sessionId: input.sessionId, stepIndex: 0, approved: true });
+        }, 50);
+      }, 30);
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'crash',
+        commands: [],
+        skillName: 'nginx',
+        fixPlan,
+        target: 'nginx-demo',
+      };
+    });
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+    const approvalEvents = events.filter(e => e.event === 'exec:approval');
+    expect(approvalEvents.length).toBe(1);
+    expect((approvalEvents[0].data as any).riskLevel).toBe('write');
+    expect(mockExecutePlan).toHaveBeenCalledTimes(1);
+    expect(requestApprovalCallback).toBeDefined();
+  });
+
+  it('step-approve returns 404 when no pending approval', async () => {
+    const res = await request(app)
+      .post('/stream/debug/step-approve')
+      .send({ sessionId: 'nonexistent', stepIndex: 0, approved: true })
+      .expect(404);
+    expect(res.body.error).toContain('No pending step approval');
+  });
+
+  it('verification phase runs after execution and emits dpev:phase events', async () => {
+    const fixPlan = makeFixPlan();
+
+    mockRunParallelDiscovery.mockResolvedValue({ context: 'fresh context', raw: { 'Running containers': 'nginx' } });
+    mockExecutePlan.mockResolvedValue({ status: 'completed', stepResults: [] });
+
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      setTimeout(async () => {
+        await request(app)
+          .post('/stream/debug/plan-approve')
+          .send({ sessionId: input.sessionId, approved: true });
+      }, 30);
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'nginx crash',
+        commands: [],
+        skillName: 'nginx',
+        fixPlan,
+        target: 'nginx-demo',
+        discoveryCommands: [{ command: 'docker ps', label: 'Running containers' }],
+      };
+    });
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+    const verificationActive = events.find(
+      e => e.event === 'dpev:phase' && (e.data as any).phase === 'verification' && (e.data as any).status === 'active'
+    );
+    const verificationComplete = events.find(
+      e => e.event === 'dpev:phase' && (e.data as any).phase === 'verification' && (e.data as any).status === 'complete'
+    );
+    expect(verificationActive).toBeDefined();
+    expect(verificationComplete).toBeDefined();
+
+    // runParallelDiscovery should have been called during verification
+    expect(mockRunParallelDiscovery).toHaveBeenCalled();
+  });
+
+  it('session status is completed after successful execution+verification', async () => {
+    const fixPlan = makeFixPlan();
+
+    mockExecutePlan.mockResolvedValue({ status: 'completed', stepResults: [] });
+
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      setTimeout(async () => {
+        await request(app)
+          .post('/stream/debug/plan-approve')
+          .send({ sessionId: input.sessionId, approved: true });
+      }, 30);
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'crash',
+        commands: [],
+        skillName: 'nginx',
+        fixPlan,
+        target: 'nginx-demo',
+        discoveryCommands: [{ command: 'docker ps', label: 'Running containers' }],
+      };
+    });
+
+    await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const persistCalls = mockStore.persistState.mock.calls;
+    const lastCall = persistCalls[persistCalls.length - 1];
+    const finalState = lastCall[1];
+    expect(finalState.status).toBe('completed');
+  });
+
+  it('session status is failed after halted execution', async () => {
+    const fixPlan = makeFixPlan();
+
+    mockExecutePlan.mockResolvedValue({ status: 'halted', stepResults: [] });
+
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      setTimeout(async () => {
+        await request(app)
+          .post('/stream/debug/plan-approve')
+          .send({ sessionId: input.sessionId, approved: true });
+      }, 30);
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'crash',
+        commands: [],
+        skillName: 'nginx',
+        fixPlan,
+        target: 'nginx-demo',
+        discoveryCommands: [{ command: 'docker ps', label: 'Running containers' }],
+      };
+    });
+
+    await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const persistCalls = mockStore.persistState.mock.calls;
+    const lastCall = persistCalls[persistCalls.length - 1];
+    const finalState = lastCall[1];
+    expect(finalState.status).toBe('failed');
+  });
+
+  it('session status is plan-ready after DPEV when fixPlan exists', async () => {
+    const fixPlan = makeFixPlan();
+
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      setTimeout(async () => {
+        await request(app)
+          .post('/stream/debug/plan-approve')
+          .send({ sessionId: input.sessionId, approved: false });
+      }, 30);
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'crash',
+        commands: [],
+        skillName: 'nginx',
+        fixPlan,
+        target: 'nginx-demo',
+      };
+    });
+
+    await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    // Intermediate state should be 'plan-ready' before final status
+    const persistCalls = mockStore.persistState.mock.calls;
+    const hasPlanReady = persistCalls.some(([, state]: [unknown, any]) => state.status === 'plan-ready');
+    expect(hasPlanReady).toBe(true);
+  });
+
+  it('no fixPlan results in current behavior: status completed, no execution', async () => {
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'no actionable fix',
+        commands: [],
+        skillName: 'nginx',
+      };
+    });
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+    const completeEvents = events.filter(e => e.event === 'dpev:complete');
+    expect(completeEvents.length).toBe(1);
+    expect(mockExecutePlan).not.toHaveBeenCalled();
+
+    const persistCalls = mockStore.persistState.mock.calls;
+    const lastCall = persistCalls[persistCalls.length - 1];
+    const finalState = lastCall[1];
+    expect(finalState.status).toBe('completed');
+  });
+
+  it('client disconnect rejects pending plan approval', async () => {
+    const fixPlan = makeFixPlan();
+
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      // Never approve -- client disconnect should reject
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'crash',
+        commands: [],
+        skillName: 'nginx',
+        fixPlan,
+        target: 'nginx-demo',
+      };
+    });
+
+    // Start the request but abort immediately
+    const req = request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    // Simply await completion (mock returns quickly, but approval never comes)
+    // In real code the client would disconnect -- since we can't easily simulate that
+    // via supertest, we verify that no pending approval remains after req finishes.
+    // The completion happens because nothing gates the runDPEV promise itself;
+    // the gate is inside the route handler. So we just make sure the approval
+    // handler fails 404 AFTER the request finishes (since it was cleaned up).
+
+    // This test verifies cleanup happens -- send the request with short timeout
+    try {
+      await req.timeout(200);
+    } catch {
+      // Expected: no approval comes
+    }
+
+    // After disconnect, approval should not remain
+    const res = await request(app)
+      .post('/stream/debug/plan-approve')
+      .send({ sessionId: 'test-session-123', approved: true });
+    expect(res.status).toBe(404);
   });
 });
