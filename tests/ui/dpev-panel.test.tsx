@@ -8,7 +8,7 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'ink-testing-library';
-import { dpevReducer } from '../../src/ui/hooks/useDPEV.js';
+import { dpevReducer, handleSSEEvent } from '../../src/ui/hooks/useDPEV.js';
 import { DPEVPanel, shouldShowCacheHitBanner, getApprovalType } from '../../src/ui/panels/DPEVPanel.js';
 import type { DPEVState } from '../../src/ui/types.js';
 
@@ -434,6 +434,309 @@ describe('dpevReducer', () => {
       expect(next.verificationResult).toEqual({
         passed: true,
         executionStatus: 'success',
+      });
+    });
+  });
+
+  // ---- Phase 19.3 observability actions ----
+
+  describe('Phase 19.3 actions (TERM-UX02/03/04/06)', () => {
+    it('STEP_UPDATE populates command/risk/target/total on a new step (D-17)', () => {
+      const state = makeInitialState();
+      const next = dpevReducer(state, {
+        type: 'STEP_UPDATE',
+        stepIndex: 0,
+        total: 3,
+        command: 'docker ps',
+        risk: 'read',
+        target: 'nginx',
+        status: 'running',
+      });
+      expect(next.executionSteps).toHaveLength(1);
+      expect(next.executionSteps[0]).toMatchObject({
+        stepIndex: 0,
+        total: 3,
+        command: 'docker ps',
+        risk: 'read',
+        target: 'nginx',
+        status: 'running',
+      });
+    });
+
+    it('STEP_UPDATE on an existing step preserves command/risk/target when not re-sent', () => {
+      const state = makeInitialState();
+      const first = dpevReducer(state, {
+        type: 'STEP_UPDATE',
+        stepIndex: 0,
+        total: 2,
+        command: 'docker restart nginx',
+        risk: 'write',
+        target: 'nginx',
+        status: 'running',
+      });
+      const second = dpevReducer(first, {
+        type: 'STEP_UPDATE',
+        stepIndex: 0,
+        status: 'success',
+        stdout: 'done',
+      });
+      expect(second.executionSteps).toHaveLength(1);
+      expect(second.executionSteps[0]).toMatchObject({
+        stepIndex: 0,
+        total: 2,
+        command: 'docker restart nginx',
+        risk: 'write',
+        target: 'nginx',
+        status: 'success',
+        stdout: 'done',
+      });
+    });
+
+    it('SUBSTATUS_UPDATE is ignored when there is no active phase', () => {
+      const state = makeInitialState({ activePhaseIndex: -1 });
+      const next = dpevReducer(state, {
+        type: 'SUBSTATUS_UPDATE',
+        label: 'Routing skill…',
+      });
+      expect(next).toBe(state);
+    });
+
+    it('SUBSTATUS_UPDATE sets the label on the active phase', () => {
+      const started = dpevReducer(makeInitialState(), {
+        type: 'PHASE_START',
+        phase: 'discovery',
+        model: 'qwen3-0.6b',
+      });
+      const next = dpevReducer(started, {
+        type: 'SUBSTATUS_UPDATE',
+        label: 'Searching MemPalace…',
+      });
+      expect(next.phases[0].substatus).toBe('Searching MemPalace…');
+    });
+
+    it('PHASE_COMPLETE clears substatus on the completing phase', () => {
+      const started = dpevReducer(makeInitialState(), {
+        type: 'PHASE_START',
+        phase: 'discovery',
+        model: 'qwen3-0.6b',
+      });
+      const withSub = dpevReducer(started, {
+        type: 'SUBSTATUS_UPDATE',
+        label: 'Searching MemPalace…',
+      });
+      const done = dpevReducer(withSub, { type: 'PHASE_COMPLETE', phase: 'discovery' });
+      expect(done.phases[0].status).toBe('complete');
+      expect(done.phases[0].substatus).toBeUndefined();
+    });
+
+    it('PHASE_FOCUS clamps an out-of-range index to the last phase', () => {
+      const state = makeInitialState({
+        phases: [
+          { name: 'routing', model: 'm', startedAt: 1, status: 'complete', tokens: '' },
+          { name: 'discovery', model: 'm', startedAt: 2, status: 'complete', tokens: '' },
+          { name: 'diagnosis', model: 'm', startedAt: 3, status: 'active', tokens: '' },
+        ],
+        activePhaseIndex: 2,
+      });
+      const next = dpevReducer(state, { type: 'PHASE_FOCUS', index: 5 });
+      expect(next.focusedPhaseIndex).toBe(2);
+    });
+
+    it('PHASE_FOCUS clamps a negative index to 0', () => {
+      const state = makeInitialState({
+        phases: [
+          { name: 'routing', model: 'm', startedAt: 1, status: 'complete', tokens: '' },
+          { name: 'discovery', model: 'm', startedAt: 2, status: 'active', tokens: '' },
+        ],
+        activePhaseIndex: 1,
+      });
+      const next = dpevReducer(state, { type: 'PHASE_FOCUS', index: -3 });
+      expect(next.focusedPhaseIndex).toBe(0);
+    });
+
+    it('PHASE_EXPAND sets the boolean for an index and merges with prior entries', () => {
+      const state = makeInitialState();
+      const first = dpevReducer(state, { type: 'PHASE_EXPAND', index: 1, expanded: true });
+      expect(first.expandedPhases?.[1]).toBe(true);
+      const second = dpevReducer(first, { type: 'PHASE_EXPAND', index: 0, expanded: false });
+      expect(second.expandedPhases).toEqual({ 0: false, 1: true });
+    });
+
+    it('USAGE_UPDATE attaches usage to an already-completed phase by name', () => {
+      const state = makeInitialState({
+        phases: [{
+          name: 'discovery',
+          model: 'gemini-2.5-pro',
+          startedAt: 1000,
+          completedAt: 2000,
+          status: 'complete',
+          tokens: '',
+        }],
+        activePhaseIndex: -1,
+      });
+      const next = dpevReducer(state, {
+        type: 'USAGE_UPDATE',
+        phase: 'discovery',
+        modelId: 'gemini-2.5-pro',
+        inputTokens: 1000,
+        outputTokens: 500,
+        totalTokens: 1500,
+        costUsd: 0.00375,
+      });
+      expect(next.phases[0].usage).toEqual({
+        inputTokens: 1000,
+        outputTokens: 500,
+        totalTokens: 1500,
+        costUsd: 0.00375,
+      });
+    });
+
+    it('USAGE_UPDATE is ignored when no phase matches the name', () => {
+      const state = makeInitialState({
+        phases: [{
+          name: 'discovery',
+          model: 'gemini-2.5-pro',
+          startedAt: 1000,
+          status: 'complete',
+          tokens: '',
+        }],
+        activePhaseIndex: -1,
+      });
+      const next = dpevReducer(state, {
+        type: 'USAGE_UPDATE',
+        phase: 'nonexistent',
+        modelId: 'gemini-2.5-pro',
+        inputTokens: 10,
+        outputTokens: null,
+        totalTokens: null,
+        costUsd: null,
+      });
+      expect(next).toBe(state);
+    });
+
+    it('USAGE_UPDATE preserves nulls (em-dash contract, never a false zero)', () => {
+      const state = makeInitialState({
+        phases: [{
+          name: 'diagnosis',
+          model: 'gemini-2.5-pro',
+          startedAt: 1000,
+          status: 'active',
+          tokens: '',
+        }],
+        activePhaseIndex: 0,
+      });
+      const next = dpevReducer(state, {
+        type: 'USAGE_UPDATE',
+        phase: 'diagnosis',
+        modelId: 'gemini-2.5-pro',
+        inputTokens: 1687,
+        outputTokens: null,
+        totalTokens: null,
+        costUsd: null,
+      });
+      expect(next.phases[0].usage).toEqual({
+        inputTokens: 1687,
+        outputTokens: null,
+        totalTokens: null,
+        costUsd: null,
+      });
+    });
+
+    it('SESSION_SUMMARY stores cumulative totals', () => {
+      const state = makeInitialState({ status: 'streaming' });
+      const next = dpevReducer(state, {
+        type: 'SESSION_SUMMARY',
+        totalTokens: 4500,
+        totalCostUsd: 0.025,
+        potentialSavings: null,
+      });
+      expect(next.sessionSummary).toEqual({
+        totalTokens: 4500,
+        totalCostUsd: 0.025,
+        potentialSavings: null,
+      });
+    });
+
+    it('SESSION_SUMMARY does not change status', () => {
+      const state = makeInitialState({ status: 'complete' });
+      const next = dpevReducer(state, {
+        type: 'SESSION_SUMMARY',
+        totalTokens: 100,
+        totalCostUsd: 0.001,
+        potentialSavings: null,
+      });
+      expect(next.status).toBe('complete');
+    });
+  });
+
+  describe('handleSSEEvent Phase 19.3 routing', () => {
+    it('dpev:substatus dispatches SUBSTATUS_UPDATE', () => {
+      const dispatch = vi.fn();
+      handleSSEEvent('dpev:substatus', { label: 'Routing skill…', phase: 'routing' }, dispatch);
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SUBSTATUS_UPDATE',
+        label: 'Routing skill…',
+        phase: 'routing',
+      });
+    });
+
+    it('dpev:usage dispatches USAGE_UPDATE with all fields', () => {
+      const dispatch = vi.fn();
+      handleSSEEvent('dpev:usage', {
+        phase: 'diagnosis',
+        modelId: 'gemini-2.5-pro',
+        inputTokens: 1687,
+        outputTokens: null,
+        totalTokens: null,
+        costUsd: null,
+      }, dispatch);
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'USAGE_UPDATE',
+        phase: 'diagnosis',
+        modelId: 'gemini-2.5-pro',
+        inputTokens: 1687,
+        outputTokens: null,
+        totalTokens: null,
+        costUsd: null,
+      });
+    });
+
+    it('dpev:session_summary dispatches SESSION_SUMMARY', () => {
+      const dispatch = vi.fn();
+      handleSSEEvent('dpev:session_summary', {
+        sessionId: 'sess-1',
+        totalTokens: 4500,
+        totalCostUsd: 0.025,
+        potentialSavings: null,
+      }, dispatch);
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'SESSION_SUMMARY',
+        totalTokens: 4500,
+        totalCostUsd: 0.025,
+        potentialSavings: null,
+      });
+    });
+
+    it('exec:step propagates command/risk/target/total to STEP_UPDATE (D-17 regression)', () => {
+      const dispatch = vi.fn();
+      handleSSEEvent('exec:step', {
+        stepIndex: 0,
+        total: 2,
+        command: 'ls',
+        risk: 'read',
+        target: 'host',
+        status: 'running',
+      }, dispatch);
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'STEP_UPDATE',
+        stepIndex: 0,
+        status: 'running',
+        stdout: undefined,
+        stderr: undefined,
+        command: 'ls',
+        risk: 'read',
+        target: 'host',
+        total: 2,
       });
     });
   });
