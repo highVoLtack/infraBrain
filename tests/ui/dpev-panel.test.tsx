@@ -8,9 +8,17 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'ink-testing-library';
+import { readFileSync } from 'node:fs';
 import { dpevReducer, handleSSEEvent } from '../../src/ui/hooks/useDPEV.js';
-import { DPEVPanel, shouldShowCacheHitBanner, getApprovalType } from '../../src/ui/panels/DPEVPanel.js';
-import type { DPEVState } from '../../src/ui/types.js';
+import {
+  DPEVPanel,
+  shouldShowCacheHitBanner,
+  getApprovalType,
+  isPhaseInputActive,
+  handlePhaseInput,
+  virtualFocusedIndex,
+} from '../../src/ui/panels/DPEVPanel.js';
+import type { DPEVAction, DPEVState } from '../../src/ui/types.js';
 
 // Flush React 19 batched state updates before asserting lastFrame() in tests that
 // simulate input. Per Phase 19-03 decision and Pitfall 1 in 19.2-RESEARCH.md.
@@ -1340,6 +1348,517 @@ describe('DPEVPanel', () => {
       expect(frame).toContain('Error');
       expect(frame).toContain('Verification');
       expect(frame).toContain('Fix failed');
+    });
+  });
+});
+
+// ---- Plan 19.3-04: observability wiring ----
+//
+// Rendering assertions go through `replaySession`, which renders DPEVPanelContent
+// directly and needs no SSE scaffolding. Keyboard behavior is asserted against the
+// exported pure helpers (same convention as shouldShowCacheHitBanner / getApprovalType)
+// because LiveDPEVPanel cannot be mounted without a live EventSource.
+
+const DPEV_PANEL_SOURCE = readFileSync(
+  new URL('../../src/ui/panels/DPEVPanel.tsx', import.meta.url),
+  'utf8',
+);
+
+function renderReplay(state: DPEVState): string {
+  const { lastFrame } = render(
+    React.createElement(DPEVPanel, {
+      apiBaseUrl: 'http://localhost:3000',
+      replaySession: state,
+    })
+  );
+  return lastFrame() ?? '';
+}
+
+describe('DPEVPanel rendering (Phase 19.3)', () => {
+  describe('substatus (TERM-UX03)', () => {
+    it('renders the substatus label under an active phase header', () => {
+      const frame = renderReplay(makeInitialState({
+        sessionId: 'sess-substatus',
+        phases: [
+          {
+            name: 'diagnosis',
+            model: 'gemini-2.5-pro',
+            startedAt: Date.now() - 2000,
+            status: 'active',
+            tokens: '',
+            substatus: 'Calling gemini-2.5-pro (structured object)',
+          },
+        ],
+        activePhaseIndex: 0,
+        status: 'streaming',
+      }));
+
+      expect(frame).toContain('⟁');
+      expect(frame).toContain('Calling gemini-2.5-pro');
+    });
+  });
+
+  describe('per-phase usage line (TERM-UX06 / D-09 / D-11 / D-25)', () => {
+    it('renders numeric usage values plus the v2.0 compression placeholder', () => {
+      const frame = renderReplay(makeInitialState({
+        sessionId: 'sess-usage',
+        phases: [
+          {
+            name: 'diagnosis',
+            model: 'qwen3-32b',
+            startedAt: 1000,
+            completedAt: 4000,
+            status: 'complete',
+            tokens: 'done',
+            usage: {
+              inputTokens: 1000,
+              outputTokens: 500,
+              totalTokens: 1500,
+              costUsd: 0.0089,
+            },
+          },
+        ],
+        activePhaseIndex: 0,
+        status: 'complete',
+      }));
+
+      expect(frame).toContain('in:1000');
+      expect(frame).toContain('out:500');
+      expect(frame).toContain('total:1500');
+      expect(frame).toContain('$0.0089');
+      expect(frame).toContain('[distilled: — | saved: — (v2.0)]');
+    });
+
+    it('renders en-dash fallbacks for null usage fields, never "undefined"', () => {
+      const frame = renderReplay(makeInitialState({
+        sessionId: 'sess-usage-null',
+        phases: [
+          {
+            name: 'diagnosis',
+            model: 'gemini-2.5-pro',
+            startedAt: 1000,
+            completedAt: 4000,
+            status: 'complete',
+            tokens: 'done',
+            usage: {
+              inputTokens: 1687,
+              outputTokens: null,
+              totalTokens: null,
+              costUsd: null,
+            },
+          },
+        ],
+        activePhaseIndex: 0,
+        status: 'complete',
+      }));
+
+      expect(frame).toContain('in:1687');
+      expect(frame).toContain('out:–');
+      expect(frame).toContain('total:–');
+      expect(frame).toContain('$–');
+      expect(frame).not.toContain('undefined');
+      expect(frame).not.toContain('null');
+      expect(frame).not.toContain('NaN');
+    });
+
+    it('shows the usage line while the phase body is collapsed (D-09: cost signal always visible)', () => {
+      const frame = renderReplay(makeInitialState({
+        sessionId: 'sess-usage-collapsed',
+        phases: [
+          {
+            name: 'diagnosis',
+            model: 'qwen3-32b',
+            startedAt: 1000,
+            completedAt: 4000,
+            status: 'complete',
+            tokens: 'Root cause body text',
+            usage: {
+              inputTokens: 42,
+              outputTokens: 7,
+              totalTokens: 49,
+              costUsd: 0.0001,
+            },
+          },
+        ],
+        activePhaseIndex: 0,
+        expandedPhases: {},
+        status: 'complete',
+      }));
+
+      // Body hidden...
+      expect(frame).not.toContain('Root cause body text');
+      // ...but the cost signal stays.
+      expect(frame).toContain('in:42');
+    });
+
+    it('renders no usage line when the phase carries no usage', () => {
+      const frame = renderReplay(makeInitialState({
+        sessionId: 'sess-no-usage',
+        phases: [
+          {
+            name: 'discovery',
+            model: 'qwen3-0.6b',
+            startedAt: 1000,
+            completedAt: 2000,
+            status: 'complete',
+            tokens: '',
+          },
+        ],
+        activePhaseIndex: 0,
+        status: 'complete',
+      }));
+
+      expect(frame).not.toContain('in:');
+      expect(frame).not.toContain('distilled');
+    });
+  });
+
+  describe('focus indicator (TERM-UX04 / D-03)', () => {
+    function threePhases(): DPEVState['phases'] {
+      return [
+        { name: 'discovery', model: 'qwen3-0.6b', startedAt: 1000, completedAt: 2000, status: 'complete', tokens: '' },
+        { name: 'diagnosis', model: 'qwen3-32b', startedAt: 2000, completedAt: 5000, status: 'complete', tokens: '' },
+        { name: 'plan', model: 'qwen3-32b', startedAt: 5000, completedAt: 6000, status: 'complete', tokens: '' },
+      ];
+    }
+
+    it('prefixes the focused phase with the cursor glyph', () => {
+      const frame = renderReplay(makeInitialState({
+        sessionId: 'sess-focus',
+        phases: threePhases(),
+        activePhaseIndex: 2,
+        focusedPhaseIndex: 1,
+        status: 'complete',
+      }));
+
+      const cursorLines = frame.split('\n').filter((l) => l.startsWith('▸'));
+      expect(cursorLines).toHaveLength(1);
+      expect(cursorLines[0]).toContain('DIAGNOSIS');
+    });
+
+    it('falls back to the most recent phase when focusedPhaseIndex is undefined', () => {
+      const frame = renderReplay(makeInitialState({
+        sessionId: 'sess-focus-default',
+        phases: threePhases(),
+        activePhaseIndex: 2,
+        status: 'complete',
+      }));
+
+      const cursorLines = frame.split('\n').filter((l) => l.startsWith('▸'));
+      expect(cursorLines).toHaveLength(1);
+      expect(cursorLines[0]).toContain('PLAN');
+    });
+  });
+
+  describe('Markdown body on expand (TERM-UX01 / D-20)', () => {
+    it('renders a completed + expanded phase through MarkdownView (tokens stripped)', () => {
+      const frame = renderReplay(makeInitialState({
+        sessionId: 'sess-md',
+        phases: [
+          {
+            name: 'diagnosis',
+            model: 'qwen3-32b',
+            startedAt: 1000,
+            completedAt: 4000,
+            status: 'complete',
+            tokens: '# Root cause\nfoo',
+          },
+        ],
+        activePhaseIndex: 0,
+        expandedPhases: { 0: true },
+        status: 'complete',
+      }));
+
+      expect(frame).toContain('Root cause');
+      expect(frame).toContain('foo');
+      expect(frame).not.toContain('# ');
+    });
+
+    it('renders no body for a completed + collapsed phase', () => {
+      const frame = renderReplay(makeInitialState({
+        sessionId: 'sess-md-collapsed',
+        phases: [
+          {
+            name: 'diagnosis',
+            model: 'qwen3-32b',
+            startedAt: 1000,
+            completedAt: 4000,
+            status: 'complete',
+            tokens: '# Root cause\nfoo',
+          },
+        ],
+        activePhaseIndex: 0,
+        expandedPhases: { 0: false },
+        status: 'complete',
+      }));
+
+      expect(frame).not.toContain('Root cause');
+      expect(frame).toContain('DIAGNOSIS');
+    });
+
+    it('keeps an active phase on StreamingText even when its tokens look like Markdown', () => {
+      const frame = renderReplay(makeInitialState({
+        sessionId: 'sess-md-active',
+        phases: [
+          {
+            name: 'diagnosis',
+            model: 'qwen3-32b',
+            startedAt: Date.now() - 1000,
+            status: 'active',
+            tokens: '# Partial',
+          },
+        ],
+        activePhaseIndex: 0,
+        status: 'streaming',
+      }));
+
+      // Raw token survives: StreamingText passes the string through unparsed (D-20).
+      expect(frame).toContain('# Partial');
+    });
+
+    it('does not expand an active phase into MarkdownView even when expandedPhases says true', () => {
+      const frame = renderReplay(makeInitialState({
+        sessionId: 'sess-md-active-expanded',
+        phases: [
+          {
+            name: 'diagnosis',
+            model: 'qwen3-32b',
+            startedAt: Date.now() - 1000,
+            status: 'active',
+            tokens: '# Partial',
+          },
+        ],
+        activePhaseIndex: 0,
+        expandedPhases: { 0: true },
+        status: 'streaming',
+      }));
+
+      // Exactly one rendering of the body, and it is the raw streaming one.
+      expect(frame).toContain('# Partial');
+      expect(frame.split('Partial')).toHaveLength(2);
+    });
+  });
+
+  describe('session summary footer (TERM-UX06 / D-12 / D-24)', () => {
+    function completeState(summary?: DPEVState['sessionSummary']): DPEVState {
+      return makeInitialState({
+        sessionId: 'abc12345-6789',
+        phases: [],
+        activePhaseIndex: -1,
+        status: 'complete',
+        sessionSummary: summary,
+      });
+    }
+
+    it('renders cumulative tokens, cost and the v2.0 savings placeholder', () => {
+      const frame = renderReplay(completeState({
+        totalTokens: 4500,
+        totalCostUsd: 0.03,
+        potentialSavings: null,
+      }));
+
+      expect(frame).toContain('Session complete');
+      expect(frame).toContain('Session: 4500 tokens');
+      expect(frame).toContain('$0.03');
+      expect(frame).toContain('Saved via Memory: $0.00 (v2.0)');
+    });
+
+    it('renders a non-null potentialSavings when v2.0 eventually supplies one', () => {
+      const frame = renderReplay(completeState({
+        totalTokens: 4500,
+        totalCostUsd: 0.03,
+        potentialSavings: 1.5,
+      }));
+
+      expect(frame).toContain('Saved via Memory: $1.50 (v2.0)');
+    });
+
+    it('omits the summary lines entirely when sessionSummary is undefined', () => {
+      const frame = renderReplay(completeState(undefined));
+
+      expect(frame).toContain('Session complete');
+      expect(frame).not.toContain('Session:');
+      expect(frame).not.toContain('Saved via Memory');
+    });
+  });
+
+  describe('stable keys (TERM-UX07 / D-22)', () => {
+    it('keys the phase list on phase name + startedAt, not the array index', () => {
+      expect(DPEV_PANEL_SOURCE).toContain('phase-${phase.name}-${phase.startedAt}');
+      expect(DPEV_PANEL_SOURCE).not.toContain('key={`phase-${i}`}');
+    });
+
+    it('has no array-index-only key props anywhere in the panel', () => {
+      expect(DPEV_PANEL_SOURCE).not.toMatch(/key=\{i\}/);
+      expect(DPEV_PANEL_SOURCE).not.toMatch(/key=\{index\}/);
+    });
+
+    it('keeps both phases rendered when the list grows (no remount churn)', () => {
+      const phaseOne = {
+        name: 'discovery',
+        model: 'qwen3-0.6b',
+        startedAt: 1000,
+        completedAt: 2000,
+        status: 'complete' as const,
+        tokens: '',
+      };
+      const first = makeInitialState({
+        sessionId: 's',
+        phases: [phaseOne],
+        activePhaseIndex: 0,
+        status: 'streaming',
+      });
+
+      const { lastFrame, rerender } = render(
+        React.createElement(DPEVPanel, { apiBaseUrl: 'http://localhost:3000', replaySession: first })
+      );
+
+      rerender(
+        React.createElement(DPEVPanel, {
+          apiBaseUrl: 'http://localhost:3000',
+          replaySession: {
+            ...first,
+            phases: [
+              phaseOne,
+              { name: 'diagnosis', model: 'qwen3-32b', startedAt: 2000, status: 'active', tokens: 'live' },
+            ],
+            activePhaseIndex: 1,
+          },
+        })
+      );
+
+      const frame = lastFrame() ?? '';
+      expect(frame).toContain('DISCOVERY');
+      expect(frame).toContain('DIAGNOSIS');
+      // One header each -- no duplicated artefact lines from the previous render.
+      expect(frame.split('DISCOVERY')).toHaveLength(2);
+    });
+  });
+});
+
+describe('DPEVPanel keyboard helpers (Phase 19.3, TERM-UX04)', () => {
+  function navState(overrides?: Partial<DPEVState>): DPEVState {
+    return makeInitialState({
+      sessionId: 'nav',
+      phases: [
+        { name: 'discovery', model: 'qwen3-0.6b', startedAt: 1000, completedAt: 2000, status: 'complete', tokens: '' },
+        { name: 'diagnosis', model: 'qwen3-32b', startedAt: 2000, completedAt: 5000, status: 'complete', tokens: '' },
+        { name: 'plan', model: 'qwen3-32b', startedAt: 5000, status: 'active', tokens: '' },
+      ],
+      activePhaseIndex: 2,
+      status: 'streaming',
+      ...overrides,
+    });
+  }
+
+  const NO_KEY = {};
+
+  describe('virtualFocusedIndex', () => {
+    it('returns focusedPhaseIndex when set', () => {
+      expect(virtualFocusedIndex(navState({ focusedPhaseIndex: 0 }))).toBe(0);
+    });
+
+    it('defaults to the last phase when focus is unset', () => {
+      expect(virtualFocusedIndex(navState())).toBe(2);
+    });
+
+    it('returns -1 when there are no phases', () => {
+      expect(virtualFocusedIndex(makeInitialState())).toBe(-1);
+    });
+  });
+
+  describe('isPhaseInputActive', () => {
+    it('is active during normal streaming', () => {
+      expect(isPhaseInputActive(navState())).toBe(true);
+    });
+
+    it('is inactive while a step approval is pending (must not steal Y/N)', () => {
+      expect(
+        isPhaseInputActive(navState({
+          status: 'awaiting-approval',
+          pendingApproval: { command: 'rm -rf /', riskLevel: 'destructive', target: 'disk', stepIndex: 0 },
+        }))
+      ).toBe(false);
+    });
+
+    it('is inactive while the plan approval gate is open', () => {
+      expect(isPhaseInputActive(navState({ status: 'plan-approval' }))).toBe(false);
+    });
+
+    it('is inactive while a cache-hit approval is open (status awaiting-approval, no pendingApproval)', () => {
+      expect(isPhaseInputActive(navState({ status: 'awaiting-approval' }))).toBe(false);
+    });
+  });
+
+  describe('handlePhaseInput', () => {
+    it('moves focus up on the up arrow', () => {
+      const dispatch = vi.fn<(a: DPEVAction) => void>();
+      handlePhaseInput(navState({ focusedPhaseIndex: 2 }), '', { upArrow: true }, dispatch);
+      expect(dispatch).toHaveBeenCalledWith({ type: 'PHASE_FOCUS', index: 1 });
+    });
+
+    it('moves focus up on "k"', () => {
+      const dispatch = vi.fn<(a: DPEVAction) => void>();
+      handlePhaseInput(navState({ focusedPhaseIndex: 2 }), 'k', NO_KEY, dispatch);
+      expect(dispatch).toHaveBeenCalledWith({ type: 'PHASE_FOCUS', index: 1 });
+    });
+
+    it('moves focus down on the down arrow', () => {
+      const dispatch = vi.fn<(a: DPEVAction) => void>();
+      handlePhaseInput(navState({ focusedPhaseIndex: 0 }), '', { downArrow: true }, dispatch);
+      expect(dispatch).toHaveBeenCalledWith({ type: 'PHASE_FOCUS', index: 1 });
+    });
+
+    it('moves focus down on "j"', () => {
+      const dispatch = vi.fn<(a: DPEVAction) => void>();
+      handlePhaseInput(navState({ focusedPhaseIndex: 0 }), 'j', NO_KEY, dispatch);
+      expect(dispatch).toHaveBeenCalledWith({ type: 'PHASE_FOCUS', index: 1 });
+    });
+
+    it('navigates from the virtual default (last phase) when focus is unset', () => {
+      const dispatch = vi.fn<(a: DPEVAction) => void>();
+      handlePhaseInput(navState(), '', { upArrow: true }, dispatch);
+      expect(dispatch).toHaveBeenCalledWith({ type: 'PHASE_FOCUS', index: 1 });
+    });
+
+    it('lets the reducer clamp out-of-range focus rather than clamping here', () => {
+      const dispatch = vi.fn<(a: DPEVAction) => void>();
+      handlePhaseInput(navState({ focusedPhaseIndex: 0 }), '', { upArrow: true }, dispatch);
+      expect(dispatch).toHaveBeenCalledWith({ type: 'PHASE_FOCUS', index: -1 });
+      expect(dpevReducer(navState({ focusedPhaseIndex: 0 }), { type: 'PHASE_FOCUS', index: -1 }).focusedPhaseIndex)
+        .toBe(0);
+    });
+
+    it('expands the focused completed phase on Enter', () => {
+      const dispatch = vi.fn<(a: DPEVAction) => void>();
+      handlePhaseInput(navState({ focusedPhaseIndex: 1 }), '', { return: true }, dispatch);
+      expect(dispatch).toHaveBeenCalledWith({ type: 'PHASE_EXPAND', index: 1, expanded: true });
+    });
+
+    it('does not expand an active phase on Enter (it is already showing live content)', () => {
+      const dispatch = vi.fn<(a: DPEVAction) => void>();
+      handlePhaseInput(navState({ focusedPhaseIndex: 2 }), '', { return: true }, dispatch);
+      expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('collapses the focused phase on Esc', () => {
+      const dispatch = vi.fn<(a: DPEVAction) => void>();
+      handlePhaseInput(navState({ focusedPhaseIndex: 1 }), '', { escape: true }, dispatch);
+      expect(dispatch).toHaveBeenCalledWith({ type: 'PHASE_EXPAND', index: 1, expanded: false });
+    });
+
+    it('is a no-op when there are no phases', () => {
+      const dispatch = vi.fn<(a: DPEVAction) => void>();
+      handlePhaseInput(makeInitialState(), '', { downArrow: true }, dispatch);
+      handlePhaseInput(makeInitialState(), '', { return: true }, dispatch);
+      handlePhaseInput(makeInitialState(), '', { escape: true }, dispatch);
+      expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('ignores unrelated keystrokes', () => {
+      const dispatch = vi.fn<(a: DPEVAction) => void>();
+      handlePhaseInput(navState({ focusedPhaseIndex: 1 }), 'x', NO_KEY, dispatch);
+      expect(dispatch).not.toHaveBeenCalled();
     });
   });
 });
