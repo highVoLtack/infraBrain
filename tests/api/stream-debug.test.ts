@@ -85,6 +85,7 @@ vi.mock('../../src/orchestrator/pipeline.js', () => ({
 }));
 
 import { createStreamDebugRoute } from '../../src/api/routes/stream-debug.js';
+import { _resetAll, getSessionSummary } from '../../src/state/session-usage.js';
 
 // ---- Helper: parse SSE text into events ----
 function parseSSEText(text: string): Array<{ event: string; data: unknown }> {
@@ -989,5 +990,283 @@ describe('POST /stream/debug/plan-approve (plan approval)', () => {
       .post('/stream/debug/plan-approve')
       .send({ sessionId: 'test-session-123', approved: true });
     expect(followUp.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 19.3 Plan 02 -- session summary + usage relay (TERM-UX06)
+// ---------------------------------------------------------------------------
+describe('session summary + usage relay (TERM-UX06)', () => {
+  let app: express.Express;
+  let deps: ReturnType<typeof createMockDeps>;
+  let mockStore: ReturnType<typeof createMockStore>;
+
+  function makeFixPlan() {
+    return {
+      summary: 'Restart nginx',
+      steps: [
+        { command: 'docker ps', description: 'Step 0', rollback: 'n/a', risk: 'read' as const },
+      ],
+      complexity: 'simple' as const,
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    _resetAll();
+    mockStore = createMockStore();
+    deps = createMockDeps({ store: mockStore, baseDir: '/tmp/infrabrain-test' });
+    app = express();
+    app.use(express.json());
+    app.use('/stream/debug', createStreamDebugRoute(deps as any));
+
+    mockRunParallelDiscovery.mockResolvedValue({ context: '', raw: {} });
+    mockExecutePlan.mockResolvedValue({ status: 'completed', stepResults: [] });
+  });
+
+  it('emits dpev:session_summary before the final dpev:complete on the success path', async () => {
+    const fixPlan = makeFixPlan();
+
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      setTimeout(async () => {
+        await request(app)
+          .post('/stream/debug/plan-approve')
+          .send({ sessionId: input.sessionId, approved: true });
+      }, 30);
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'nginx crash',
+        commands: [],
+        skillName: 'nginx',
+        fixPlan,
+        target: 'nginx-demo',
+      };
+    });
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+    const names = events.map(e => e.event);
+    const summaryIndex = names.indexOf('dpev:session_summary');
+    const completeIndex = names.lastIndexOf('dpev:complete');
+
+    expect(summaryIndex).toBeGreaterThanOrEqual(0);
+    expect(completeIndex).toBeGreaterThanOrEqual(0);
+    expect(summaryIndex).toBeLessThan(completeIndex);
+
+    const payload = events[summaryIndex].data as any;
+    expect(payload.sessionId).toBe('test-session-123');
+    expect(payload.totalTokens).toBe(0);
+    expect(payload.totalCostUsd).toBe(0);
+    expect(payload.potentialSavings).toBeNull();
+  });
+
+  it('emits dpev:session_summary on the plan-rejection path', async () => {
+    const fixPlan = makeFixPlan();
+
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      setTimeout(async () => {
+        await request(app)
+          .post('/stream/debug/plan-approve')
+          .send({ sessionId: input.sessionId, approved: false });
+      }, 30);
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'nginx crash',
+        commands: [],
+        skillName: 'nginx',
+        fixPlan,
+        target: 'nginx-demo',
+      };
+    });
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+    const names = events.map(e => e.event);
+    expect(names).toContain('dpev:session_summary');
+    expect(names.indexOf('dpev:session_summary')).toBeLessThan(names.indexOf('dpev:complete'));
+
+    const complete = events.find(e => e.event === 'dpev:complete')!;
+    expect((complete.data as any).status).toBe('plan_rejected');
+  });
+
+  it('emits dpev:session_summary on the no-actionable-plan path', async () => {
+    mockRunDPEV.mockImplementation(async (input: any) => ({
+      sessionId: input.sessionId,
+      diagnosis: 'nothing actionable',
+      commands: [],
+      skillName: 'nginx',
+    }));
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'asdkjhasd' });
+
+    const events = parseSSEText(res.text);
+    const names = events.map(e => e.event);
+    expect(names).toContain('dpev:session_summary');
+    expect(names.indexOf('dpev:session_summary')).toBeLessThan(names.lastIndexOf('dpev:complete'));
+  });
+
+  it('emits dpev:session_summary on the execution-failure path', async () => {
+    const fixPlan = makeFixPlan();
+    mockExecutePlan.mockRejectedValue(new Error('runner exploded'));
+
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      setTimeout(async () => {
+        await request(app)
+          .post('/stream/debug/plan-approve')
+          .send({ sessionId: input.sessionId, approved: true });
+      }, 30);
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'nginx crash',
+        commands: [],
+        skillName: 'nginx',
+        fixPlan,
+        target: 'nginx-demo',
+      };
+    });
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+    const names = events.map(e => e.event);
+    expect(names).toContain('dpev:session_summary');
+    expect(names.indexOf('dpev:session_summary')).toBeLessThan(names.lastIndexOf('dpev:complete'));
+  });
+
+  it('relays dpev:usage into the aggregator and reports the totals in the summary', async () => {
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      input.onEvent?.('dpev:usage', {
+        phase: 'diagnosis',
+        modelId: 'gemini-2.5-pro',
+        inputTokens: 1000,
+        outputTokens: 500,
+        totalTokens: 1500,
+        costUsd: 0.00375,
+      });
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'nginx crash',
+        commands: [],
+        skillName: 'nginx',
+      };
+    });
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+
+    // The usage event itself is still forwarded to the client
+    const usageEvents = events.filter(e => e.event === 'dpev:usage');
+    expect(usageEvents.length).toBe(1);
+    expect((usageEvents[0].data as any).modelId).toBe('gemini-2.5-pro');
+
+    const summary = events.find(e => e.event === 'dpev:session_summary')!;
+    expect((summary.data as any).totalTokens).toBe(1500);
+    expect((summary.data as any).totalCostUsd).toBeCloseTo(0.00375, 10);
+    expect((summary.data as any).potentialSavings).toBeNull();
+  });
+
+  it('accumulates multiple dpev:usage events into one session total', async () => {
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      input.onEvent?.('dpev:usage', {
+        phase: 'diagnosis', modelId: 'gemini-2.5-pro',
+        inputTokens: 1000, outputTokens: 500, totalTokens: 1500, costUsd: 0.00375,
+      });
+      input.onEvent?.('dpev:usage', {
+        phase: 'plan', modelId: 'gemini-2.5-pro',
+        inputTokens: 2000, outputTokens: null, totalTokens: null, costUsd: null,
+      });
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'nginx crash',
+        commands: [],
+        skillName: 'nginx',
+      };
+    });
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+    const summary = events.find(e => e.event === 'dpev:session_summary')!;
+    // 1000 + 500 + 2000 (null outputTokens counts as 0)
+    expect((summary.data as any).totalTokens).toBe(3500);
+  });
+
+  it('clears the aggregator entry after the session ends', async () => {
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      input.onEvent?.('dpev:usage', {
+        phase: 'diagnosis', modelId: 'gemini-2.5-pro',
+        inputTokens: 1000, outputTokens: 500, totalTokens: 1500, costUsd: 0.00375,
+      });
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'nginx crash',
+        commands: [],
+        skillName: 'nginx',
+      };
+    });
+
+    await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    expect(getSessionSummary('test-session-123')).toBeUndefined();
+  });
+
+  it('forwards dpev:substatus events from the pipeline untouched', async () => {
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      input.onEvent?.('dpev:substatus', { label: 'Routing skill…', phase: 'routing' });
+      input.onEvent?.('dpev:substatus', { label: 'Searching MemPalace…', phase: 'diagnosis' });
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'nginx crash',
+        commands: [],
+        skillName: 'nginx',
+      };
+    });
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+    const substatus = events.filter(e => e.event === 'dpev:substatus');
+    expect(substatus.length).toBe(2);
+    expect((substatus[0].data as any).label).toBe('Routing skill…');
+    expect((substatus[1].data as any).phase).toBe('diagnosis');
+  });
+
+  it('a malformed dpev:usage payload does not break the stream', async () => {
+    mockRunDPEV.mockImplementation(async (input: any) => {
+      input.onEvent?.('dpev:usage', null);
+      return {
+        sessionId: input.sessionId,
+        diagnosis: 'nginx crash',
+        commands: [],
+        skillName: 'nginx',
+      };
+    });
+
+    const res = await request(app)
+      .post('/stream/debug')
+      .send({ prompt: 'nginx is down' });
+
+    const events = parseSSEText(res.text);
+    expect(events.map(e => e.event)).toContain('dpev:session_summary');
+    expect(events.map(e => e.event)).toContain('dpev:complete');
   });
 });

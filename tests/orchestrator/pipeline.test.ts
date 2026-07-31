@@ -839,4 +839,198 @@ describe('runDPEV pipeline', () => {
       expect((discoveryStart![1] as any).model).toBeDefined();
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Phase 19.3 Plan 02 -- substatus + usage emission (TERM-UX03, TERM-UX06)
+  // -------------------------------------------------------------------------
+  describe('substatus + usage emission (TERM-UX03, TERM-UX06)', () => {
+    function setupStandardMocks() {
+      vi.mocked(selectSkill).mockResolvedValue({ skill: nginxSkill, reasoning: 'matched' });
+      vi.mocked(runParallelDiscovery).mockResolvedValue({
+        context: 'discovered context',
+        raw: { 'Running containers': 'nginx-demo' },
+      });
+      vi.mocked(runDiagnosis).mockResolvedValue({
+        diagnosis: 'Command: docker restart nginx-demo',
+      });
+      vi.mocked(generateFixPlan).mockResolvedValue({
+        summary: 'Restart nginx',
+        steps: [{ command: 'docker restart nginx-demo', description: 'Restart', rollback: 'n/a', risk: 'write' as const }],
+        complexity: 'simple' as const,
+      });
+      vi.mocked(generatePlanMarkdown).mockReturnValue('## Plan');
+      vi.mocked(formatPlanTable).mockReturnValue('| Step |');
+    }
+
+    async function collectEvents(sessionId: string): Promise<Array<{ event: string; data: unknown }>> {
+      const sseEvents: Array<{ event: string; data: unknown }> = [];
+      await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId,
+        onEvent: (event, data) => { sseEvents.push({ event, data }); },
+      });
+      return sseEvents;
+    }
+
+    function substatusLabels(events: Array<{ event: string; data: unknown }>): string[] {
+      return events
+        .filter(e => e.event === 'dpev:substatus')
+        .map(e => (e.data as any).label as string);
+    }
+
+    it('emits dpev:substatus "Routing skill…" BEFORE selectSkill runs', async () => {
+      setupStandardMocks();
+      const sseEvents: Array<{ event: string; data: unknown }> = [];
+      let routingSubstatusSeenBeforeTriage = false;
+
+      vi.mocked(selectSkill).mockImplementation(async () => {
+        routingSubstatusSeenBeforeTriage = sseEvents.some(
+          e => e.event === 'dpev:substatus' && (e.data as any).label === 'Routing skill…'
+        );
+        return { skill: nginxSkill, reasoning: 'matched' };
+      });
+
+      await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'substatus-routing',
+        onEvent: (event, data) => { sseEvents.push({ event, data }); },
+      });
+
+      expect(routingSubstatusSeenBeforeTriage).toBe(true);
+      const routing = sseEvents.find(
+        e => e.event === 'dpev:substatus' && (e.data as any).label === 'Routing skill…'
+      );
+      expect((routing!.data as any).phase).toBe('routing');
+    });
+
+    it('emits a "Calling <model> (structured object)" substatus BEFORE runDiagnosis', async () => {
+      setupStandardMocks();
+      const sseEvents: Array<{ event: string; data: unknown }> = [];
+      let callingSeenBeforeDiagnosis = false;
+
+      vi.mocked(runDiagnosis).mockImplementation(async () => {
+        callingSeenBeforeDiagnosis = sseEvents.some(
+          e => e.event === 'dpev:substatus' && /^Calling .+ \(structured object\)$/.test((e.data as any).label)
+        );
+        return { diagnosis: 'Command: docker restart nginx-demo' };
+      });
+
+      await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'substatus-diagnosis',
+        onEvent: (event, data) => { sseEvents.push({ event, data }); },
+      });
+
+      expect(callingSeenBeforeDiagnosis).toBe(true);
+    });
+
+    it('emits the MemPalace, noise-filter and fix-plan substatus labels (D-06)', async () => {
+      setupStandardMocks();
+      const labels = substatusLabels(await collectEvents('substatus-labels'));
+
+      expect(labels).toContain('Searching MemPalace…');
+      expect(labels).toContain('Filtering noise (worker)…');
+      expect(labels).toContain('Generating fix plan…');
+    });
+
+    it('emits at least five substatus events across the pipeline', async () => {
+      setupStandardMocks();
+      const labels = substatusLabels(await collectEvents('substatus-count'));
+
+      expect(labels.length).toBeGreaterThanOrEqual(5);
+      // Labels stay short enough for the dimmed one-line UI slot
+      for (const label of labels) {
+        expect(label.length).toBeLessThan(60);
+      }
+    });
+
+    it('emits dpev:usage for the diagnosis phase with a modelId (D-09)', async () => {
+      setupStandardMocks();
+      const events = await collectEvents('usage-diagnosis');
+      const usage = events.filter(e => e.event === 'dpev:usage');
+      const diagUsage = usage.find(e => (e.data as any).phase === 'diagnosis');
+
+      expect(diagUsage).toBeDefined();
+      expect(typeof (diagUsage!.data as any).modelId).toBe('string');
+      expect((diagUsage!.data as any).modelId.length).toBeGreaterThan(0);
+    });
+
+    it('emits dpev:usage for the plan phase after generateFixPlan', async () => {
+      setupStandardMocks();
+      const events = await collectEvents('usage-plan');
+      const planUsage = events.filter(
+        e => e.event === 'dpev:usage' && (e.data as any).phase === 'plan'
+      );
+
+      expect(planUsage.length).toBe(1);
+      expect(typeof (planUsage[0].data as any).modelId).toBe('string');
+    });
+
+    it('counts input tokens locally and leaves output/total/cost null (D-11)', async () => {
+      setupStandardMocks();
+      const events = await collectEvents('usage-null-fallback');
+      const diagUsage = events.find(
+        e => e.event === 'dpev:usage' && (e.data as any).phase === 'diagnosis'
+      )!;
+      const payload = diagUsage.data as any;
+
+      expect(payload.inputTokens).toBeTypeOf('number');
+      expect(payload.inputTokens).toBeGreaterThan(0);
+      expect(payload.outputTokens).toBeNull();
+      expect(payload.totalTokens).toBeNull();
+      expect(payload.costUsd).toBeNull();
+    });
+
+    it('emits diagnosis usage AFTER runDiagnosis resolves', async () => {
+      setupStandardMocks();
+      const sseEvents: Array<{ event: string; data: unknown }> = [];
+      let usageSeenDuringDiagnosis = false;
+
+      vi.mocked(runDiagnosis).mockImplementation(async () => {
+        usageSeenDuringDiagnosis = sseEvents.some(e => e.event === 'dpev:usage');
+        return { diagnosis: 'Command: docker restart nginx-demo' };
+      });
+
+      await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'usage-ordering',
+        onEvent: (event, data) => { sseEvents.push({ event, data }); },
+      });
+
+      expect(usageSeenDuringDiagnosis).toBe(false);
+      expect(sseEvents.some(e => e.event === 'dpev:usage')).toBe(true);
+    });
+
+    it('stays silent (no throw) when onEvent is absent -- legacy callers unaffected', async () => {
+      setupStandardMocks();
+
+      const result = await runDPEV({
+        prompt: 'Nginx is down',
+        provider: mockProvider,
+        registry,
+        auditLogger: mockAuditLogger,
+        validator: mockValidator,
+        sessionId: 'substatus-no-onevent',
+      });
+
+      expect(result.diagnosis).toBe('Command: docker restart nginx-demo');
+      expect(result.fixPlan).toBeDefined();
+    });
+  });
 });
