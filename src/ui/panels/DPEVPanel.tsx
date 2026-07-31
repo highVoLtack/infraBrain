@@ -13,22 +13,28 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useInput } from 'ink';
 import { useDPEV } from '../hooks/useDPEV.js';
 import { StreamingText } from '../components/StreamingText.js';
+import { MarkdownView } from '../components/MarkdownView.js';
 import { DPEVPhaseHeader } from '../components/DPEVPhaseHeader.js';
 import { StepCard } from '../components/StepCard.js';
 import { ApprovalWrite } from '../components/ApprovalWrite.js';
 import { ApprovalDestructive } from '../components/ApprovalDestructive.js';
 import { CacheHitBanner } from '../components/CacheHitBanner.js';
 import { PlanView } from '../components/PlanView.js';
-import type { DPEVState } from '../types.js';
+import type { DPEVAction, DPEVPhaseState, DPEVState } from '../types.js';
 
 export interface DPEVPanelProps {
   apiBaseUrl: string;
   prompt?: string;
   replaySession?: DPEVState;
 }
+
+/** D-11: nulls mean "the provider stayed silent" — never render 0 / $0.00. */
+const EN_DASH = '–';
+/** D-25: the v2.0 compression columns are reserved, not empty. */
+const USAGE_V2_SUFFIX = ' · [distilled: — | saved: — (v2.0)]';
 
 // ---- Pure helper: determine if cache hit banner should show ----
 
@@ -44,6 +50,90 @@ export function shouldShowCacheHitBanner(state: DPEVState): boolean {
 
 export function getApprovalType(riskLevel: string): 'write' | 'destructive' {
   return riskLevel === 'destructive' ? 'destructive' : 'write';
+}
+
+// ---- Pure helper: which phase the focus cursor sits on right now (D-03) ----
+
+/**
+ * `focusedPhaseIndex` is undefined until the user presses a navigation key. Until then
+ * the cursor virtually rests on the most recent phase, so the first Up keystroke moves
+ * to the previous phase rather than off the end of the list. This is a read-time default
+ * only — dispatching PHASE_FOCUS during render would loop.
+ */
+export function virtualFocusedIndex(state: DPEVState): number {
+  return state.focusedPhaseIndex ?? (state.phases.length > 0 ? state.phases.length - 1 : -1);
+}
+
+// ---- Pure helper: is the phase-navigation key handler allowed to run? ----
+
+/**
+ * Any open approval gate owns the keyboard. Stealing Enter/Esc from an ApprovalWrite or
+ * a CacheHitBanner would silently answer a Y/N prompt the user never saw the answer to.
+ */
+export function isPhaseInputActive(state: DPEVState): boolean {
+  return (
+    state.pendingApproval === undefined &&
+    state.status !== 'awaiting-approval' &&
+    state.status !== 'plan-approval'
+  );
+}
+
+// ---- Pure helper: phase-accordion keyboard map (D-03) ----
+
+/** The subset of Ink's `Key` this handler reads — keeps the helper testable without Ink. */
+export interface PhaseInputKey {
+  upArrow?: boolean;
+  downArrow?: boolean;
+  return?: boolean;
+  escape?: boolean;
+}
+
+/**
+ * ↑/k and ↓/j move focus; Enter expands a completed phase; Esc collapses.
+ *
+ * Focus indices are dispatched unclamped — `PHASE_FOCUS` clamps in the reducer, so the
+ * bounds rule lives in exactly one place. Enter is a deliberate no-op on an active phase:
+ * it is already streaming its body, and "expanding" it would mean nothing (D-20).
+ */
+export function handlePhaseInput(
+  state: DPEVState,
+  input: string,
+  key: PhaseInputKey,
+  dispatch: (action: DPEVAction) => void,
+): void {
+  if (state.phases.length === 0) return;
+  const currentIdx = virtualFocusedIndex(state);
+
+  if (key.upArrow || input === 'k') {
+    dispatch({ type: 'PHASE_FOCUS', index: currentIdx - 1 });
+  } else if (key.downArrow || input === 'j') {
+    dispatch({ type: 'PHASE_FOCUS', index: currentIdx + 1 });
+  } else if (key.return) {
+    const focusedPhase = state.phases[currentIdx];
+    if (focusedPhase && focusedPhase.status !== 'active') {
+      dispatch({ type: 'PHASE_EXPAND', index: currentIdx, expanded: true });
+    }
+  } else if (key.escape) {
+    dispatch({ type: 'PHASE_EXPAND', index: currentIdx, expanded: false });
+  }
+}
+
+// ---- Pure helper: per-phase usage line (D-09 / D-11 / D-25) ----
+
+/**
+ * `in:1687 · out:– · total:– · $– · [distilled: — | saved: — (v2.0)]`
+ *
+ * Returns undefined when the phase reported no usage at all, so the caller can skip the
+ * row rather than print a line of dashes.
+ */
+export function formatUsageLine(usage: DPEVPhaseState['usage']): string | undefined {
+  if (!usage) return undefined;
+  const out = usage.outputTokens ?? EN_DASH;
+  const total = usage.totalTokens ?? EN_DASH;
+  const cost = usage.costUsd !== null && usage.costUsd !== undefined
+    ? usage.costUsd.toFixed(4)
+    : EN_DASH;
+  return `in:${usage.inputTokens} · out:${out} · total:${total} · $${cost}${USAGE_V2_SUFFIX}`;
 }
 
 // ---- Panel Component ----
@@ -62,20 +152,48 @@ function DPEVPanelContent({
   onPlanApprovalResponse: (approved: boolean) => void;
 }): React.ReactElement {
   const showCacheHit = shouldShowCacheHitBanner(state);
+  const focusedIdx = virtualFocusedIndex(state);
 
   return (
     <Box flexDirection="column" flexGrow={1}>
-      {/* DPEV Phase Accordion */}
-      {state.phases.map((phase, i) => (
-        <Box key={`phase-${i}`} flexDirection="column">
-          <DPEVPhaseHeader phase={phase} />
-          {phase.status === 'active' && (
-            <Box marginLeft={2}>
-              <StreamingText text={phase.tokens} />
+      {/* DPEV Phase Accordion: focus cursor + substatus + usage + expandable body */}
+      {state.phases.map((phase, i) => {
+        const isFocused = focusedIdx === i;
+        // Active phases are open by default; completed ones stay collapsed until the
+        // user expands them (D-01/D-02). Replay passes expandedPhases={} -> all closed (D-04).
+        const isExpanded = state.expandedPhases?.[i] ?? (phase.status === 'active');
+        const usageLine = formatUsageLine(phase.usage);
+
+        return (
+          <Box key={`phase-${phase.name}-${phase.startedAt}`} flexDirection="column">
+            <Box>
+              <Text color={isFocused ? 'cyanBright' : undefined}>
+                {isFocused ? '▸ ' : '  '}
+              </Text>
+              <DPEVPhaseHeader phase={phase} substatus={phase.substatus} />
             </Box>
-          )}
-        </Box>
-      ))}
+
+            {/* Cost signal stays visible even while the body is collapsed (D-09) */}
+            {usageLine && (
+              <Box marginLeft={2}>
+                <Text dimColor>{usageLine}</Text>
+              </Box>
+            )}
+
+            {/* D-20: live tokens stay on StreamingText; only a finished phase
+                re-renders through MarkdownView, and only when expanded. */}
+            {phase.status === 'active' ? (
+              <Box marginLeft={2}>
+                <StreamingText text={phase.tokens} />
+              </Box>
+            ) : isExpanded && phase.tokens.length > 0 ? (
+              <Box marginLeft={2}>
+                <MarkdownView>{phase.tokens}</MarkdownView>
+              </Box>
+            ) : null}
+          </Box>
+        );
+      })}
 
       {/* Cache Hit Banner (inline interruption) */}
       {showCacheHit && state.cacheHit && (
@@ -157,11 +275,23 @@ function DPEVPanelContent({
         </Box>
       )}
 
-      {/* Completion Footer */}
+      {/* Completion Footer + cumulative session usage (D-12 / D-24) */}
       {state.status === 'complete' && (
-        <Box marginTop={1}>
-          <Text color="green" bold>Session complete</Text>
-          {state.sessionId && <Text dimColor> ({state.sessionId.slice(0, 8)})</Text>}
+        <Box marginTop={1} flexDirection="column">
+          <Box>
+            <Text color="green" bold>Session complete</Text>
+            {state.sessionId && <Text dimColor> ({state.sessionId.slice(0, 8)})</Text>}
+          </Box>
+          {state.sessionSummary && (
+            <>
+              <Text dimColor>
+                {`Session: ${state.sessionSummary.totalTokens} tokens · $${state.sessionSummary.totalCostUsd.toFixed(2)}`}
+              </Text>
+              <Text dimColor>
+                {`Saved via Memory: $${(state.sessionSummary.potentialSavings ?? 0).toFixed(2)} (v2.0)`}
+              </Text>
+            </>
+          )}
         </Box>
       )}
 
@@ -258,6 +388,15 @@ function LiveDPEVPanel({
       }
     },
     [apiBaseUrl, state.sessionId, state.pendingApproval, dispatch]
+  );
+
+  // Phase accordion navigation (D-03). Disabled whenever an approval gate owns the
+  // keyboard so Y/N keystrokes are never intercepted.
+  useInput(
+    (input, key) => {
+      handlePhaseInput(state, input, key, dispatch);
+    },
+    { isActive: isPhaseInputActive(state) },
   );
 
   return (
