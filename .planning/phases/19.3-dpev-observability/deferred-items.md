@@ -111,3 +111,97 @@ to `key={`phase-${phase.name}-${phase.startedAt}`}`.
 **Recommended action:** key on line content plus the window offset
 (`key={`${lines.length - visibleLines.length + i}`}`), which is stable for a given line across
 window advances. Small and local; needs a plan that declares `StreamingText.tsx` in scope.
+
+---
+
+## Findings from the 19.3-04 live checkpoint run (2026-07-31)
+
+The Task 2 human-verify run for 19.3-04 exercised the panel against a live Gemini backend and
+surfaced four items. The checkpoint was **approved with documented partial coverage**; none of
+these were fixed in 19.3-04.
+
+### 0. The plan's own verify instruction cannot reach the Ink UI (documentation defect)
+
+`19.3-04-PLAN.md` Task 2 step 2 suggests `node --import tsx src/index.ts debug "nginx 502"` (and
+`node dist/cli.js debug "nginx 502"`). **Neither renders DPEVPanel.** `src/index.ts:114-118`:
+
+```typescript
+const args = process.argv.slice(2);
+const isJsonMode = args.includes('--json');
+const hasArgs = args.filter(a => a !== '--json').length > 0;
+
+if (hasArgs || isJsonMode) {
+  // One-shot / --json mode: bypass Ink, use Commander directly
+```
+
+Any CLI argument takes the one-shot Commander path and returns before `render(App)` at
+`src/index.ts:129+`. The first checkpoint attempt showed no panel at all for this reason.
+
+**Correct procedure — use for every future Ink verification checkpoint:** run `npm run dev` with
+**no arguments**, then type `debug nginx 502` into the Ink prompt.
+
+Not a code defect; the two-mode entrypoint is intentional. Recorded so no future phase's
+`how-to-verify` block repeats the instruction.
+
+### 1. Approval keystrokes leak into CommandInput (safety-relevant)
+
+Pressing `n` at the `WRITE Execute "Execute this plan"? [Y/n]` prompt **both** answered the
+approval **and** typed `n` into the command box — `❯ n_` was still visible after the session ended.
+A following Enter would have submitted `n` as a command.
+
+Evidence:
+- `src/ui/App.tsx:404` mounts `<CommandInput isActive={!showStatusOverlay} />`, so `CommandInput`
+  stays active straight through live sessions and approval gates.
+- `src/ui/App.tsx:204` — `else if (input && !key.ctrl && !key.meta && !key.tab && !key.escape)
+  setText(t => t + input)` swallows every printable character.
+
+Same root cause as the `j`/`k` leak logged above, but it lands on the approval path, which makes it
+safety-relevant rather than cosmetic. Note that `App.tsx` **already threads an `activeFocus` prop to
+three panels** (`App.tsx:376`, `:382`, `:390`) — `CommandInput` is the only input consumer that does
+not receive one, which confirms the fix shape recommended above.
+
+**Owner:** Plan 06, bundled with the keyboard-arbitration work.
+
+### 2. Session footer cost formatting contradicts the per-phase lines
+
+`src/ui/panels/DPEVPanel.tsx:288` renders
+`` `Session: ${totalTokens} tokens · $${totalCostUsd.toFixed(2)}` ``, producing a hard `$0.00` even
+when every contributing phase correctly rendered `$–` because the provider omitted output tokens.
+Observed live: phase lines read `in:554 · out:– · total:– · $–` while the footer claimed
+`Session: 1044 tokens · $0.00`.
+
+The footer asserts a real zero where the phase rows honestly admit the value is unknown — the exact
+"empty zeros break trust" failure mode this phase exists to remove. The token total is genuine; only
+the cost is misrepresented.
+
+**Likely fix:** apply the same en-dash treatment as `formatUsageLine` — render `$–` when the summed
+cost has no contributing non-null component. Needs a decision on how `session-usage.ts` distinguishes
+"summed to zero" from "nothing to sum".
+
+**Owner:** Plan 06 (inside `DPEVPanel.tsx`, but routed there by the coordinator so it ships in one
+commit with its test).
+
+### 3. Pipeline `console.log` corrupts the Ink render region
+
+`[TRIAGE]` / `[ROUTING]` / `[DISCOVERY]` / `[NOISE]` / `[CONTEXT]` / `[DIAGNOSIS]` / `[PLANNING]`
+lines are written with bare `console.log` to stdout while Ink owns the screen, appearing above the
+panel box during a live session.
+
+Sources: `src/orchestrator/pipeline.ts:174, 190, 212, 214, 220, 234, 571, 572, 579, 584, 840, 901,
+903` and `src/orchestrator/diagnosis.ts:316, 334, 337`.
+
+`DEV_MODE = process.env.NODE_ENV !== 'production'` is **on by default**, and several call sites
+(`pipeline.ts:212, 214, 234, 571, 572, 579, 584`) are not even `DEV_MODE`-gated. This is
+`19.3-RESEARCH.md` Pitfall 2; `src/index.ts:131` already works around it, but only for startup
+messages.
+
+Note this is distinct from the in-panel flicker check (checkpoint point 7), which **passed** — the
+DPEVPanel render region itself had no ghost or duplicated lines.
+
+**Owner:** out of scope for phase 19.3 entirely. Flagged as a **follow-up phase candidate** — route
+pipeline diagnostics to a log file or an Ink-aware sink, and gate every call site consistently.
+
+### Non-finding: the `⟁` glyph
+
+`src/ui/components/DPEVPhaseHeader.tsx:85` emits `⟁` exactly as specified. The user's terminal
+renders a font fallback. No action.
