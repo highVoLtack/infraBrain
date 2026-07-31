@@ -83,12 +83,39 @@ A regression test that passes on the broken code is testing the wrong thing. And
 that exists only in a summary is narration — in two weeks it is indistinguishable from a test that
 was never red.
 
+### D-5. `history.ts` is in scope; `App.tsx` and `formatter.ts` stay frozen — LOCKED 2026-07-31
+
+Research established that replay defaults to **20 events**, newest-first
+(`src/state/store.ts:165` — `const limit = filters.limit ?? 20`, `ORDER BY timestamp DESC`), and
+that `src/ui/App.tsx:393` fetches `/history?session=X&verbose=true` without a `limit`, so the
+default applies. This phase roughly triples step-event volume — left alone, the fix would make
+replay *worse* by pushing the oldest events out of the window.
+
+Three places could fix it. Two are frozen:
+
+| Site | Decision |
+|---|---|
+| `App.tsx:393` — send a limit | frozen (criterion 8) |
+| `src/api/routes/history.ts:45` — default session-scoped queries higher | **in scope** |
+| `store.ts:165` — change the global default | avoid; affects every consumer, not just replay |
+
+**Resolution:** `history.ts` is a route handler, not a renderer. The freeze exists so the payload
+contract must be right without touching the *rendering* consumers — that purpose is untouched by a
+limit default. `App.tsx` and `formatter.ts` remain hard-frozen; if either needs a change, the
+payload contract was misread.
+
 ### Claude's Discretion
 
 - Exact payload field names and event schema shape.
-- Whether `attempt_n` lives at the top level or inside a metadata object.
 - How the reader represents an integrity violation internally, so long as it is visible and distinct.
 - Test file organisation.
+
+**No longer discretionary — resolved by research:** `attempt_n` placement. `appendAudit`
+(`src/state/store.ts:185-209`) writes the whole entry to JSONL via `JSON.stringify(entry)` but
+INSERTs a **fixed column list** (`session_id, timestamp, event_type, risk_level, command, decision,
+reasoning, diff_before, diff_after, metadata`). A top-level `attempt_n` would survive in the file and
+be **silently dropped on the exact path replay reads** (SQLite via `/history`). It must live inside
+`metadata`. Verified 2026-07-31.
 </decisions>
 
 <canonical_refs>
@@ -171,9 +198,22 @@ per-attempt step events. Duplicating attempt history across two event families w
 - **Test baseline:** 1318 passed / 2 failed / 4 skipped. The 2 failures (`poc-nginx-502`,
   `poc-postgres-connleak`) are environmental — they need a live LLM backend and Docker plus the
   untracked `demo/` stack. NOT regressions. Gate: no NEW failures.
-- **`npx tsc --noEmit` project-wide cannot pass** — 8 pre-existing errors in four unrelated files
-  (zod v4 / AI SDK v6 / LanceDB v0.27 drift; dossier section C). But `src/execution/executor.ts`
-  carries **none** of them, so a file-scoped type check IS a usable gate here.
+- **`npx tsc --noEmit` project-wide cannot pass** — 8 pre-existing errors (zod v4 / AI SDK v6 /
+  LanceDB v0.27 drift; dossier section C). Measured distribution, verified 2026-07-31:
+
+  | File | Errors |
+  |---|---|
+  | `src/config/types.ts` | 4 |
+  | `src/execution/self-healer.ts` | **2** |
+  | `src/cache/lance-store.ts` | 1 |
+  | `src/memory/incident-store.ts` | 1 |
+
+  `src/execution/executor.ts` carries **none**, so a file-scoped zero-error gate works there. But
+  research showed the change set necessarily includes `self-healer.ts` (criterion 2 is unreachable from
+  `executor.ts` alone — `CircuitBreaker.execute` returns only the final `RunResult`, and
+  `selfHealStep` returns `attempts[]` only after the fact). **For `self-healer.ts` the gate must be
+  a baseline diff against 2, not zero.** The brief's blanket "executor.ts is clean" guidance was
+  correct but incomplete about scope.
 - A gitleaks pre-commit hook is active (`core.hooksPath=.githooks`). Commits are scanned; this is
   expected, not an error.
 
