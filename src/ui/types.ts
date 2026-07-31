@@ -125,6 +125,18 @@ export interface DPEVPhaseState {
   completedAt?: number;
   status: 'active' | 'complete' | 'error';
   tokens: string;
+  /** D-05/D-07: granular activity label shown under the header while the phase is active. */
+  substatus?: string;
+  /**
+   * D-09/D-11: per-phase LLM usage. Null fields mean "the provider stayed silent" and
+   * MUST render as an em-dash, never as 0 / $0.00.
+   */
+  usage?: {
+    inputTokens: number;
+    outputTokens: number | null;
+    totalTokens: number | null;
+    costUsd: number | null;
+  };
 }
 
 export interface StepState {
@@ -168,6 +180,16 @@ export interface DPEVState {
   verificationResult?: { passed: boolean; executionStatus: string };
   status: 'idle' | 'streaming' | 'awaiting-approval' | 'plan-approval' | 'executing' | 'complete' | 'error';
   errorMessage?: string;
+  /** D-03: index of the keyboard-focused phase (independent of activePhaseIndex). */
+  focusedPhaseIndex?: number;
+  /** D-01/D-02: per-phase accordion expansion state, keyed by phase index. */
+  expandedPhases?: Record<number, boolean>;
+  /** D-12/D-24: cumulative session footer. potentialSavings is always null in v1.3. */
+  sessionSummary?: {
+    totalTokens: number;
+    totalCostUsd: number;
+    potentialSavings: number | null;
+  };
 }
 
 export type DPEVAction =
@@ -177,9 +199,44 @@ export type DPEVAction =
   | { type: 'CACHE_HIT'; provenance: CacheHitProvenance }
   | { type: 'PLAN_READY'; fixPlan: object }
   | { type: 'PLAN_APPROVAL_REQUIRED'; fixPlan: object; sessionId: string }
-  | { type: 'STEP_UPDATE'; stepIndex: number; status: string; stdout?: string; stderr?: string }
+  // D-17: command/risk/target/total flow through from the exec:step SSE payload.
+  | {
+      type: 'STEP_UPDATE';
+      stepIndex: number;
+      status: string;
+      stdout?: string;
+      stderr?: string;
+      command?: string;
+      risk?: string;
+      target?: string;
+      total?: number;
+    }
   | { type: 'APPROVAL_REQUIRED'; command: string; riskLevel: string; target: string; stepIndex: number }
   | { type: 'APPROVAL_RESPONSE'; approved: boolean }
   | { type: 'VERIFICATION_RESULT'; passed: boolean; executionStatus: string }
   | { type: 'COMPLETE'; sessionId: string; status: string }
-  | { type: 'ERROR'; message: string; phase?: string };
+  | { type: 'ERROR'; message: string; phase?: string }
+  // ---- Phase 19.3 observability actions ----
+  /** D-05/D-07: set the granular activity label on the active phase. */
+  | { type: 'SUBSTATUS_UPDATE'; label: string; phase?: string }
+  /** D-03: move keyboard focus to a phase (clamped by the reducer). */
+  | { type: 'PHASE_FOCUS'; index: number }
+  /** D-01/D-02: expand or collapse a phase's inline detail block. */
+  | { type: 'PHASE_EXPAND'; index: number; expanded: boolean }
+  /** D-09/D-11: attach per-phase usage. Nulls are meaningful — do not coerce to 0. */
+  | {
+      type: 'USAGE_UPDATE';
+      phase: string;
+      modelId: string;
+      inputTokens: number;
+      outputTokens: number | null;
+      totalTokens: number | null;
+      costUsd: number | null;
+    }
+  /** D-12/D-24: cumulative session totals for the footer. */
+  | {
+      type: 'SESSION_SUMMARY';
+      totalTokens: number;
+      totalCostUsd: number;
+      potentialSavings: number | null;
+    };
