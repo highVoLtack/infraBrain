@@ -18,6 +18,7 @@ import {
   handlePhaseInput,
   virtualFocusedIndex,
 } from '../../src/ui/panels/DPEVPanel.js';
+import { buildReplayState } from '../../src/ui/App.js';
 import type { DPEVAction, DPEVState } from '../../src/ui/types.js';
 
 // Flush React 19 batched state updates before asserting lastFrame() in tests that
@@ -1860,5 +1861,136 @@ describe('DPEVPanel keyboard helpers (Phase 19.3, TERM-UX04)', () => {
       handlePhaseInput(navState({ focusedPhaseIndex: 1 }), 'x', NO_KEY, dispatch);
       expect(dispatch).not.toHaveBeenCalled();
     });
+  });
+});
+
+// ---- Plan 19.3-06: replay parity with the live observability surface ----
+//
+// TERM-UX08: "Selecting an older session shows the complete D-P-E-V stream including
+// every step's command + output." These assert the replay branch of DPEVPanel against
+// states shaped exactly the way buildReplayState now produces them.
+
+describe('DPEVPanel replay mode (TERM-UX08)', () => {
+  function completedPhase(overrides?: Partial<DPEVState['phases'][number]>) {
+    return {
+      name: 'diagnosis',
+      model: 'gemini-2.5-pro',
+      startedAt: 1000,
+      completedAt: 4000,
+      status: 'complete' as const,
+      tokens: '# Root cause\n\nnginx upstream refused the connection.',
+      ...overrides,
+    };
+  }
+
+  it('renders phase headers but no bodies when expandedPhases is empty (D-04)', () => {
+    const frame = renderReplay(makeInitialState({
+      sessionId: 'sess-replay-collapsed',
+      phases: [completedPhase()],
+      activePhaseIndex: -1,
+      status: 'complete',
+      expandedPhases: {},
+    }));
+
+    expect(frame).toContain('DIAGNOSIS');
+    expect(frame).not.toContain('Root cause');
+  });
+
+  it('reveals the body through MarkdownView when a phase is expanded', () => {
+    const frame = renderReplay(makeInitialState({
+      sessionId: 'sess-replay-expanded',
+      phases: [completedPhase()],
+      activePhaseIndex: -1,
+      status: 'complete',
+      expandedPhases: { 0: true },
+    }));
+
+    expect(frame).toContain('Root cause');
+    // MarkdownView styles the heading rather than echoing the raw '# ' token.
+    expect(frame).not.toContain('# Root cause');
+  });
+
+  it('renders an execution step with command, risk badge and target', () => {
+    const frame = renderReplay(makeInitialState({
+      sessionId: 'sess-replay-steps',
+      phases: [],
+      activePhaseIndex: -1,
+      status: 'complete',
+      expandedPhases: {},
+      executionSteps: [
+        { stepIndex: 0, total: 1, command: 'docker ps', risk: 'read', status: 'success', target: 'nginx' },
+      ],
+    }));
+
+    expect(frame).toContain('docker ps');
+    expect(frame).toContain('[read]');
+    expect(frame).toContain('on nginx');
+  });
+
+  it('shows stderr for a failed replayed step', () => {
+    const frame = renderReplay(makeInitialState({
+      sessionId: 'sess-replay-failed',
+      phases: [],
+      activePhaseIndex: -1,
+      status: 'complete',
+      expandedPhases: {},
+      executionSteps: [
+        {
+          stepIndex: 0,
+          total: 1,
+          command: 'nginx -s reload',
+          risk: 'write',
+          status: 'failed',
+          stderr: 'nginx: [emerg] bind() failed',
+        },
+      ],
+    }));
+
+    expect(frame).toContain('nginx -s reload');
+    expect(frame).toContain('[emerg] bind() failed');
+  });
+
+  it('renders the session footer for a replayed session summary', () => {
+    const frame = renderReplay(makeInitialState({
+      sessionId: 'sess-replay-summary',
+      phases: [],
+      activePhaseIndex: -1,
+      status: 'complete',
+      expandedPhases: {},
+      sessionSummary: { totalTokens: 3000, totalCostUsd: 0.02, potentialSavings: null },
+    }));
+
+    expect(frame).toContain('Session: 3000 tokens');
+    expect(frame).toContain('$0.02');
+    expect(frame).toContain('Saved via Memory: $0.00 (v2.0)');
+  });
+
+  it('renders buildReplayState output with every phase collapsed and no body leakage', () => {
+    const state = buildReplayState('sess-e2e', [
+      { eventType: 'dpev_phase_start', timestamp: '2026-04-17T10:00:00.000Z', metadata: { phase: 'discovery', model: 'qwen3-0.6b' } },
+      { eventType: 'dpev_phase_complete', timestamp: '2026-04-17T10:00:01.000Z', metadata: { phase: 'discovery', model: 'qwen3-0.6b', duration_ms: 1000 } },
+      { eventType: 'dpev_phase_start', timestamp: '2026-04-17T10:00:02.000Z', metadata: { phase: 'diagnosis', model: 'gemini-2.5-pro' } },
+      { eventType: 'dpev_phase_complete', timestamp: '2026-04-17T10:00:05.000Z', metadata: { phase: 'diagnosis', model: 'gemini-2.5-pro', duration_ms: 3000 } },
+      { eventType: 'execution_start', timestamp: '2026-04-17T10:00:06.000Z', metadata: { stepIndex: 0, totalSteps: 1, command: 'docker restart nginx', risk: 'write', target: 'nginx' } },
+      { eventType: 'step_complete', timestamp: '2026-04-17T10:00:08.000Z', metadata: { stepIndex: 0, stdout: 'nginx\n' } },
+    ]);
+
+    expect(state.expandedPhases).toEqual({});
+
+    const frame = renderReplay(state);
+    expect(frame).toContain('DISCOVERY');
+    expect(frame).toContain('DIAGNOSIS');
+    // TERM-UX08's core clause: the step's real command survives the round trip.
+    expect(frame).toContain('docker restart nginx');
+    expect(frame).toContain('[write]');
+    expect(frame).toContain('on nginx');
+  });
+
+  it('registers no keyboard handler in replay mode (replay state is read-only)', () => {
+    // The single useInput in this file lives in LiveDPEVPanel; the replay branch
+    // returns DPEVPanelContent directly, so focus/expand dispatches are impossible.
+    expect(DPEV_PANEL_SOURCE.match(/useInput\(/g) ?? []).toHaveLength(1);
+    const replayBranch = DPEV_PANEL_SOURCE.slice(DPEV_PANEL_SOURCE.indexOf('if (replaySession)'));
+    expect(replayBranch).not.toContain('useInput(');
   });
 });
