@@ -5,15 +5,15 @@ milestone_name: The Intelligence Layer
 current_phase: 19.3
 current_phase_name: dpev-observability
 status: executing
-stopped_at: Completed 19.3-03-PLAN.md (DPEV state layer + phase header)
-last_updated: "2026-07-31T11:13:18.824Z"
+stopped_at: 19.3-04 Task 1 complete; Task 2 human-verify checkpoint outstanding
+last_updated: "2026-07-31T11:32:03.432Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 19.3 Plan 01 complete (foundation)
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 32
-  completed_plans: 30
+  completed_plans: 31
   percent: 80
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 19.3 (dpev-observability) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-07-31 — Phase 19.3 Plan 01 complete (foundation)
 
@@ -151,6 +151,8 @@ Progress: [████████░░] 84%
 - [Phase 19.3-03]: timerColor checks 'complete' before 'execution' so finished execution phases fade to gray
 - [Phase 19.3-05]: StatusOverlay parses latestCall when present rather than hardcoding undefined — a locked field shape must be wired to be testable
 - [Phase 19.3-05]: context.currentTokens stub resolved as an optional sessionTokens prop seam — lifting useDPEV out of DPEVPanel is a Rule 4 architectural change
+- [Phase ?]: 19.3-04: DPEV keyboard map extracted as exported pure helpers (handlePhaseInput/isPhaseInputActive/virtualFocusedIndex) — LiveDPEVPanel cannot be mounted in tests without an EventSource, so an inline useInput closure would have shipped D-03 uncovered
+- [Phase ?]: 19.3-04: PHASE_FOCUS bounds clamping stays in the reducer only; the input handler dispatches unclamped indices
 
 ### Pending Todos
 
@@ -178,13 +180,14 @@ Progress: [████████░░] 84%
 - MemPalace TypeScript data model: RESOLVED -- native TypeScript implementation shipped in Phase 17
 - vLLM concurrent 7B+32B on single 32GB GPU: RESOLVED -- InferenceScheduler with graceful fallback shipped in Phase 18
 - Qdrant BGE-M3 embeddings: RESOLVED -- LanceDB embedded store used for both fix-caching (Phase 16) and semantic memory (Phase 17)
+- TERM-UX04 blocked on App.tsx keyboard arbitration (Plan 06): Esc exits the live session instead of collapsing the focused phase, and j/k leak into the always-active CommandInput. Ink fires every registered useInput handler, so DPEVPanel cannot suppress them. Detail in 19.3 deferred-items.md
 
 ## Session Continuity
 
-**Resume file:** None
+**Resume file:** .planning/phases/19.3-dpev-observability/19.3-04-SUMMARY.md
 
-Last session: 2026-07-31T11:13:13.739Z
-Stopped at: Completed 19.3-03-PLAN.md (DPEV state layer + phase header)
+Last session: 2026-07-31T11:31:56.867Z
+Stopped at: 19.3-04 Task 1 complete; Task 2 human-verify checkpoint outstanding
 Resume: Live UAT with nginx 502 demo (full DPEV+E+V flow), then milestone review or next milestone planning.
 
 ## Performance Metrics
@@ -195,3 +198,4 @@ Resume: Live UAT with nginx 502 demo (full DPEV+E+V flow), then milestone review
 | Phase 19.3 P02 | 20 min | 3 tasks | 11 files |
 | Phase 19.3 P03 | 13 min | 2 tasks | 5 files |
 | Phase 19.3 P05 | 14 min | 1 tasks | 3 files |
+| Phase 19.3 P04 | ~22 min | 1 tasks | 3 files |
