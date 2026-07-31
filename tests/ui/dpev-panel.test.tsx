@@ -18,6 +18,8 @@ import {
   handlePhaseInput,
   virtualFocusedIndex,
   formatSessionCost,
+  canCollapseFocusedPhase,
+  projectLiveStatus,
 } from '../../src/ui/panels/DPEVPanel.js';
 import { buildReplayState } from '../../src/ui/App.js';
 import type { DPEVAction, DPEVState } from '../../src/ui/types.js';
@@ -2086,5 +2088,96 @@ describe('session footer cost honesty (19.3-06 item C)', () => {
     }));
 
     expect(frame).toContain('Session: 1044 tokens · $0.03');
+  });
+});
+
+// ---- Plan 19.3-06 item A/B: what the panel reports upward to App.tsx ----
+
+describe('canCollapseFocusedPhase (19.3-06 item A)', () => {
+  function phase(status: 'active' | 'complete', name = 'diagnosis') {
+    return { name, model: 'm', startedAt: 1000, status, tokens: 'body' };
+  }
+
+  it('is false when there are no phases', () => {
+    expect(canCollapseFocusedPhase(makeInitialState())).toBe(false);
+  });
+
+  it('is false when the focused completed phase is collapsed', () => {
+    expect(canCollapseFocusedPhase(makeInitialState({
+      phases: [phase('complete')],
+      focusedPhaseIndex: 0,
+      expandedPhases: {},
+    }))).toBe(false);
+  });
+
+  it('is true when the focused completed phase is expanded', () => {
+    expect(canCollapseFocusedPhase(makeInitialState({
+      phases: [phase('complete')],
+      focusedPhaseIndex: 0,
+      expandedPhases: { 0: true },
+    }))).toBe(true);
+  });
+
+  it('is false for an active phase even when expandedPhases marks it open', () => {
+    // D-20: an active phase renders through StreamingText and ignores expandedPhases,
+    // so "collapsing" it changes nothing on screen — Esc must fall through to exit.
+    expect(canCollapseFocusedPhase(makeInitialState({
+      phases: [phase('active')],
+      focusedPhaseIndex: 0,
+      expandedPhases: { 0: true },
+    }))).toBe(false);
+  });
+
+  it('follows the virtual focus default (last phase) before any nav keystroke', () => {
+    const state = makeInitialState({
+      phases: [phase('complete', 'discovery'), phase('complete', 'diagnosis')],
+      expandedPhases: { 1: true },
+    });
+    expect(state.focusedPhaseIndex).toBeUndefined();
+    expect(canCollapseFocusedPhase(state)).toBe(true);
+  });
+
+  it('ignores a different phase being expanded', () => {
+    expect(canCollapseFocusedPhase(makeInitialState({
+      phases: [phase('complete', 'discovery'), phase('complete', 'diagnosis')],
+      focusedPhaseIndex: 0,
+      expandedPhases: { 1: true },
+    }))).toBe(false);
+  });
+});
+
+describe('projectLiveStatus (19.3-06 item B)', () => {
+  it('surfaces the cumulative session tokens for the StatusOverlay context bar', () => {
+    const status = projectLiveStatus(makeInitialState({
+      sessionSummary: { totalTokens: 8192, totalCostUsd: 0.02, potentialSavings: null },
+    }));
+    expect(status.sessionTokens).toBe(8192);
+  });
+
+  it('leaves sessionTokens undefined before any session summary arrives', () => {
+    expect(projectLiveStatus(makeInitialState()).sessionTokens).toBeUndefined();
+  });
+
+  it('carries the collapsible flag alongside the token count', () => {
+    const status = projectLiveStatus(makeInitialState({
+      phases: [{ name: 'diagnosis', model: 'm', startedAt: 1, status: 'complete', tokens: 'b' }],
+      focusedPhaseIndex: 0,
+      expandedPhases: { 0: true },
+      sessionSummary: { totalTokens: 10, totalCostUsd: 0, potentialSavings: null },
+    }));
+    expect(status).toEqual({ sessionTokens: 10, collapsible: true });
+  });
+});
+
+describe('DPEVPanel keyboard is gated on activeFocus (19.3-06 item A)', () => {
+  it('gates the phase-navigation useInput on the activeFocus prop', () => {
+    // App.tsx is the sole keyboard arbiter: when an overlay or another panel owns the
+    // keyboard, the DPEV accordion must not also consume the keystroke.
+    expect(DPEV_PANEL_SOURCE).toMatch(/isActive:\s*activeFocus\s*&&\s*isPhaseInputActive\(state\)/);
+  });
+
+  it('declares activeFocus and onStatusChange on the public panel props', () => {
+    expect(DPEV_PANEL_SOURCE).toMatch(/activeFocus\?:\s*boolean/);
+    expect(DPEV_PANEL_SOURCE).toMatch(/onStatusChange\?:/);
   });
 });

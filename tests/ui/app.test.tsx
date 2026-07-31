@@ -7,7 +7,14 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from 'ink-testing-library';
-import { App, parseInfraCommand, buildReplayState } from '../../src/ui/App.js';
+import { readFileSync } from 'node:fs';
+import {
+  App,
+  parseInfraCommand,
+  buildReplayState,
+  resolveKeyboardOwner,
+  resolveEscapeAction,
+} from '../../src/ui/App.js';
 import {
   StatusOverlay,
   parseOverlayData,
@@ -543,5 +550,262 @@ describe('App', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(lastFrame()).not.toContain('STATUS DASHBOARD');
+  });
+});
+
+// ---- Plan 19.3-06 item A: keyboard arbitration ----
+//
+// Ink fires EVERY registered useInput handler per keystroke — handlers are not
+// exclusive. Before this plan, CommandInput was mounted with
+// `isActive={!showStatusOverlay}`, so it stayed live through DPEV sessions and
+// approval gates and swallowed every printable character (App.tsx:204). Three
+// symptoms, one root cause: `j`/`k` phase navigation typed into the prompt, `Esc`
+// unmounting the panel before its collapse was ever visible, and — the
+// safety-relevant one — `n` answered at a `[Y/n]` approval ALSO landing in the
+// command box, one Enter away from being submitted as a command.
+//
+// The fix is a single explicit notion of which surface owns the keyboard.
+
+const APP_SOURCE = readFileSync(new URL('../../src/ui/App.tsx', import.meta.url), 'utf8');
+
+const PROMPT_GLYPH = '❯';
+
+function commandLine(frame: string | undefined): string {
+  return (frame ?? '').split('\n').find((l) => l.includes(PROMPT_GLYPH)) ?? '';
+}
+
+describe('resolveKeyboardOwner (19.3-06 item A)', () => {
+  const base = {
+    showStatusOverlay: false,
+    showEntityOverlay: false,
+    activePanel: 'center' as const,
+    sessionActive: false,
+  };
+
+  it('gives the keyboard to the command input when nothing else claims it', () => {
+    expect(resolveKeyboardOwner(base)).toBe('command-input');
+  });
+
+  it('gives the keyboard to the live DPEV panel during a session', () => {
+    expect(resolveKeyboardOwner({ ...base, sessionActive: true })).toBe('dpev-panel');
+  });
+
+  it('lets the status overlay outrank everything, including a live session', () => {
+    expect(
+      resolveKeyboardOwner({ ...base, sessionActive: true, showStatusOverlay: true }),
+    ).toBe('status-overlay');
+  });
+
+  it('lets the entity overlay outrank the panels but not the status overlay', () => {
+    expect(resolveKeyboardOwner({ ...base, showEntityOverlay: true })).toBe('entity-overlay');
+    expect(
+      resolveKeyboardOwner({ ...base, showEntityOverlay: true, showStatusOverlay: true }),
+    ).toBe('status-overlay');
+  });
+
+  it('hands the keyboard to whichever side panel Tab focused', () => {
+    expect(resolveKeyboardOwner({ ...base, activePanel: 'left' })).toBe('session-panel');
+    expect(resolveKeyboardOwner({ ...base, activePanel: 'right' })).toBe('entity-panel');
+  });
+
+  it('keeps a focused side panel in charge even during a live session', () => {
+    expect(
+      resolveKeyboardOwner({ ...base, activePanel: 'left', sessionActive: true }),
+    ).toBe('session-panel');
+  });
+
+  it('never returns command-input while a session or overlay is up', () => {
+    const claimed = [
+      { ...base, sessionActive: true },
+      { ...base, showStatusOverlay: true },
+      { ...base, showEntityOverlay: true },
+      { ...base, activePanel: 'left' as const },
+      { ...base, activePanel: 'right' as const },
+    ];
+    for (const ctx of claimed) {
+      expect(resolveKeyboardOwner(ctx)).not.toBe('command-input');
+    }
+  });
+});
+
+describe('resolveEscapeAction (19.3-06 item A)', () => {
+  const base = {
+    showStatusOverlay: false,
+    showEntityOverlay: false,
+    activePanel: 'center' as const,
+    sessionActive: false,
+    replayActive: false,
+    collapsibleFocusedPhase: false,
+  };
+
+  it('does nothing when there is nothing to dismiss', () => {
+    expect(resolveEscapeAction(base)).toBe('none');
+  });
+
+  it('dismisses the status overlay first', () => {
+    expect(
+      resolveEscapeAction({ ...base, showStatusOverlay: true, sessionActive: true, replayActive: true }),
+    ).toBe('dismiss-status-overlay');
+  });
+
+  it('dismisses the entity overlay before touching the session', () => {
+    expect(
+      resolveEscapeAction({ ...base, showEntityOverlay: true, sessionActive: true }),
+    ).toBe('dismiss-entity-overlay');
+  });
+
+  it('exits replay mode', () => {
+    expect(resolveEscapeAction({ ...base, replayActive: true })).toBe('exit-replay');
+  });
+
+  it('exits a live session when no phase body is open', () => {
+    expect(resolveEscapeAction({ ...base, sessionActive: true })).toBe('exit-session');
+  });
+
+  it('yields to the panel collapse when the focused phase is expanded', () => {
+    // The panel's own Esc handler fires on this same keystroke; exiting too would
+    // unmount the panel before the collapse could ever be seen.
+    expect(
+      resolveEscapeAction({ ...base, sessionActive: true, collapsibleFocusedPhase: true }),
+    ).toBe('collapse-phase');
+  });
+
+  it('exits the session anyway when a side panel owns the keyboard', () => {
+    // With focus on the sessions list the DPEV panel's handler is inactive, so
+    // deferring to a collapse that will never happen would make Esc a dead key.
+    expect(
+      resolveEscapeAction({
+        ...base,
+        sessionActive: true,
+        collapsibleFocusedPhase: true,
+        activePanel: 'left',
+      }),
+    ).toBe('exit-session');
+  });
+});
+
+describe('App keyboard arbitration (19.3-06 item A)', () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/stream/debug')) {
+        // No SSE backend in tests: useSSE records an error and the panel still mounts.
+        return Promise.resolve({ ok: false, status: 503, statusText: 'unavailable' });
+      }
+      if (url.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ backends: [], summary: 'all_connected', inferenceMode: 'sequential' }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ sessions: [], count: 0, entries: [] }) });
+    });
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  async function startSession(stdin: { write: (s: string) => void }): Promise<void> {
+    stdin.write('debug "nginx 502"');
+    await new Promise((r) => setTimeout(r, 50));
+    stdin.write('\r');
+    await new Promise((r) => setTimeout(r, 100));
+  }
+
+  it('types a printable key into the command box while it owns the keyboard (control)', async () => {
+    const { lastFrame, stdin } = render(
+      React.createElement(App, { apiBaseUrl: 'http://localhost:3000' }),
+    );
+    stdin.write('n');
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(commandLine(lastFrame())).toMatch(new RegExp(`${PROMPT_GLYPH}\\s*n`));
+  });
+
+  it('does not leak an approval keystroke into the command box during a live session', async () => {
+    const { lastFrame, stdin } = render(
+      React.createElement(App, { apiBaseUrl: 'http://localhost:3000' }),
+    );
+    await startSession(stdin);
+    expect(lastFrame()).toContain('nginx 502');
+
+    // The safety case: `n` answering a WRITE approval must not also be typed as a
+    // command — a following Enter would have submitted it.
+    stdin.write('n');
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(commandLine(lastFrame())).not.toMatch(new RegExp(`${PROMPT_GLYPH}\\s*n`));
+  });
+
+  it('does not leak j/k phase navigation into the command box during a live session', async () => {
+    const { lastFrame, stdin } = render(
+      React.createElement(App, { apiBaseUrl: 'http://localhost:3000' }),
+    );
+    await startSession(stdin);
+
+    stdin.write('j');
+    await new Promise((r) => setTimeout(r, 30));
+    stdin.write('k');
+    await new Promise((r) => setTimeout(r, 100));
+
+    const line = commandLine(lastFrame());
+    expect(line).not.toMatch(new RegExp(`${PROMPT_GLYPH}\\s*j`));
+    expect(line).not.toContain('jk');
+  });
+
+  it('still opens the status overlay with s during a live session', async () => {
+    const { lastFrame, stdin } = render(
+      React.createElement(App, { apiBaseUrl: 'http://localhost:3000' }),
+    );
+    await startSession(stdin);
+    expect(lastFrame()).not.toContain('STATUS DASHBOARD');
+
+    stdin.write('s');
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(lastFrame()).toContain('STATUS DASHBOARD');
+  });
+
+  it('exits the live session on Esc and returns the keyboard to the command box', async () => {
+    const { lastFrame, stdin } = render(
+      React.createElement(App, { apiBaseUrl: 'http://localhost:3000' }),
+    );
+    await startSession(stdin);
+    expect(lastFrame()).toContain('nginx 502');
+
+    stdin.write('\x1B');
+    await new Promise((r) => setTimeout(r, 100));
+    expect(lastFrame()).toContain('InfraBrain v1.3');
+
+    stdin.write('n');
+    await new Promise((r) => setTimeout(r, 100));
+    expect(commandLine(lastFrame())).toMatch(new RegExp(`${PROMPT_GLYPH}\\s*n`));
+  });
+
+  it('threads exactly one keyboard owner into every input consumer', () => {
+    // CommandInput was the sole input consumer without an ownership gate.
+    expect(APP_SOURCE).toMatch(/isActive=\{keyboardOwner === 'command-input'\}/);
+    expect(APP_SOURCE).toMatch(/activeFocus=\{keyboardOwner === 'session-panel'\}/);
+    expect(APP_SOURCE).toMatch(/activeFocus=\{keyboardOwner === 'entity-panel'\}/);
+    expect(APP_SOURCE).toMatch(/activeFocus=\{keyboardOwner === 'entity-overlay'\}/);
+    expect(APP_SOURCE).toMatch(/activeFocus=\{keyboardOwner === 'dpev-panel'\}/);
+    // The old ad hoc booleans are gone.
+    expect(APP_SOURCE).not.toContain('isActive={!showStatusOverlay}');
+    expect(APP_SOURCE).not.toContain("activePanel === 'left' && !showStatusOverlay");
+  });
+});
+
+// ---- Plan 19.3-06 item B: close Plan 05's sessionTokens seam ----
+
+describe('App wires live session tokens into StatusOverlay (19.3-06 item B)', () => {
+  it('passes the DPEV sessionSummary token count to the overlay', () => {
+    expect(APP_SOURCE).toMatch(/sessionTokens=\{dpevStatus\.sessionTokens\}/);
+  });
+
+  it('receives the token count from the panel rather than re-deriving it', () => {
+    expect(APP_SOURCE).toMatch(/onStatusChange=\{handleDpevStatus\}/);
   });
 });
