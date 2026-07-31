@@ -136,6 +136,30 @@ export function formatUsageLine(usage: DPEVPhaseState['usage']): string | undefi
   return `in:${usage.inputTokens} · out:${out} · total:${total} · $${cost}${USAGE_V2_SUFFIX}`;
 }
 
+// ---- Pure helper: session footer cost (19.3-06 item C / D-11) ----
+
+/**
+ * The footer used to render `totalCostUsd.toFixed(2)` unconditionally, so a session in
+ * which every phase honestly showed `$–` (provider omitted output tokens, cost
+ * uncomputable) still claimed `Session: 1044 tokens · $0.00`. A hard zero asserted where
+ * the value is unknown is the failure mode this phase exists to remove.
+ *
+ * `totalCostUsd` is a plain number on the wire — it cannot distinguish "summed to zero"
+ * from "nothing to sum". The phases can: if not one of them reported a non-null
+ * `costUsd`, the total is an artefact of summing nothing and renders as an en-dash. A
+ * genuine zero (a local model priced at $0) still renders `$0.00`.
+ */
+export function formatSessionCost(
+  totalCostUsd: number,
+  phases: DPEVPhaseState[],
+): string {
+  if (totalCostUsd > 0) return `$${totalCostUsd.toFixed(2)}`;
+  const anyPricedPhase = phases.some(
+    p => p.usage?.costUsd !== null && p.usage?.costUsd !== undefined,
+  );
+  return anyPricedPhase ? `$${totalCostUsd.toFixed(2)}` : `$${EN_DASH}`;
+}
+
 // ---- Panel Component ----
 
 function DPEVPanelContent({
@@ -285,7 +309,7 @@ function DPEVPanelContent({
           {state.sessionSummary && (
             <>
               <Text dimColor>
-                {`Session: ${state.sessionSummary.totalTokens} tokens · $${state.sessionSummary.totalCostUsd.toFixed(2)}`}
+                {`Session: ${state.sessionSummary.totalTokens} tokens · ${formatSessionCost(state.sessionSummary.totalCostUsd, state.phases)}`}
               </Text>
               <Text dimColor>
                 {`Saved via Memory: $${(state.sessionSummary.potentialSavings ?? 0).toFixed(2)} (v2.0)`}
