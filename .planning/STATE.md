@@ -6,14 +6,14 @@ current_phase: 19.3
 current_phase_name: dpev-observability
 status: executing
 stopped_at: Completed 19.3-03-PLAN.md (DPEV state layer + phase header)
-last_updated: "2026-07-31T11:00:34.271Z"
+last_updated: "2026-07-31T11:13:18.824Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 19.3 Plan 01 complete (foundation)
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 32
-  completed_plans: 29
+  completed_plans: 30
   percent: 80
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 19.3 (dpev-observability) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-07-31 — Phase 19.3 Plan 01 complete (foundation)
 
@@ -149,6 +149,8 @@ Progress: [████████░░] 84%
 - [Phase 19.3-03]: handleSSEEvent exported at module scope — SSE routing bugs (D-17) are invisible to reducer-only tests
 - [Phase 19.3-03]: USAGE_UPDATE matches phases by name right-to-left — usage arrives after PHASE_COMPLETE
 - [Phase 19.3-03]: timerColor checks 'complete' before 'execution' so finished execution phases fade to gray
+- [Phase 19.3-05]: StatusOverlay parses latestCall when present rather than hardcoding undefined — a locked field shape must be wired to be testable
+- [Phase 19.3-05]: context.currentTokens stub resolved as an optional sessionTokens prop seam — lifting useDPEV out of DPEVPanel is a Rule 4 architectural change
 
 ### Pending Todos
 
@@ -181,7 +183,7 @@ Progress: [████████░░] 84%
 
 **Resume file:** None
 
-Last session: 2026-07-31T11:00:34.259Z
+Last session: 2026-07-31T11:13:13.739Z
 Stopped at: Completed 19.3-03-PLAN.md (DPEV state layer + phase header)
 Resume: Live UAT with nginx 502 demo (full DPEV+E+V flow), then milestone review or next milestone planning.
 
@@ -192,3 +194,4 @@ Resume: Live UAT with nginx 502 demo (full DPEV+E+V flow), then milestone review
 | Phase 19.3 P01 | 10 min | 3 tasks | 8 files |
 | Phase 19.3 P02 | 20 min | 3 tasks | 11 files |
 | Phase 19.3 P03 | 13 min | 2 tasks | 5 files |
+| Phase 19.3 P05 | 14 min | 1 tasks | 3 files |

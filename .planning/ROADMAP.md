@@ -276,7 +276,7 @@ Plans:
   - Multi-session split view
   - Theming / colour palette overhaul
 
-**Plans:** 3/6 plans executed
+**Plans:** 4/6 plans executed
 
 Plans:
 
@@ -284,7 +284,7 @@ Plans:
 - [x] 19.3-02-PLAN.md — Backend: session-usage aggregator + substatus/usage/session_summary SSE events + /status dashboard payload (Wave 2)
 - [x] 19.3-03-PLAN.md — Frontend state layer: dpevReducer + SSE handler extensions + DPEVPhaseHeader timer color + substatus slot (Wave 3)
 - [ ] 19.3-04-PLAN.md — DPEVPanel wiring: focus/expand/markdown/usage/substatus/session-summary + stable keys + live UAT checkpoint (Wave 4)
-- [ ] 19.3-05-PLAN.md — StatusOverlay live poll + cumulative/session split + latest-call row + Intelligence Efficiency section (Wave 4)
+- [x] 19.3-05-PLAN.md — StatusOverlay live poll + cumulative/session split + latest-call row + Intelligence Efficiency section (Wave 4)
 - [ ] 19.3-06-PLAN.md — Session replay parity: buildReplayState populates steps + expandedPhases + phase-closing E2E UAT checkpoint (Wave 5)
 
 ## Progress
@@ -314,7 +314,7 @@ Plans:
 | 19.1 | v1.3 | 2/2 | Complete | 2026-04-16 |
 | 19.2 | v1.3 | 3/3 | Complete   | 2026-04-17 |
 | 17.1 | v1.3 | 0/? | Planned    | -- |
-| 19.3 | v1.3 | 3/6 | In Progress|  |
+| 19.3 | v1.3 | 4/6 | In Progress|  |
 
 ---
 *Roadmap created: 2026-03-07*
