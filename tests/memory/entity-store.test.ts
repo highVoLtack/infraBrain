@@ -140,4 +140,41 @@ describe('EntityStore', () => {
     const store2 = getEntityStore(tempDir);
     expect(store1).toBe(store2);
   });
+
+  // --- Phase 19.3 Plan 02: listAll() feeds the /status entityCount (D-13) ---
+  describe('listAll', () => {
+    it('returns [] when no table has been created yet', async () => {
+      const store = getEntityStore(tempDir);
+      await expect(store.listAll()).resolves.toEqual([]);
+    });
+
+    it('returns every stored row regardless of type or wing', async () => {
+      const store = getEntityStore(tempDir);
+      await store.add(makeEntity({ entity_type: 'container', entity_value: 'nginx-proxy' }), makeVector(0.1));
+      await store.add(makeEntity({ entity_type: 'port', entity_value: '8080' }), makeVector(0.2));
+      await store.add(makeEntity({ entity_type: 'ip', entity_value: '10.0.0.1' }), makeVector(0.3));
+
+      const rows = await store.listAll();
+      expect(rows.length).toBe(3);
+      const values = rows.map(r => r['entity_value']);
+      expect(values).toContain('nginx-proxy');
+      expect(values).toContain('8080');
+      expect(values).toContain('10.0.0.1');
+    });
+
+    it('includes expired entities (no temporal filtering, unlike getActive)', async () => {
+      const store = getEntityStore(tempDir);
+      const past = new Date(Date.now() - 86400000).toISOString();
+      await store.add(makeEntity({ entity_value: 'gone', valid_to: past }), makeVector(0.1));
+      await store.add(makeEntity({ entity_value: 'here' }), makeVector(0.2));
+
+      const rows = await store.listAll();
+      expect(rows.length).toBe(2);
+    });
+
+    it('returns [] on init failure (graceful degradation)', async () => {
+      const badStore = new EntityStore('/nonexistent/deeply/nested/path/that/cannot/exist');
+      await expect(badStore.listAll()).resolves.toEqual([]);
+    });
+  });
 });
