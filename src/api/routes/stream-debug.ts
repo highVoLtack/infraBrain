@@ -18,6 +18,11 @@ import { executePlan } from '../../execution/executor.js';
 import { runCommand } from '../../execution/runner.js';
 import { runParallelDiscovery } from '../../orchestrator/discovery.js';
 import { DEFAULT_CONFIG } from '../../config/defaults.js';
+import {
+  recordUsage,
+  getSessionSummary,
+  clearSessionUsage,
+} from '../../state/session-usage.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,6 +53,21 @@ function initSSE(res: Response): void {
 
 function sendEvent(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
+/**
+ * Emit the cumulative session usage footer (D-12).
+ * Called at every non-disconnect session-end path, just before dpev:complete.
+ * `potentialSavings` is always null in v1.3 -- the v2.0 Caveman pipeline fills it (D-24).
+ */
+function emitSessionSummary(res: Response, sessionId: string): void {
+  const totals = getSessionSummary(sessionId);
+  sendEvent(res, 'dpev:session_summary', {
+    sessionId,
+    totalTokens: totals?.totalTokens ?? 0,
+    totalCostUsd: totals?.totalCostUsd ?? 0,
+    potentialSavings: null,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -136,8 +156,20 @@ export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
       }
     };
 
-    // Create onEvent callback that relays pipeline events to SSE
+    // Create onEvent callback that relays pipeline events to SSE.
+    // dpev:usage is additionally folded into the per-session aggregator (D-12)
+    // before being forwarded verbatim to the client.
     const onEvent = (event: string, data: unknown): void => {
+      if (event === 'dpev:usage') {
+        const d = data as {
+          modelId: string;
+          inputTokens: number;
+          outputTokens: number | null;
+        };
+        try {
+          recordUsage(sessionId, d.modelId, d.inputTokens, d.outputTokens ?? 0);
+        } catch { /* usage aggregation is non-critical */ }
+      }
       sendEvent(res, event, data);
     };
 
@@ -176,6 +208,12 @@ export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
           stepApprovals.delete(key);
         }
       }
+      // NOTE: session-usage totals are deliberately NOT cleared here. On
+      // http.IncomingMessage this 'close' fires as soon as the request body
+      // stream ends -- i.e. long before the pipeline finishes -- so clearing
+      // here would wipe the totals before dpev:session_summary is emitted.
+      // The finally block below is the single cleanup point and always runs,
+      // including when the client really did disconnect.
     });
 
     let dpevResult: DPEVResult | undefined;
@@ -218,6 +256,7 @@ export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
         if (!approved) {
           // User rejected plan -- end cleanly, status completed with plan_rejected
           updateSessionStatus('completed');
+          emitSessionSummary(res, sessionId);
           sendEvent(res, 'dpev:complete', { sessionId, status: 'plan_rejected' });
           res.end();
           return;
@@ -246,6 +285,7 @@ export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
           'Planning produced no actionable steps. Try rephrasing your prompt (e.g. check for typos and use specific service names).',
         phase: 'plan',
       });
+      emitSessionSummary(res, sessionId);
       sendEvent(res, 'dpev:complete', { sessionId, status: 'failed' });
     } catch (err) {
       // Pipeline error -- mark failed, emit dpev:error
@@ -257,6 +297,8 @@ export function createStreamDebugRoute(deps: StreamDebugRouteDeps): Router {
       // Clean up approval map for this session
       cacheApprovals.delete(sessionId);
       planApprovals.delete(sessionId);
+      // Drop the per-session usage totals (D-12) -- the summary has already been sent
+      clearSessionUsage(sessionId);
       for (const key of Array.from(stepApprovals.keys())) {
         if (key.startsWith(`${sessionId}:`)) {
           stepApprovals.delete(key);
@@ -436,6 +478,7 @@ async function runExecutionAndVerification(args: ExecuteAndVerifyArgs): Promise<
       phase: 'execution',
     });
     updateSessionStatus('failed');
+    emitSessionSummary(res, sessionId);
     sendEvent(res, 'dpev:complete', { sessionId, status: 'failed' });
     return;
   }
@@ -487,6 +530,7 @@ async function runExecutionAndVerification(args: ExecuteAndVerifyArgs): Promise<
   } catch { /* non-critical */ }
 
   // --- Final session status ---
+  emitSessionSummary(res, sessionId);
   if (executionResult.status === 'completed') {
     updateSessionStatus('completed');
     sendEvent(res, 'dpev:complete', { sessionId, status: 'success' });

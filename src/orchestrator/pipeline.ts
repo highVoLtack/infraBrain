@@ -30,6 +30,8 @@ import { runParallelDiscovery } from './discovery.js';
 import { encodeForLLM, measureSavings } from '../llm/toon-encoder.js';
 import { ContextManager } from '../context/context-manager.js';
 import { filterNoise } from '../context/noise-filter.js';
+import { countTokens } from '../context/token-counter.js';
+import { computeCost } from '../config/pricing.js';
 import {
   enforceDPEVSequence,
   preFilterIfLogHeavy,
@@ -41,6 +43,51 @@ import {
 } from './diagnosis.js';
 
 const DEV_MODE = process.env.NODE_ENV !== 'production';
+
+// ---------------------------------------------------------------------------
+// Usage emission helper (Phase 19.3 D-09 / D-11)
+// ---------------------------------------------------------------------------
+
+interface UsagePayload {
+  phase: string;
+  modelId: string;
+  inputTokens: number;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  costUsd: number | null;
+}
+
+/**
+ * Build a `dpev:usage` payload for one LLM call.
+ *
+ * D-11: the LLM providers do not surface a usage object yet, so `outputTokens`
+ * stays null and the UI renders an em-dash rather than a misleading zero.
+ * The input side is NOT guessed -- we counted the exact text we sent with the
+ * Qwen3 BPE tokenizer, so `in:` is always a real number. Cost is only computed
+ * once the output side is known; a partial cost would understate the real one.
+ *
+ * Token counting is best-effort: a tokenizer failure degrades to 0, never throws.
+ */
+function buildUsagePayload(
+  phase: string,
+  modelId: string,
+  promptText: string,
+  outputTokens: number | null = null,
+): UsagePayload {
+  let inputTokens = 0;
+  try {
+    inputTokens = countTokens(promptText);
+  } catch { /* token counting is non-critical */ }
+
+  return {
+    phase,
+    modelId,
+    inputTokens,
+    outputTokens,
+    totalTokens: outputTokens === null ? null : inputTokens + outputTokens,
+    costUsd: outputTokens === null ? null : computeCost(modelId, inputTokens, outputTokens),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Pipeline Types
@@ -131,6 +178,8 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   // during the 30-60s triage LLM call. Without this, users see dead silence
   // between prompt submit and the first discovery event (#issue: dpev-flow-not-live).
   input.onEvent?.('dpev:phase', { phase: 'routing', model: triageModelId, status: 'active' });
+  // D-06: sub-status covers meta-actions, not just LLM calls.
+  input.onEvent?.('dpev:substatus', { label: 'Routing skill…', phase: 'routing' });
 
   const selection = await selectSkill({
     model: triageModel,
@@ -265,6 +314,10 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   let diagnosis: string;
   let structuredDiagnosis: StructuredDiagnosis | undefined;
   let diagPhaseStart = Date.now();
+  // D-09: captured by whichever branch runs so the usage event can be emitted
+  // once, after the two paths merge.
+  let diagUsageModelId = 'unknown';
+  let diagPromptSent = '';
 
   if (useParallelPath && input.inferenceScheduler) {
     const scheduler = input.inferenceScheduler;
@@ -374,6 +427,7 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
           tokenBudgets: input.config?.memory?.tokenBudgets ?? { l0: 100, l1: 500, l2l3: 1000 },
         };
 
+        input.onEvent?.('dpev:substatus', { label: 'Searching MemPalace…', phase: 'diagnosis' });
         const wakeUp = await buildWakeUpContext({
           currentPrompt: prompt,
           memoryConfig,
@@ -416,13 +470,24 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
     diagPhaseStart = Date.now();
     const parallelStart = Date.now();
 
+    const parallelDiagModelId = preferredRole
+      ? ((provider.registry?.get?.(preferredRole as ModelRole) as any)?.modelId ?? 'default')
+      : ((provider.model as any)?.modelId ?? 'default');
+    diagUsageModelId = parallelDiagModelId;
+    diagPromptSent = `${systemPrompt}\n${rawPreFiltered}`;
+
     // Audit: log diagnosis phase start for parallel path (non-critical)
     try {
-      const parallelDiagModelId = preferredRole
-        ? ((provider.registry?.get?.(preferredRole as ModelRole) as any)?.modelId ?? 'default')
-        : ((provider.model as any)?.modelId ?? 'default');
       auditLogger.logExecution('dpev_phase_start', { phase: 'diagnosis', model: parallelDiagModelId });
     } catch { /* audit logging is non-critical */ }
+
+    // D-06: both parallel tasks are dispatched at once, so the substatus labels
+    // are emitted here at dispatch time rather than inside task.execute().
+    input.onEvent?.('dpev:substatus', { label: 'Filtering noise (worker)…', phase: 'diagnosis' });
+    input.onEvent?.('dpev:substatus', {
+      label: `Calling ${parallelDiagModelId} (structured object)`,
+      phase: 'diagnosis',
+    });
 
     // Launch both concurrently via scheduler (unknown type since tasks return different shapes)
     const tasks: InferenceTask<unknown>[] = [
@@ -499,6 +564,7 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
   // ---------------------------------------------------------------------------
   } else {
     // --- Context Management: noise filter + ContextManager ---
+    input.onEvent?.('dpev:substatus', { label: 'Filtering noise (worker)…', phase: 'diagnosis' });
     const { filtered: filteredRaw, removedCount, workerModelUsed } = await filterNoise(discoveryRaw, skillNoisePatterns, workerModel);
 
     if (DEV_MODE) {
@@ -652,6 +718,7 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
           tokenBudgets: input.config?.memory?.tokenBudgets ?? { l0: 100, l1: 500, l2l3: 1000 },
         };
 
+        input.onEvent?.('dpev:substatus', { label: 'Searching MemPalace…', phase: 'diagnosis' });
         const wakeUp = await buildWakeUpContext({
           currentPrompt: prompt,
           memoryConfig,
@@ -679,6 +746,8 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
       : ((provider.model as any)?.modelId ?? 'default');
     input.onEvent?.('dpev:phase', { phase: 'diagnosis', model: diagModelId, status: 'active' });
     diagPhaseStart = Date.now();
+    diagUsageModelId = diagModelId;
+    diagPromptSent = `${systemPrompt}\n${preFilteredPrompt}`;
 
     // Audit: log diagnosis phase start (non-critical)
     try {
@@ -698,6 +767,10 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
     }
 
     // Run diagnosis (always needed for structured output even when streaming)
+    input.onEvent?.('dpev:substatus', {
+      label: `Calling ${diagModelId} (structured object)`,
+      phase: 'diagnosis',
+    });
     const diagnosisResult = await runDiagnosis({
       prompt: preFilteredPrompt,
       systemPrompt,
@@ -726,6 +799,9 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
 
   // DPEV: diagnosis phase complete
   completedPhases.push('diagnosis');
+
+  // D-09: per-phase usage line. Emitted once, after both paths converge.
+  input.onEvent?.('dpev:usage', buildUsagePayload('diagnosis', diagUsageModelId, diagPromptSent));
 
   // Emit diagnosis complete events
   if (structuredDiagnosis) {
@@ -777,6 +853,7 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
         ? `${diagnosis}\n\n${discoveryContext}`
         : diagnosis;
 
+      input.onEvent?.('dpev:substatus', { label: 'Generating fix plan…', phase: 'plan' });
       fixPlan = await generateFixPlan({
         model: provider.model,
         skill: planningSkill,
@@ -803,6 +880,10 @@ export async function runDPEV(input: DPEVInput): Promise<DPEVResult> {
 
       planMarkdown = generatePlanMarkdown(fixPlan);
       planTable = formatPlanTable(fixPlan);
+
+      // D-09: planner usage. Input side approximates the planner prompt with the
+      // user input plus the enriched diagnosis it was handed.
+      input.onEvent?.('dpev:usage', buildUsagePayload('plan', planModelId, `${prompt}\n${enrichedDiagnosis}`));
 
       // Emit plan ready and planning phase complete events
       input.onEvent?.('dpev:plan', { fixPlan, planTable });
