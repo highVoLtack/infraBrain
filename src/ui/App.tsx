@@ -119,16 +119,54 @@ export function buildReplayState(
       }
     }
 
-    // Extract execution step events for replay
+    // Extract execution step events for replay.
+    // D-17 parity: replay must carry command/risk/target/stdout/stderr, not just a
+    // synthesized status, or TERM-UX08's "every step's command + output" is unmet.
     if (eventType === 'execution_start' || eventType === 'step_complete' || eventType === 'step_failed') {
       const meta = entry.metadata as Record<string, unknown> | undefined;
-      if (meta?.command) {
+      // executor.ts:86 logs a plan-level execution_start ({ planSummary, target,
+      // stepCount }) with no stepIndex — that envelope is not a step.
+      if (!meta || typeof meta.stepIndex !== 'number') continue;
+
+      const stepIndex = meta.stepIndex;
+      const existingIdx = executionSteps.findIndex(s => s.stepIndex === stepIndex);
+
+      const command = typeof meta.command === 'string' ? meta.command : undefined;
+      const risk = typeof meta.risk === 'string' ? meta.risk : undefined;
+      const target = typeof meta.target === 'string' ? meta.target : undefined;
+      const total = typeof meta.totalSteps === 'number' ? meta.totalSteps : undefined;
+      const stdout = typeof meta.stdout === 'string' ? meta.stdout : undefined;
+      const stderr = typeof meta.stderr === 'string' ? meta.stderr : undefined;
+
+      const status: StepState['status'] =
+        eventType === 'execution_start' ? 'pending'
+        : eventType === 'step_failed' ? 'failed'
+        : 'success';
+
+      if (existingIdx >= 0) {
+        // Merge, mirroring the runtime STEP_UPDATE reducer: the later event owns
+        // status/stdout/stderr, but must never erase fields an earlier event captured.
+        const prior = executionSteps[existingIdx]!;
+        executionSteps[existingIdx] = {
+          ...prior,
+          status,
+          stdout: stdout ?? prior.stdout,
+          stderr: stderr ?? prior.stderr,
+          command: command ?? prior.command,
+          risk: risk ?? prior.risk,
+          target: target ?? prior.target,
+          total: total ?? prior.total,
+        };
+      } else {
         executionSteps.push({
-          stepIndex: (meta.stepIndex as number) ?? executionSteps.length,
-          total: (meta.totalSteps as number) ?? 0,
-          command: meta.command as string,
-          risk: (meta.risk as string) ?? 'safe',
-          status: eventType === 'step_failed' ? 'failed' : 'success',
+          stepIndex,
+          total: total ?? 0,
+          command: command ?? '',
+          risk: risk ?? '',
+          status,
+          stdout,
+          stderr,
+          target,
         });
       }
     }
@@ -140,6 +178,8 @@ export function buildReplayState(
     activePhaseIndex: -1,
     executionSteps,
     status: 'complete',
+    // D-04: replay opens with every phase collapsed — the overview first, drill in on demand.
+    expandedPhases: {},
   };
 }
 
