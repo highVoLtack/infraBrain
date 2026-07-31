@@ -2,16 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: The Intelligence Layer
-status: verifying
-stopped_at: Phase 19.3 context gathered
-last_updated: "2026-04-17T12:13:38.210Z"
-last_activity: 2026-04-17 -- Phase 19.2 execution complete
+current_phase: 19.3
+current_phase_name: dpev-observability
+status: executing
+stopped_at: "Completed 19.3-01-PLAN.md (foundation: requirements, pricing, MarkdownView)"
+last_updated: "2026-07-31T10:26:57.549Z"
+last_activity: 2026-07-31
+last_activity_desc: Phase 19.3 Plan 01 complete (foundation)
 progress:
   total_phases: 10
   completed_phases: 8
-  total_plans: 26
-  completed_plans: 26
-  percent: 100
+  total_plans: 32
+  completed_plans: 27
+  percent: 84
 ---
 
 # Project State
@@ -21,16 +24,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** The AI diagnoses, plans, and fixes infrastructure problems autonomously while the human admin retains full control -- every critical action requires approval, every decision is auditable, and the system can be taught any IT system through simple Markdown files.
-**Current focus:** Phase 19.2 COMPLETE — awaiting live UAT with nginx 502 demo
+**Current focus:** Phase 19.3 — dpev-observability
 
 ## Current Position
 
-Phase: 19.2 (e2e-debug-flow) — COMPLETE
-Plan: 3 of 3
-Status: Verified 6/6 — gap resolved inline (a00eac4)
-Last activity: 2026-04-17 -- Phase 19.2 execution complete
+Phase: 19.3 (dpev-observability) — EXECUTING
+Plan: 2 of 6
+Status: Ready to execute
+Last activity: 2026-07-31 — Phase 19.3 Plan 01 complete (foundation)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 84%
 
 ## Performance Metrics
 
@@ -135,6 +138,10 @@ Progress: [██████████] 100%
 - [Phase 19.1-02]: Entity refreshKey incremented on session select and prompt dismiss (Esc) for two refresh triggers
 - [Phase 19.1-02]: Session filter removed eventCount>0 gate since Plan 01 provides real targets for in-progress sessions
 - [Phase 19.1-02]: Session panel polls every 10s for fresh data during active SSE sessions
+- [Phase 19.3-01]: computeCost returns null (not 0) for unknown models so the UI renders an em-dash instead of a false $0
+- [Phase 19.3-01]: MarkdownView renders MDAST directly to Ink Box/Text -- no ANSI string boundary, avoids chalk non-TTY auto-disable
+- [Phase 19.3-01]: MarkdownView memoizes the parsed AST via React.useMemo keyed on children to survive streaming re-renders
+- [Phase 19.3-01]: npx tsc --noEmit unusable as a phase gate: 8 pre-existing zod v4 / ai v6 / lancedb v0.27 type-drift errors predate 19.3
 
 ### Pending Todos
 
@@ -165,6 +172,12 @@ Progress: [██████████] 100%
 
 ## Session Continuity
 
-Last session: 2026-04-17T12:13:38.206Z
-Stopped at: Phase 19.3 context gathered
+Last session: 2026-07-31T10:26:43.518Z
+Stopped at: Completed 19.3-01-PLAN.md (foundation: requirements, pricing, MarkdownView)
 Resume: Live UAT with nginx 502 demo (full DPEV+E+V flow), then milestone review or next milestone planning.
+
+## Performance Metrics
+
+| Phase | Plan | Duration | Notes |
+|-------|------|----------|-------|
+| Phase 19.3 P01 | 10 min | 3 tasks | 8 files |

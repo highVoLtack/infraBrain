@@ -70,113 +70,142 @@
 ## Phase Details
 
 ### Phase 14: Pipeline Extraction + Parallel Discovery
+
 **Goal**: Discovery commands run in parallel (2-5x speedup) on a cleanly extracted pipeline that prevents merge conflicts for all subsequent phases
 **Depends on**: Phase 13.1 (unified OpenAI-compat provider)
 **Requirements**: EXEC-01, EXEC-02, EXEC-03, EXEC-04
 **Success Criteria** (what must be TRUE):
+
   1. Discovery commands for a multi-container scenario complete in parallel (observable wall-clock speedup vs sequential)
   2. Two commands targeting the same container never execute concurrently (mutex prevents race conditions)
   3. Execution steps remain serial with circuit breaker and damage budget unchanged (safety preserved)
   4. Parallel discovery results appear as a single merged context block in the LLM diagnosis prompt
   5. debug.ts is under 200 lines with pipeline logic extracted to src/orchestrator/
+
 **Plans:** 2/2 plans complete
 Plans:
+
 - [x] 14-01-PLAN.md -- Parallel discovery module with per-container mutex (p-queue)
 - [x] 14-02-PLAN.md -- Pipeline extraction, diagnosis module, slim debug.ts, fix test imports
 
 ### Phase 15: Auto-Compact Context Management
+
 **Goal**: Context window usage is tracked in real-time and automatically compacted before overflow, preserving ground truth while discarding noise
 **Depends on**: Phase 14 (pipeline orchestrator is integration point for context hooks)
 **Requirements**: CTXT-01, CTXT-02, CTXT-03, CTXT-04, CTXT-05, CTXT-06
 **Success Criteria** (what must be TRUE):
+
   1. Admin can see token count and context usage percentage during a diagnosis session (dev-mode logging or status output)
   2. A self-healing loop that would overflow 32K context triggers compaction automatically and completes without error
   3. Critical data (container names, port numbers, error codes, discovery facts) survives compaction intact
   4. Healthcheck spam and systemd journal noise are filtered out before reaching the LLM
   5. Context compaction fires exactly once per threshold crossing (no recursive summarization loop)
+
 **Plans:** 3/3 plans complete
 Plans:
+
 - [x] 15-01-PLAN.md -- Token counter, types, and noise filter (foundation)
 - [x] 15-02-PLAN.md -- Ground truth pinning, compactor, and ContextManager (core logic)
 - [x] 15-03-PLAN.md -- Pipeline integration, config, and integration tests
 
 ### Phase 16: Qdrant Fix-Caching
+
 **Goal**: Repeat errors are resolved in under 2 seconds via vector similarity cache lookup, with zero LLM calls for cache hits
 **Depends on**: Phase 15 (auto-compact needed because cache metadata expands context)
 **Requirements**: CACHE-01, CACHE-02, CACHE-03, CACHE-04, CACHE-05, CACHE-06, CACHE-07, CACHE-08
 **Success Criteria** (what must be TRUE):
+
   1. Running the same error scenario twice returns a cached fix on the second run (observable in terminal output as "Cache Hit" with provenance)
   2. Cached fix resolves in under 2 seconds (vs 60-120s for LLM reasoning)
   3. InfraBrain starts, diagnoses, and fixes problems normally when LanceDB is unavailable (graceful degradation)
   4. Updating a skill file invalidates stale cached fixes for that skill's domain
   5. LanceDB embedded store initializes automatically in-process (no external services)
+
 **Plans:** 4/4 plans complete
 Plans:
+
 - [x] 16-01-PLAN.md -- Cache types, LanceDB store, BGE-M3 embedder, confidence scoring (foundation)
 - [x] 16-02-PLAN.md -- Cache lookup, pipeline integration, skill invalidation, graceful degradation
 - [x] 16-03-PLAN.md -- Cache write on fix success, provenance display, CLI commands, integration tests
 
 ### Phase 17: MemPalace Semantic Memory
+
 **Goal**: InfraBrain remembers every incident it has worked on and uses past experience to improve future diagnoses
 **Depends on**: Phase 16 (Qdrant infrastructure proven, shared instance)
 **Requirements**: MEM-01, MEM-02, MEM-03, MEM-04, MEM-05, MEM-06, MEM-07, MEM-08, MEM-09
 **Success Criteria** (what must be TRUE):
+
   1. After fixing an incident, admin can ask "what did we fix last week?" and get a semantically relevant answer from memory
   2. A new diagnosis session automatically receives relevant context from past similar incidents (wake-up context layers visible in dev logging)
   3. Infrastructure entities (hostnames, service names, IPs) extracted from diagnostic text appear as searchable knowledge graph entries
   4. Recent incidents score higher than old ones at equal semantic similarity (temporal decay observable in search results)
   5. All memory mutations are recorded in a write-ahead log (audit trail for what was remembered and when)
+
 **Plans:** 4/4 plans complete
 Plans:
+
 - [x] 17-01-PLAN.md -- Types, config schema, and write-ahead log (foundation contracts)
 - [x] 17-02-PLAN.md -- IncidentStore, EntityStore, entity extractor, memory scoring (data layer)
 - [x] 17-03-PLAN.md -- Memory search, wake-up context, pipeline [MEMORY] integration
 - [x] 17-04-PLAN.md -- Intent classifier, memory skill, incident auto-filing
 
 ### Phase 17.1: Memory Schema Prep for Caveman
+
 **Goal**: LanceDB tables (mem_incidents, mem_entities, fix_cache) carry the columns required by the v2.0 Caveman/Nano-LLM distillation pipeline, so when the distiller ships it can retro-fill historical entries rather than starting from scratch. No distillation logic itself — just schema.
 **Depends on**: Phase 17 (MemPalace tables exist), Phase 16 (fix-cache table exists)
 **Requirements**: MEM-S01, MEM-S02, MEM-S03 (to be finalized during /gsd-discuss-phase or /gsd-plan-phase)
 **Success Criteria** (what must be TRUE):
+
   1. mem_incidents table has columns: distilled_payload (string/blob, nullable), distiller_model_id (string, nullable), raw_text_hash (string, SHA-256 of raw incident text), compression_ratio (float, nullable)
   2. mem_entities table has the same distillation columns where applicable
   3. fix_cache table has raw_text_hash at minimum (enables dedupe during retro-distillation)
   4. Existing rows keep working — migration is additive, new columns default to NULL, no rewrite of the raw text or vector fields
   5. Write path for all new incidents computes raw_text_hash immediately; distilled_payload fields stay NULL until v2.0 distiller runs
   6. Search path is untouched — vector column (BGE-M3 embeddings of raw text) still drives retrieval; distilled_payload is retrieval-side only, not indexed
+
 **Out of scope**:
+
   - Nano-LLM distillation pipeline (v2.0 phase)
   - Emoji/Hanzi encoder/decoder (v2.0 phase)
   - Dual-track retrieval injection (inject distilled_payload in LLM context) — v2.0 phase
   - UI surfacing of compression metrics — handled in Phase 19.3 as v2.0 placeholder
+
 **Plans:** 0/? plans — research + planning pending
 
 ### Phase 18: Parallel Inference Pipeline
+
 **Goal**: 9B models pre-process logs and extract patterns while 122B reasons about diagnosis, cutting total inference time
 **Depends on**: Phase 15 (auto-compact), Phase 16 (fix-cache), Phase 17 (stable feature set)
 **Requirements**: INFER-01, INFER-02, INFER-03, INFER-04, INFER-05
 **Success Criteria** (what must be TRUE):
+
   1. During a diagnosis, 9B intent classification completes in under 200ms before 122B deep reasoning begins
   2. 9B log pre-processing runs concurrently with 122B reasoning (observable via dev-mode timing logs showing overlapping model calls)
   3. With only a single vLLM backend available, inference falls back to sequential mode transparently (no errors, same results)
   4. Separate vLLM instances serve different model sizes without VRAM contention (health check shows multiple backends)
+
 **Plans:** 2/2 plans complete
 Plans:
+
 - [x] 18-01-PLAN.md -- InferenceScheduler types, backend probe, parallel dispatch, timing instrumentation
 - [x] 18-02-PLAN.md -- Pipeline parallel inference integration, health route enhancement
 
 ### Phase 19: Ink/React Terminal UI
+
 **Goal**: Admin interacts with InfraBrain through a rich, reactive terminal interface with live progress tracking, streaming output, and a status dashboard
 **Depends on**: Phase 14-18 (all backend features and SSE endpoints stable)
 **Requirements**: TERM-01, TERM-02, TERM-03, TERM-04, TERM-05, TERM-06, TERM-07, TERM-08
 **Success Criteria** (what must be TRUE):
+
   1. Admin sees which DPEV phase is active, which model is being used, and elapsed time -- all updating live during diagnosis
   2. LLM output streams token-by-token in the terminal (not buffered until complete)
   3. Approval prompts render as interactive Ink components (Y/N/details) replacing readline
   4. Terminal output adapts correctly to narrow (80-col) and wide (200-col) terminals without truncation or overflow
   5. All existing CLI commands (`/infra:debug`, `/infra:status`, `/infra:history`, `/infra:resume`) work through the Ink renderer with identical behavior
+
 **Plans:** 6/6 plans complete
 Plans:
+
 - [x] 19-01-PLAN.md -- Ink v7 + React 19 framework install, TSX config, SSE types, theme, custom hooks
 - [x] 19-02-PLAN.md -- Express SSE streaming endpoints for DPEV pipeline and execution
 - [x] 19-03-PLAN.md -- Core Ink components (StreamingText, StepCard, Approval, CacheHitBanner)
@@ -185,42 +214,52 @@ Plans:
 - [x] 19-06-PLAN.md -- App root, status overlay, index.ts wiring, backward CLI compatibility
 
 ### Phase 19.1: Ink UI Polish
+
 **Goal**: SSE-created sessions appear in session history, replay shows full DPEV phase timeline, entity panel populates from live incidents
 **Depends on**: Phase 19 (Ink UI foundation)
 **Requirements**: TERM-P01, TERM-P02, TERM-P03, TERM-P04
 **Success Criteria** (what must be TRUE):
+
   1. A `debug "nginx is down"` session via SSE appears in Sessions panel after restart (with prompt as target name)
   2. Selecting a past SSE session replays the full DPEV accordion (Discovery, Diagnosis, Plan phases with timing)
   3. Entity panel shows entities extracted from completed execute cycles (providers, services, containers)
   4. Session items show prompt excerpt and outcome status instead of "unknown"
+
 **Plans:** 2/2 plans complete
 Plans:
+
 - [x] 19.1-01-PLAN.md -- Backend: SSE session persistence + DPEV phase audit logging
 - [x] 19.1-02-PLAN.md -- Frontend: Session replay from audit events, entity refresh, session display
 
 ### Phase 19.2: End-to-End Debug Flow
+
 **Goal**: User types a debug prompt and InfraBrain diagnoses, shows a plan with approval prompt, executes each step with live progress, and verifies the fix — all in the Ink UI without leaving the terminal
 **Depends on**: Phase 19.1 (session persistence, DPEV phase rendering)
 **Requirements**: TERM-E01, TERM-E02, TERM-E03, TERM-E04, TERM-E05, TERM-E06
 **Success Criteria** (what must be TRUE):
+
   1. Discovery phase shows a spinner/progress indicator while commands run (not a blank screen)
   2. After diagnosis+plan, user sees a structured approval prompt with the fix steps and can approve (Y) or reject (N)
   3. On approval, each execution step streams progress in the DPEV panel (command, status, stdout/stderr)
   4. After execution, verification result shows whether the fix worked (e.g. "HTTP 200 ✓" or "still failing")
   5. Plan rendering shows structured steps (numbered, with risk badges) not raw Markdown
   6. Session status updates from "in-progress" to "completed" or "failed" based on execution outcome
+
 **Plans:** 3/3 plans complete
 Plans:
+
 - [x] 19.2-01-PLAN.md -- Backend: pipeline discovery event + stream-debug execution chaining + verification
 - [x] 19.2-02-PLAN.md -- Frontend: PlanView component + DPEVPhaseHeader timer fix + reducer extensions
 - [x] 19.2-03-PLAN.md -- Integration: DPEVPanel wiring + full suite validation
 
 ### Phase 19.3: DPEV Panel — Observability & Magic
+
 **Goal**: A user who runs `debug nginx 502` feels, in real time, **what is happening, why, how long it takes, and what it costs** — and can scroll back into any completed phase to see the full stream, including command output and LLM narrative.
 **Depends on**: Phase 19.2 (E2E debug flow exists — this phase polishes the perceived UX)
 **Requirements**: TERM-UX01 through TERM-UX08 (refined during /gsd-discuss-phase)
 
 **Success Criteria** (what must be TRUE):
+
   1. (TERM-UX01 — Markdown renderer) Diagnosis + plan narrative render with terminal-styled headings, code blocks, inline code, bold/italic, lists (not raw `##` / ``` / `**` chars). Single `MarkdownView` component shared across DPEVPanel + replay. Recommendation from 19.3-RESEARCH.md (handwritten micromark + mdast) applied unless discussion overrides it.
   2. (TERM-UX02 — Execution step visibility) Every executed step shows the actual command string, exit code, and stdout preview (first N lines, configurable). Stderr shown when exit ≠ 0. No more `[1/0] ✓ []` with empty brackets.
   3. (TERM-UX03 — Activity indicator) Active phases ≥3s show a live spinner + sub-status label (e.g. "Calling gemini-2.5-pro", "Parsing response"). Phase elapsed-time counter ticks visibly every second.
@@ -231,15 +270,17 @@ Plans:
   8. (TERM-UX08 — Deep session replay) Selecting an older session from the Sessions list shows the complete D→P→E→V stream including every step's command + output, not just the phase headers.
 
 **Out of scope**:
+
   - Model-quality comparison (Ollama 122B vs Gemini) — separate investigation
   - Command-input autocomplete
   - Multi-session split view
   - Theming / colour palette overhaul
 
-**Plans:** 0/6 plans — planning complete (2026-04-17)
+**Plans:** 1/6 plans executed
 
 Plans:
-- [ ] 19.3-01-PLAN.md — Foundation: REQUIREMENTS + pricing table + Markdown parser + MarkdownView component (Wave 1)
+
+- [x] 19.3-01-PLAN.md — Foundation: REQUIREMENTS + pricing table + Markdown parser + MarkdownView component (Wave 1)
 - [ ] 19.3-02-PLAN.md — Backend: session-usage aggregator + substatus/usage/session_summary SSE events + /status dashboard payload (Wave 2)
 - [ ] 19.3-03-PLAN.md — Frontend state layer: dpevReducer + SSE handler extensions + DPEVPhaseHeader timer color + substatus slot (Wave 3)
 - [ ] 19.3-04-PLAN.md — DPEVPanel wiring: focus/expand/markdown/usage/substatus/session-summary + stable keys + live UAT checkpoint (Wave 4)
@@ -273,7 +314,7 @@ Plans:
 | 19.1 | v1.3 | 2/2 | Complete | 2026-04-16 |
 | 19.2 | v1.3 | 3/3 | Complete   | 2026-04-17 |
 | 17.1 | v1.3 | 0/? | Planned    | -- |
-| 19.3 | v1.3 | 0/6 | Planned    | -- |
+| 19.3 | v1.3 | 1/6 | In Progress|  |
 
 ---
 *Roadmap created: 2026-03-07*
