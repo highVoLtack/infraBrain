@@ -6,6 +6,7 @@
 - v1.1 The Scenario Factory -- Phases 8-11 (shipped 2026-03-13) | [Archive](milestones/v1.1-ROADMAP.md)
 - v1.2 The Knowledge Layer -- Phases 12-13.1 (shipped 2026-03-17)
 - v1.3 The Intelligence Layer -- Phases 14-19 (in progress)
+- v1.4 Pilot Readiness -- Phases 20+ (planned) | Source: [HARDENING-DOSSIER.md](HARDENING-DOSSIER.md)
 
 ## Phases
 
@@ -66,6 +67,35 @@
 - [x] **Phase 19.1: Ink UI Polish** - Session persistence for SSE sessions, session replay with DPEV phases, entity panel population, UX refinements (completed 2026-04-16)
 - [x] **Phase 19.2: End-to-End Debug Flow** - Complete DPEV+E+V in Ink: discovery spinner, plan approval prompt, execution with step progress, verification feedback (completed 2026-04-17)
 - [x] **Phase 19.3: DPEV Panel — Observability & Magic** - Make the DPEV debug flow feel alive: Markdown-rendered diagnosis/plan, visible step commands + stdout, activity spinner + sub-status, expandable phase history, live status dashboard, per-phase token usage, flicker-free re-render, deep session replay (completed 2026-07-31)
+
+## v1.4 Pilot Readiness
+
+Hardening for pilot and demo readiness. Scope and evidence: `.planning/HARDENING-DOSSIER.md`
+(14 findings, A–N, each with file:line or audit-log counts). Sequenced by dependency, not calendar.
+
+**Feature freeze in force.** No eighth skill, no parallel-inference expansion, no MemPalace/TOON
+tuning, no web UI. **Phase 17.1 stays closed** — no exceptions except demonstrated demo blockers.
+
+- [ ] **Phase 20: Audit Integrity** - A failed execution step currently replays as a success.
+  Emit `step_start`/`step_failed` (declared at `audit/types.ts:13-15`, never emitted; `step_complete`
+  at `executor.ts:341` is the only step event and fires on the success path only). Add explicit
+  attempt numbers, complete the replay payload. Old records stay untouched; append-only from the fix
+  onward; status derived exclusively from events. Consumers (`App.tsx`, `formatter.ts`) already
+  handle `step_failed` and need no change. **Gate 0 — blocks Phase 21.**
+  Brief: `phases/20-audit-integrity/20-BRIEF.md` (dossier section M)
+- [ ] **Phase 21: Loop Proof** - The DPEV loop has not run end-to-end since March 2026 (2026-04: 1
+  of 9 sessions reached execution, 0 reached verification; 2026-07: 0 of 3). Run the five March
+  multi-fault scenarios against v1.3 until `verification: verified`, then check them in as an
+  automated E2E suite so it cannot silently rot again. Includes the structured-output fix (A0→A1),
+  read-only mode as a config flag, and closing the live-keyboard coverage gap.
+  **Depends on: Phase 20.** A `verified` produced against today's records would be the green tick
+  on a rotten record that Phase 20 exists to abolish. (dossier sections I, A0, A1)
+- [ ] **Phase 22: Rollback Redesign** - 33 `rollback_failed` against 8 `rollback_complete`. Not a
+  bug but a design gap: reversibility is generated after execution instead of established before it.
+  Declare reversibility at plan time, auto-escalate irreversible steps to the destructive tier, run
+  rollback commands through the same safety pipeline, plus a hard placeholder gate in front of
+  approval. Target >90% rollback success on the demo stack, remainder cleanly declared irreversible.
+  **Depends on: Phase 20** (its success metric is computed from those records). (dossier sections H, H2)
 
 ## Phase Details
 
@@ -289,7 +319,12 @@ Plans:
 
 ## Progress
 
-**Execution Order:** Phases 14 -> 15 -> 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2 -> 19.3
+**Execution Order:** Phases 14 -> 15 -> 16 -> 17 -> 18 -> 19 -> 19.1 -> 19.2 -> 19.3 -> **20 -> 21 -> 22**
+
+**Hard gate:** Phase 20 (Audit Integrity) must be green before Phase 21 (Loop Proof) starts.
+Phase 21 asserts `verification: verified` against step records that Phase 20 makes trustworthy;
+running it first would produce exactly the green tick on a rotten record that Phase 20 abolishes.
+Phase 22's rollback success metric reads the same records.
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
@@ -313,8 +348,11 @@ Plans:
 | 19 | v1.3 | 6/6 | Complete | 2026-04-15 |
 | 19.1 | v1.3 | 2/2 | Complete | 2026-04-16 |
 | 19.2 | v1.3 | 3/3 | Complete   | 2026-04-17 |
-| 17.1 | v1.3 | 0/? | Planned    | -- |
-| 19.3 | v1.3 | 6/6 | Complete   | 2026-07-31 |
+| 17.1 | v1.3 | 0/? | Frozen -- feature freeze | -- |
+| 19.3 | v1.3 | 6/6 | Complete; UAT source-verified, live interaction open | 2026-07-31 |
+| 20 | v1.4 | 0/? | Planned -- gate 0 | -- |
+| 21 | v1.4 | 0/? | Blocked by 20 | -- |
+| 22 | v1.4 | 0/? | Blocked by 20 | -- |
 
 ---
 *Roadmap created: 2026-03-07*
