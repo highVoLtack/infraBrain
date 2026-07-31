@@ -4,3 +4,12 @@ dist/
 *.db
 *.db-wal
 *.db-shm
+
+# Secrets — never commit. Verified 2026-07-31: no .env has ever been committed
+# and no secret-shaped string exists anywhere in history. Keep it that way.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.json
