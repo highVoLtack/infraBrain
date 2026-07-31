@@ -17,6 +17,7 @@ import {
   isPhaseInputActive,
   handlePhaseInput,
   virtualFocusedIndex,
+  formatSessionCost,
 } from '../../src/ui/panels/DPEVPanel.js';
 import { buildReplayState } from '../../src/ui/App.js';
 import type { DPEVAction, DPEVState } from '../../src/ui/types.js';
@@ -1992,5 +1993,98 @@ describe('DPEVPanel replay mode (TERM-UX08)', () => {
     expect(DPEV_PANEL_SOURCE.match(/useInput\(/g) ?? []).toHaveLength(1);
     const replayBranch = DPEV_PANEL_SOURCE.slice(DPEV_PANEL_SOURCE.indexOf('if (replaySession)'));
     expect(replayBranch).not.toContain('useInput(');
+  });
+});
+
+// ---- Plan 19.3-06 item C: the session footer must not claim a cost it does not know ----
+//
+// Live-run finding (19.3-04 checkpoint): every phase honestly rendered `$–` because
+// Gemini omitted output tokens, while the footer asserted `Session: 1044 tokens · $0.00`.
+// A hard zero where the value is unknown is the exact "empty zeros break trust" failure
+// mode this phase exists to remove. The footer now uses the same en-dash convention as
+// formatUsageLine (D-11).
+
+describe('formatSessionCost (19.3-06 item C / D-11)', () => {
+  const silentPhase = {
+    name: 'diagnosis',
+    model: 'gemini-2.5-pro',
+    startedAt: 1000,
+    completedAt: 2000,
+    status: 'complete' as const,
+    tokens: '',
+    usage: { inputTokens: 554, outputTokens: null, totalTokens: null, costUsd: null },
+  };
+
+  const pricedPhase = {
+    ...silentPhase,
+    usage: { inputTokens: 554, outputTokens: 120, totalTokens: 674, costUsd: 0.0089 },
+  };
+
+  const freePhase = {
+    ...silentPhase,
+    usage: { inputTokens: 554, outputTokens: 120, totalTokens: 674, costUsd: 0 },
+  };
+
+  it('renders an en-dash when a zero total is backed by no priced phase', () => {
+    expect(formatSessionCost(0, [silentPhase])).toBe('$–');
+  });
+
+  it('renders an en-dash when a zero total has no phases at all to back it', () => {
+    expect(formatSessionCost(0, [])).toBe('$–');
+  });
+
+  it('renders $0.00 when a phase genuinely reported a zero cost (local model)', () => {
+    expect(formatSessionCost(0, [freePhase])).toBe('$0.00');
+  });
+
+  it('renders the real total when a phase reported a priced call', () => {
+    expect(formatSessionCost(0.03, [pricedPhase])).toBe('$0.03');
+  });
+
+  it('trusts a non-zero total even when no phase usage was recorded', () => {
+    expect(formatSessionCost(0.02, [])).toBe('$0.02');
+  });
+
+  it('renders $0.00 when at least one phase is priced and another stayed silent', () => {
+    expect(formatSessionCost(0, [silentPhase, freePhase])).toBe('$0.00');
+  });
+});
+
+describe('session footer cost honesty (19.3-06 item C)', () => {
+  const silentPhase = {
+    name: 'diagnosis',
+    model: 'gemini-2.5-pro',
+    startedAt: 1000,
+    completedAt: 2000,
+    status: 'complete' as const,
+    tokens: '',
+    usage: { inputTokens: 554, outputTokens: null, totalTokens: null, costUsd: null },
+  };
+
+  it('does not claim $0.00 when every contributing phase rendered $–', () => {
+    const frame = renderReplay(makeInitialState({
+      sessionId: 'sess-silent-cost',
+      phases: [silentPhase],
+      activePhaseIndex: -1,
+      status: 'complete',
+      expandedPhases: {},
+      sessionSummary: { totalTokens: 1044, totalCostUsd: 0, potentialSavings: null },
+    }));
+
+    expect(frame).toContain('Session: 1044 tokens · $–');
+    expect(frame).not.toContain('1044 tokens · $0.00');
+  });
+
+  it('still prints a real cost when the provider supplied one', () => {
+    const frame = renderReplay(makeInitialState({
+      sessionId: 'sess-priced-cost',
+      phases: [{ ...silentPhase, usage: { inputTokens: 554, outputTokens: 120, totalTokens: 674, costUsd: 0.0089 } }],
+      activePhaseIndex: -1,
+      status: 'complete',
+      expandedPhases: {},
+      sessionSummary: { totalTokens: 1044, totalCostUsd: 0.03, potentialSavings: null },
+    }));
+
+    expect(frame).toContain('Session: 1044 tokens · $0.03');
   });
 });
