@@ -15,6 +15,9 @@ export const SSE_EVENT_NAMES = {
   PLAN: 'dpev:plan',
   PLAN_APPROVAL: 'dpev:plan-approval',
   VERIFICATION: 'dpev:verification',
+  SUBSTATUS: 'dpev:substatus',
+  USAGE: 'dpev:usage',
+  SESSION_SUMMARY: 'dpev:session_summary',
   STEP: 'exec:step',
   APPROVAL: 'exec:approval',
   COMPLETE: 'dpev:complete',
@@ -59,6 +62,27 @@ export interface SSEEventMap {
     passed: boolean;
     executionStatus: string;
     discoveryOutput?: Record<string, string>;
+  };
+  /** D-06/D-07: granular pipeline activity label for the active-phase indicator. */
+  'dpev:substatus': {
+    label: string;
+    phase?: string;
+  };
+  /** D-09/D-11: per-phase LLM usage. Null fields render as an em-dash, never $0. */
+  'dpev:usage': {
+    phase: string;
+    modelId: string;
+    inputTokens: number;
+    outputTokens: number | null;
+    totalTokens: number | null;
+    costUsd: number | null;
+  };
+  /** D-12/D-24: cumulative session footer. potentialSavings is always null in v1.3. */
+  'dpev:session_summary': {
+    sessionId: string;
+    totalTokens: number;
+    totalCostUsd: number;
+    potentialSavings: number | null;
   };
   'exec:step': {
     stepIndex: number;
