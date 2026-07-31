@@ -65,7 +65,7 @@
 - [x] **Phase 19: Ink/React Terminal UI** - Full terminal renderer with live DPEV tracking, streaming output, and rich dashboard (completed 2026-04-15)
 - [x] **Phase 19.1: Ink UI Polish** - Session persistence for SSE sessions, session replay with DPEV phases, entity panel population, UX refinements (completed 2026-04-16)
 - [x] **Phase 19.2: End-to-End Debug Flow** - Complete DPEV+E+V in Ink: discovery spinner, plan approval prompt, execution with step progress, verification feedback (completed 2026-04-17)
-- [ ] **Phase 19.3: DPEV Panel — Observability & Magic** - Make the DPEV debug flow feel alive: Markdown-rendered diagnosis/plan, visible step commands + stdout, activity spinner + sub-status, expandable phase history, live status dashboard, per-phase token usage, flicker-free re-render, deep session replay
+- [x] **Phase 19.3: DPEV Panel — Observability & Magic** - Make the DPEV debug flow feel alive: Markdown-rendered diagnosis/plan, visible step commands + stdout, activity spinner + sub-status, expandable phase history, live status dashboard, per-phase token usage, flicker-free re-render, deep session replay (completed 2026-07-31)
 
 ## Phase Details
 
@@ -276,7 +276,7 @@ Plans:
   - Multi-session split view
   - Theming / colour palette overhaul
 
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 Plans:
 
@@ -285,7 +285,7 @@ Plans:
 - [x] 19.3-03-PLAN.md — Frontend state layer: dpevReducer + SSE handler extensions + DPEVPhaseHeader timer color + substatus slot (Wave 3)
 - [x] 19.3-04-PLAN.md — DPEVPanel wiring: focus/expand/markdown/usage/substatus/session-summary + stable keys + live UAT checkpoint (Wave 4)
 - [x] 19.3-05-PLAN.md — StatusOverlay live poll + cumulative/session split + latest-call row + Intelligence Efficiency section (Wave 4)
-- [ ] 19.3-06-PLAN.md — Session replay parity: buildReplayState populates steps + expandedPhases + phase-closing E2E UAT checkpoint (Wave 5)
+- [x] 19.3-06-PLAN.md — Session replay parity: buildReplayState populates steps + expandedPhases + phase-closing E2E UAT checkpoint (Wave 5)
 
 ## Progress
 
@@ -314,7 +314,7 @@ Plans:
 | 19.1 | v1.3 | 2/2 | Complete | 2026-04-16 |
 | 19.2 | v1.3 | 3/3 | Complete   | 2026-04-17 |
 | 17.1 | v1.3 | 0/? | Planned    | -- |
-| 19.3 | v1.3 | 5/6 | In Progress|  |
+| 19.3 | v1.3 | 6/6 | Complete   | 2026-07-31 |
 
 ---
 *Roadmap created: 2026-03-07*

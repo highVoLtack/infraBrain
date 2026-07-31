@@ -5,16 +5,16 @@ milestone_name: The Intelligence Layer
 current_phase: 19.3
 current_phase_name: dpev-observability
 status: executing
-stopped_at: "19.3-04 complete (checkpoint approved); next: 19.3-06"
-last_updated: "2026-07-31T11:49:35.528Z"
+stopped_at: "19.3-06 code complete; Task 3 phase-closing human-verify checkpoint OUTSTANDING"
+last_updated: "2026-07-31T12:35:25.269Z"
 last_activity: 2026-07-31
-last_activity_desc: Phase 19.3 Plan 01 complete (foundation)
+last_activity_desc: Phase 19.3 Plan 06 code complete — replay parity, keyboard arbitration, cost honesty; awaiting closing UAT
 progress:
   total_phases: 10
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 32
-  completed_plans: 31
-  percent: 80
+  completed_plans: 32
+  percent: 90
 ---
 
 # Project State
@@ -28,12 +28,12 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 
 ## Current Position
 
-Phase: 19.3 (dpev-observability) — EXECUTING
+Phase: 19.3 (dpev-observability) — AWAITING CLOSING UAT
 Plan: 6 of 6
-Status: Ready to execute
-Last activity: 2026-07-31 — Phase 19.3 Plan 01 complete (foundation)
+Status: All 6 plans implemented; 19.3-06 Task 3 human-verify checkpoint outstanding
+Last activity: 2026-07-31 — Phase 19.3 Plan 06 code complete (replay parity, keyboard arbitration, cost honesty)
 
-Progress: [████████░░] 84%
+Progress: [██████████] 100% (32/32 plans; phase closes on UAT sign-off)
 
 ## Performance Metrics
 
@@ -153,6 +153,12 @@ Progress: [████████░░] 84%
 - [Phase 19.3-05]: context.currentTokens stub resolved as an optional sessionTokens prop seam — lifting useDPEV out of DPEVPanel is a Rule 4 architectural change
 - [Phase ?]: 19.3-04: DPEV keyboard map extracted as exported pure helpers (handlePhaseInput/isPhaseInputActive/virtualFocusedIndex) — LiveDPEVPanel cannot be mounted in tests without an EventSource, so an inline useInput closure would have shipped D-03 uncovered
 - [Phase ?]: 19.3-04: PHASE_FOCUS bounds clamping stays in the reducer only; the input handler dispatches unclamped indices
+- [Phase 19.3-06]: One keyboard owner resolved by resolveKeyboardOwner(ctx) — every Ink input consumer derives isActive/activeFocus from that single value, never its own boolean. CommandInput was the only consumer without a gate, which is why j/k, Esc and an approval's 'n' all reached the prompt
+- [Phase 19.3-06]: The global s/g shortcut is scoped to the dpev-panel owner only — SessionPanel and EntityPanel have a '/' search mode that accumulates printable characters
+- [Phase 19.3-06]: useDPEV stays inside DPEVPanel; the panel reports a two-field primitive projection upward (projectLiveStatus) instead of lifting state to App. Lifting would need a DPEVAction RESET and would lose the prompt-keyed remount — Rule 4 cost for two scalars
+- [Phase 19.3-06]: Session cost renders $– when no phase reported a non-null costUsd — the client recovers "nothing to sum" vs "summed to zero" from per-phase usage, so session-usage.ts needs no change
+- [Phase 19.3-06]: buildReplayState merges steps by stepIndex mirroring the STEP_UPDATE reducer, and skips execution_start envelopes with no stepIndex (executor.ts:86 logs a plan-level one that would otherwise become a phantom step)
+- [Phase 19.3-06]: TERM-UX04/07/08 left Planned — the arbitration is correct in code and unit-covered, but no test can drive a live SSE session, and TERM-UX08's "step output" clause is blocked by the executor's audit payload
 
 ### Pending Todos
 
@@ -180,16 +186,18 @@ Progress: [████████░░] 84%
 - MemPalace TypeScript data model: RESOLVED -- native TypeScript implementation shipped in Phase 17
 - vLLM concurrent 7B+32B on single 32GB GPU: RESOLVED -- InferenceScheduler with graceful fallback shipped in Phase 18
 - Qdrant BGE-M3 embeddings: RESOLVED -- LanceDB embedded store used for both fix-caching (Phase 16) and semantic memory (Phase 17)
-- TERM-UX04 blocked on App.tsx keyboard arbitration (Plan 06): Esc exits the live session instead of collapsing the focused phase, and j/k leak into the always-active CommandInput. Ink fires every registered useInput handler, so DPEVPanel cannot suppress them. Detail in 19.3 deferred-items.md
-- Approval keystrokes leak into CommandInput (19.3-04 live run): pressing 'n' at a [Y/n] approval both answered it and typed 'n' into the command box; a following Enter would submit it as a command. App.tsx:404 keeps CommandInput active through approvals; App.tsx:204 swallows every printable char. Safety-relevant. Owner: Plan 06
+- TERM-UX04 keyboard arbitration: RESOLVED in 19.3-06 -- resolveKeyboardOwner/resolveEscapeAction in src/ui/App.tsx. j/k no longer leak, Esc collapses the focused phase before exiting. Not yet observed live; first item for the phase-closing UAT
+- Approval keystrokes leak into CommandInput: RESOLVED in 19.3-06 -- CommandInput stands down whenever any other surface owns the keyboard. Pinned by a named regression test with a control case. Was safety-relevant (a live command one Enter from submission)
+- **OPEN — replay cannot show step output.** src/execution/executor.ts:341 is the only step-level audit emission in src/ and writes {stepIndex, command, exitCode}; step_start/step_failed are declared in AuditEventType but never emitted. buildReplayState already reads risk/target/totalSteps/stdout/stderr when present, so the fix is one file on the producer side. This is what keeps TERM-UX08 Planned. Detail in 19.3 deferred-items.md
+- **OPEN — Phase 19.3 closing UAT not run.** 19.3-06 Task 3 is a blocking human-verify gate needing a live LLM backend + Docker demo stack. Run `npm run dev` with NO arguments, then type `debug nginx 502` into the Ink prompt -- any CLI argument takes the one-shot Commander path (src/index.ts:118) and never renders Ink
 
 ## Session Continuity
 
 **Resume file:** .planning/phases/19.3-dpev-observability/19.3-06-PLAN.md
 
-Last session: 2026-07-31T11:49:35.414Z
-Stopped at: 19.3-04 complete (checkpoint approved); next: 19.3-06
-Resume: Live UAT with nginx 502 demo (full DPEV+E+V flow), then milestone review or next milestone planning.
+Last session: 2026-07-31
+Stopped at: 19.3-06 code complete (all 6 plans implemented); Task 3 phase-closing human-verify checkpoint OUTSTANDING
+Resume: Live UAT -- `npm run dev` (no arguments), then type `debug nginx 502` at the prompt. Verify j/k + Enter + Esc phase navigation first (TERM-UX04, newly reachable), that `n` at a [Y/n] approval no longer echoes into the command box, the session footer cost, and the replay round trip. Then mark requirements and close the phase.
 
 ## Performance Metrics
 
@@ -200,3 +208,4 @@ Resume: Live UAT with nginx 502 demo (full DPEV+E+V flow), then milestone review
 | Phase 19.3 P03 | 13 min | 2 tasks | 5 files |
 | Phase 19.3 P05 | 14 min | 1 tasks | 3 files |
 | Phase 19.3 P04 | ~22 min | 1 tasks | 3 files |
+| Phase 19.3 P06 | ~40 min | 5 tasks | 5 files |
