@@ -5,8 +5,8 @@ milestone_name: The Intelligence Layer
 current_phase: 19.3
 current_phase_name: dpev-observability
 status: executing
-stopped_at: 19.3-04 Task 1 complete; Task 2 human-verify checkpoint outstanding
-last_updated: "2026-07-31T11:32:03.432Z"
+stopped_at: "19.3-04 complete (checkpoint approved); next: 19.3-06"
+last_updated: "2026-07-31T11:49:35.528Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 19.3 Plan 01 complete (foundation)
 progress:
@@ -181,13 +181,14 @@ Progress: [████████░░] 84%
 - vLLM concurrent 7B+32B on single 32GB GPU: RESOLVED -- InferenceScheduler with graceful fallback shipped in Phase 18
 - Qdrant BGE-M3 embeddings: RESOLVED -- LanceDB embedded store used for both fix-caching (Phase 16) and semantic memory (Phase 17)
 - TERM-UX04 blocked on App.tsx keyboard arbitration (Plan 06): Esc exits the live session instead of collapsing the focused phase, and j/k leak into the always-active CommandInput. Ink fires every registered useInput handler, so DPEVPanel cannot suppress them. Detail in 19.3 deferred-items.md
+- Approval keystrokes leak into CommandInput (19.3-04 live run): pressing 'n' at a [Y/n] approval both answered it and typed 'n' into the command box; a following Enter would submit it as a command. App.tsx:404 keeps CommandInput active through approvals; App.tsx:204 swallows every printable char. Safety-relevant. Owner: Plan 06
 
 ## Session Continuity
 
-**Resume file:** .planning/phases/19.3-dpev-observability/19.3-04-SUMMARY.md
+**Resume file:** .planning/phases/19.3-dpev-observability/19.3-06-PLAN.md
 
-Last session: 2026-07-31T11:31:56.867Z
-Stopped at: 19.3-04 Task 1 complete; Task 2 human-verify checkpoint outstanding
+Last session: 2026-07-31T11:49:35.414Z
+Stopped at: 19.3-04 complete (checkpoint approved); next: 19.3-06
 Resume: Live UAT with nginx 502 demo (full DPEV+E+V flow), then milestone review or next milestone planning.
 
 ## Performance Metrics
