@@ -512,7 +512,10 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
 
       // `s` / `g` belong to CommandInput's onShortcut while it owns the keyboard —
       // routing them here too would toggle the overlay on the `s` of a typed "status".
-      if (keyboardOwner !== 'command-input' && input) {
+      // The side panels are excluded for the same reason: both have a `/` search mode
+      // that accumulates printable characters. The DPEV panel is the one owner with no
+      // text entry, so it is the only one that can spare a bare letter.
+      if (keyboardOwner === 'dpev-panel' && input) {
         if (input === 's') { setShowStatusOverlay(v => !v); return; }
         if (input === 'g' && mode === 'compact') { setShowEntityOverlay(v => !v); return; }
       }

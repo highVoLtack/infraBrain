@@ -785,6 +785,26 @@ describe('App keyboard arbitration (19.3-06 item A)', () => {
     expect(commandLine(lastFrame())).toMatch(new RegExp(`${PROMPT_GLYPH}\\s*n`));
   });
 
+  it('does not fire the s shortcut while a side panel owns the keyboard', async () => {
+    // SessionPanel and EntityPanel both have a `/` search mode that accumulates
+    // printable characters. The global shortcut exists only for the DPEV panel, which
+    // has no text entry — otherwise typing "sshd" into the session search would
+    // toggle the status overlay.
+    const { lastFrame, stdin } = render(
+      React.createElement(App, { apiBaseUrl: 'http://localhost:3000' }),
+    );
+    // center -> right -> left
+    stdin.write('\t');
+    await new Promise((r) => setTimeout(r, 30));
+    stdin.write('\t');
+    await new Promise((r) => setTimeout(r, 30));
+
+    stdin.write('s');
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(lastFrame()).not.toContain('STATUS DASHBOARD');
+  });
+
   it('threads exactly one keyboard owner into every input consumer', () => {
     // CommandInput was the sole input consumer without an ownership gate.
     expect(APP_SOURCE).toMatch(/isActive=\{keyboardOwner === 'command-input'\}/);
