@@ -66,3 +66,48 @@ at `tests/api/stream-debug.test.ts:391` (double-approve idempotency test), throw
 assertion inside a `setTimeout` callback that escapes the test's lifetime — a pre-existing test
 hygiene issue (the assertion should be awaited rather than fired from a timer). Not caused by
 Plan 01; no file in `tests/api/` was touched. Worth fixing when Plan 02 extends this test file.
+
+## App.tsx keyboard precedence blocks two D-03 gestures (discovered during 19.3-04, Task 1)
+
+Wiring the phase-accordion `useInput` into `DPEVPanel` surfaced two collisions with handlers
+that already live in `src/ui/App.tsx`. Ink fires **every** registered `useInput` handler for each
+keystroke — they are not exclusive — so the DPEVPanel handler cannot suppress them from its own file.
+
+| Gesture | What happens today | Owner |
+|---------|--------------------|-------|
+| `Esc` | `App.tsx:337-340` tears the live session down (`setActivePrompt(undefined)`) or exits replay. DPEVPanel's `PHASE_EXPAND … expanded:false` also fires, but the panel unmounts, so the collapse is never observable. | `src/ui/App.tsx` |
+| `j` / `k` | `CommandInput` is rendered with `isActive={!showStatusOverlay}` (`App.tsx:404`) — always on during a live session. With an empty prompt box, `handleShortcut` declines `j`/`k`, so they fall through to `setText(t => t + input)` and are typed into the command field while also moving phase focus. | `src/ui/App.tsx` |
+
+`↑` / `↓` and `Enter` are **clean** — Ink normalizes non-alphanumeric keys to `input = ''`
+(`node_modules/ink/build/hooks/use-input.js:91-93`), so `CommandInput` ignores them, and `App`'s
+global handler does not read arrows. `Enter` with an empty prompt box is a no-op there too.
+
+**Why deferred:** the fix is an arbitration change in `src/ui/App.tsx` — gate `CommandInput`'s
+`isActive` on center-panel focus, and give the focused phase's collapse precedence over
+session-exit for `Esc`. `App.tsx` is Plan 06's declared scope and 19.3-04's scope fence forbids
+crossing into it.
+
+**Recommended action (Plan 06):** thread an `activeFocus`-style prop into `DPEVPanel` the way
+`SessionPanel` already receives one, so exactly one consumer owns the keystroke.
+
+**Consequence for the 19.3-04 checkpoint:** verification steps 4 (`Esc` collapses the body) and the
+`j`/`k` half of phase navigation cannot pass until Plan 06 lands. `↑`/`↓` + `Enter` expand are
+verifiable today.
+
+## `StreamingText` keys its windowed lines by array index (discovered during 19.3-04, Task 1)
+
+`src/ui/components/StreamingText.tsx:28` renders `visibleLines.map((line, i) => <Text key={i}>)`.
+Because the component windows to the **last** `maxLines` entries (`lines.slice(-maxLines)`), every
+new token that pushes the window forward shifts each line's content to a different index while the
+key stays the same — React then patches text into reused nodes instead of remounting. This is the
+"secondary suspect" D-22 names, and a plausible source of the residual/artefact lines TERM-UX07
+targets.
+
+**Why deferred:** `src/ui/components/StreamingText.tsx` is not in 19.3-04's declared
+`files_modified`, and the defect is pre-existing (unchanged since Phase 19). 19.3-04 fixed the
+key instability it *does* own — the `DPEVPanel` phase list, which moved from `key={`phase-${i}`}`
+to `key={`phase-${phase.name}-${phase.startedAt}`}`.
+
+**Recommended action:** key on line content plus the window offset
+(`key={`${lines.length - visibleLines.length + i}`}`), which is stable for a given line across
+window advances. Small and local; needs a plan that declares `StreamingText.tsx` in scope.
