@@ -109,11 +109,33 @@ From this phase forward the step log is append-only. Each attempt at a step appe
 event carrying an explicit attempt number. Nothing is overwritten and nothing is collapsed into
 a single summary row.
 
+**Producer invariant — no exceptions.** Every step event written by the new producer carries
+`attempt_n`, **including attempt 1**. This is not a formatting preference: D-1 keeps two schema
+eras alive in the same log, and "no `attempt_n` ⇒ pre-fix record" is the only thing that tells
+them apart. A single new event written without `attempt_n` collapses that discriminant and makes
+every pre-fix record indistinguishable from a new bug. Assert it in a test over the emitter, not
+only over sample payloads.
+
 ### D-3. Status is derived exclusively from events
 
 A step's outcome is computed from the event sequence — never stored as a standalone field, never
 inferred from the *absence* of an event. Absence of `step_failed` must not read as success. This
 is the root cause of the original defect and the rule that prevents its return.
+
+**Cardinality invariant.** Exactly **one** terminal event per `(stepIndex, attempt_n)` pair —
+where terminal means `step_complete` or `step_failed`.
+
+| Terminal events for a pair | Meaning |
+|---|---|
+| 1 | the only valid state |
+| 0 | in-flight *if the session is still open*; **integrity violation** if the session has ended |
+| 2+ | integrity violation, always |
+
+The reader must **surface** violations — as a distinct, visible state — rather than resolving
+them into whichever outcome looks plausible. Interpreting ambiguity away is precisely how a
+failure came to render as a success in the first place; a rule that silently repairs its own
+violations cannot be relied upon. This hardening exists so the root fix survives the next
+refactor rather than depending on it.
 
 ---
 
@@ -122,17 +144,23 @@ is the root cause of the original defect and the rule that prevents its return.
 1. **`step_start` is emitted** before each step attempt.
 2. **`step_failed` is emitted** on every failing attempt, including attempts that a later retry
    or self-heal ultimately rescues.
-3. **Attempt numbers are explicit** on every step event; a step healed on attempt 3 leaves three
-   discernible attempt records.
+3. **Attempt numbers are explicit on every step event without exception, attempt 1 included**
+   (D-2 producer invariant). A step healed on attempt 3 leaves three discernible attempt records.
+   Test the emitter itself, not just sample payloads — the schema-era discriminant depends on
+   this holding universally.
 4. **Payload is complete enough for replay**: `risk`, `target`, `totalSteps`, `stdout`, `stderr`
    populated so `buildReplayState` renders a real risk badge and a correct `[n/m]` counter.
 5. **Status derivation is event-only** (D-3), with a test asserting that a missing `step_failed`
    is not treated as success.
-6. **Pre-fix records still parse.** A test loads a real historical session (pre-2026-07-31) and
+6. **Terminal-event cardinality is enforced and violations are visible** (D-3 cardinality
+   invariant). Tests cover all three cases: exactly one terminal event, zero with the session
+   closed, and two. The zero-with-session-open case must read as in-flight, not as a violation.
+   A violation must surface as its own state — never be resolved into a plausible-looking outcome.
+7. **Pre-fix records still parse.** A test loads a real historical session (pre-2026-07-31) and
    asserts it renders without error and without being silently reinterpreted.
-7. **No consumer file is modified.** `App.tsx` and `formatter.ts` are untouched; if either needs
+8. **No consumer file is modified.** `App.tsx` and `formatter.ts` are untouched; if either needs
    a change, that is a signal the payload shape is wrong.
-8. **The regression test below passes.**
+9. **The regression test below passes, and its red state is an artifact.**
 
 ### The closing regression test — required
 
@@ -141,8 +169,12 @@ is the root cause of the original defect and the rule that prevents its return.
 Drive a step to genuine failure, replay the resulting session, and assert the reconstructed
 record shows **failure plus the attempt history** — not success.
 
-This test must fail against the current producer. Verify that it does before implementing the
-fix; a regression test that passes on the broken code is testing the wrong thing.
+**The red proof must itself be an artifact.** Either commit the failing test on its own
+(RED commit) before the fix, or persist the failing run's output into this phase directory as
+evidence. A regression test that passes on the broken code is testing the wrong thing — and
+"it was red first" that exists only in a summary is narration, indistinguishable in two weeks
+from a test that was never red at all. Same principle as section N: make the guarantee
+mechanical rather than reported.
 
 ---
 
