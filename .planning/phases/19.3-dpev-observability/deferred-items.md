@@ -67,7 +67,64 @@ assertion inside a `setTimeout` callback that escapes the test's lifetime — a 
 hygiene issue (the assertion should be awaited rather than fired from a timer). Not caused by
 Plan 01; no file in `tests/api/` was touched. Worth fixing when Plan 02 extends this test file.
 
-## App.tsx keyboard precedence blocks two D-03 gestures (discovered during 19.3-04, Task 1)
+## RESOLVED in 19.3-06 (kept for provenance)
+
+- **App.tsx keyboard precedence** (section below) — fixed by the `resolveKeyboardOwner` /
+  `resolveEscapeAction` arbitration in `src/ui/App.tsx`. `CommandInput` now only holds the keyboard
+  when nothing else claims it, and Esc yields to a visible phase collapse before exiting a session.
+- **Finding 1 — approval keystrokes leak into CommandInput** (section below) — same fix; regression
+  test `does not leak an approval keystroke into the command box during a live session`.
+- **Finding 2 — session footer cost contradicts the per-phase lines** (section below) — fixed by
+  `formatSessionCost` in `src/ui/panels/DPEVPanel.tsx`.
+
+Still open below: the tsc errors, the E2E POCs, the flaky api rejection, the `StreamingText` index
+keys, and pipeline `console.log` (Finding 3).
+
+## Audit producer does not emit the step fields replay reads (discovered during 19.3-06, Task 1)
+
+`buildReplayState` now reconstructs `command`, `risk`, `target`, `total`, `stdout` and `stderr` for
+every execution step, merging by `stepIndex` exactly as the runtime `STEP_UPDATE` reducer does. The
+consumer is complete. **The producer is not.**
+
+`src/execution/executor.ts:341` is the *only* step-level audit emission in `src/`:
+
+```typescript
+deps.auditLogger.logExecution('step_complete', {
+  stepIndex: i,
+  command: commandUsed,
+  exitCode: finalResult.exitCode,
+});
+```
+
+| Field replay reads | Emitted today? | Consequence in replay |
+|--------------------|----------------|-----------------------|
+| `command` | yes | renders correctly |
+| `risk` | **no** | `StepCard` renders an empty `[]` badge |
+| `totalSteps` | **no** | step counter renders `[1/0]` |
+| `target` | **no** | the `on <target>` suffix never appears |
+| `stdout` / `stderr` | **no** | **TERM-UX08's "every step's output" clause is unmet** |
+
+Two further gaps in the same family: `step_start` and `step_failed` are declared in
+`src/audit/types.ts` (`AuditEventType`) but **never emitted anywhere in `src/`** — so a failed step
+replays as `success`, and `execution_start` (`executor.ts:86`) is a plan-level envelope
+(`{ planSummary, target, stepCount }`) with no `stepIndex`, which `buildReplayState` deliberately
+skips so it cannot materialise as a phantom step with an empty command.
+
+**Why deferred:** `src/execution/executor.ts` and `src/audit/` are outside 19.3-06's declared
+`files_modified`, and widening an audit payload is a change to the persisted audit contract — it
+touches the executor's tests and the `tests/e2e` DPEV-sequence assertions. That is a Rule 4
+architectural change in another subsystem, not an in-task fix.
+
+**Recommended action:** one small plan against `src/execution/executor.ts` — add
+`risk`, `target`, `totalSteps`, `stdout`, `stderr` to the `step_complete` payload and emit a real
+`step_failed` on the failure branch. No UI change is then required: the consumer and its tests
+already exist. `tests/ui/app.test.tsx` → `reconstructs what the executor actually writes today —
+command and status only` is the test to flip when it lands.
+
+**Consequence for traceability:** TERM-UX08 stays `Planned`. Phase headers, timings and step
+*commands* replay correctly; step *output* does not, and the requirement names it explicitly.
+
+## App.tsx keyboard precedence blocks two D-03 gestures (discovered during 19.3-04, Task 1) — RESOLVED in 19.3-06
 
 Wiring the phase-accordion `useInput` into `DPEVPanel` surfaced two collisions with handlers
 that already live in `src/ui/App.tsx`. Ink fires **every** registered `useInput` handler for each
@@ -143,7 +200,7 @@ Any CLI argument takes the one-shot Commander path and returns before `render(Ap
 Not a code defect; the two-mode entrypoint is intentional. Recorded so no future phase's
 `how-to-verify` block repeats the instruction.
 
-### 1. Approval keystrokes leak into CommandInput (safety-relevant)
+### 1. Approval keystrokes leak into CommandInput (safety-relevant) — RESOLVED in 19.3-06
 
 Pressing `n` at the `WRITE Execute "Execute this plan"? [Y/n]` prompt **both** answered the
 approval **and** typed `n` into the command box — `❯ n_` was still visible after the session ended.
@@ -162,7 +219,7 @@ not receive one, which confirms the fix shape recommended above.
 
 **Owner:** Plan 06, bundled with the keyboard-arbitration work.
 
-### 2. Session footer cost formatting contradicts the per-phase lines
+### 2. Session footer cost formatting contradicts the per-phase lines — RESOLVED in 19.3-06
 
 `src/ui/panels/DPEVPanel.tsx:288` renders
 `` `Session: ${totalTokens} tokens · $${totalCostUsd.toFixed(2)}` ``, producing a hard `$0.00` even
