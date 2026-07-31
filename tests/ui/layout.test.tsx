@@ -520,3 +520,282 @@ describe('EntityPanel refreshKey', () => {
     expect(fetchCount).toBeGreaterThan(countAfterFirst);
   });
 });
+
+// ---- StatusOverlay Phase 19.3 "Glass Box" cockpit (TERM-UX05) ----
+// D-14 live poll, D-15 cumulative+session split, D-16 latest-call row,
+// D-23 Intelligence Efficiency v2.0 placeholders.
+
+import { StatusOverlay, parseOverlayData } from '../../src/ui/layout/StatusOverlay.js';
+
+describe('StatusOverlay Phase 19.3 (TERM-UX05)', () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  /** Route /health and /status to distinct bodies, mirroring the real endpoints. */
+  function mockFetch(statusBody: unknown = {}, healthBody: unknown = {}) {
+    const fetchMock = vi.fn().mockImplementation((url: unknown) =>
+      Promise.resolve({
+        ok: true,
+        json: async () => (String(url).endsWith('/status') ? statusBody : healthBody),
+      }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+    return fetchMock;
+  }
+
+  /** Let the mount-time fetch settle so the first setData lands. */
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 60));
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    mockFetch();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    globalThis.fetch = originalFetch;
+  });
+
+  // -- parseOverlayData: v2.0 memory placeholders (D-23) --
+
+  it('parseOverlayData defaults the v2.0 memory fields to null when missing', () => {
+    const result = parseOverlayData({}, { memory: { incidentCount: 3, entityCount: 4, walSize: '2 KB' } });
+    expect(result.memoryStats.compressionRatio).toBeNull();
+    expect(result.memoryStats.totalTokensSaved).toBeNull();
+    expect(result.memoryStats.distilledEntriesCount).toBeNull();
+    // Existing fields untouched.
+    expect(result.memoryStats.incidentCount).toBe(3);
+    expect(result.memoryStats.entityCount).toBe(4);
+    expect(result.memoryStats.walSize).toBe('2 KB');
+  });
+
+  it('parseOverlayData surfaces the v2.0 memory fields when the backend provides them', () => {
+    const result = parseOverlayData({}, {
+      memory: {
+        incidentCount: 1,
+        entityCount: 2,
+        walSize: '9 B',
+        compressionRatio: 0.72,
+        totalTokensSaved: 45000,
+        distilledEntriesCount: 12,
+      },
+    });
+    expect(result.memoryStats.compressionRatio).toBe(0.72);
+    expect(result.memoryStats.totalTokensSaved).toBe(45000);
+    expect(result.memoryStats.distilledEntriesCount).toBe(12);
+  });
+
+  // -- parseOverlayData: cumulative / this-session split (D-15) --
+
+  it('parseOverlayData populates cacheBreakdown.cumulative from the response', () => {
+    const result = parseOverlayData({}, {
+      cache: { totalEntries: 47, hitRate: 0.23, avgConfidence: 0.81 },
+    });
+    expect(result.cacheBreakdown.cumulative.hitRate).toBe('23.0%');
+    expect(result.cacheBreakdown.cumulative.totalEntries).toBe(47);
+    expect(result.cacheBreakdown.cumulative.avgConfidence).toBe('81.0%');
+    // Backward-compatible mirror kept for existing consumers.
+    expect(result.cacheStats.hitRate).toBe('23.0%');
+  });
+
+  it('parseOverlayData returns cacheBreakdown.thisSession as zeros in v1.3', () => {
+    const result = parseOverlayData({}, {
+      cache: { totalEntries: 47, hitRate: 0.23, avgConfidence: 0.81 },
+    });
+    expect(result.cacheBreakdown.thisSession.hits).toBe(0);
+    expect(result.cacheBreakdown.thisSession.llmCallsSaved).toBe(0);
+  });
+
+  // -- parseOverlayData: latest call (D-16) --
+
+  it('parseOverlayData leaves latestCall undefined when the backend omits it', () => {
+    const result = parseOverlayData({}, { cache: { totalEntries: 1 } });
+    expect(result.latestCall).toBeUndefined();
+  });
+
+  it('parseOverlayData normalizes latestCall, preserving nullable output tokens and cost', () => {
+    const result = parseOverlayData({}, {
+      latestCall: { modelId: 'gemini-2.5-pro', inputTokens: 1200, outputTokens: null, latencyMs: 830, costUsd: null },
+    });
+    expect(result.latestCall).toBeDefined();
+    expect(result.latestCall!.modelId).toBe('gemini-2.5-pro');
+    expect(result.latestCall!.inputTokens).toBe(1200);
+    expect(result.latestCall!.outputTokens).toBeNull();
+    expect(result.latestCall!.latencyMs).toBe(830);
+    expect(result.latestCall!.costUsd).toBeNull();
+  });
+
+  // -- Rendering --
+
+  it('renders the Latest Call section with a fallback line when no call has happened', async () => {
+    const { lastFrame, unmount } = render(
+      React.createElement(StatusOverlay, { apiBaseUrl: 'http://localhost:3000', onDismiss: vi.fn() }),
+    );
+    await flush();
+    const frame = lastFrame()!;
+    expect(frame).toContain('Latest Call');
+    expect(frame).toContain('No LLM calls yet');
+    unmount();
+  });
+
+  it('renders the Latest Call detail row with model, tokens, latency and cost', async () => {
+    mockFetch({
+      latestCall: { modelId: 'qwen3-32b', inputTokens: 1200, outputTokens: 340, latencyMs: 850, costUsd: 0.0042 },
+    });
+    const { lastFrame, unmount } = render(
+      React.createElement(StatusOverlay, { apiBaseUrl: 'http://localhost:3000', onDismiss: vi.fn() }),
+    );
+    await flush();
+    const frame = lastFrame()!;
+    expect(frame).toContain('qwen3-32b');
+    expect(frame).toContain('in:1200');
+    expect(frame).toContain('out:340');
+    expect(frame).toContain('850ms');
+    expect(frame).toContain('$0.0042');
+    expect(frame).not.toContain('No LLM calls yet');
+    unmount();
+  });
+
+  it('renders an em-dash for null output tokens and null cost in the Latest Call row', async () => {
+    mockFetch({
+      latestCall: { modelId: 'qwen3-32b', inputTokens: 900, outputTokens: null, latencyMs: 120, costUsd: null },
+    });
+    const { lastFrame, unmount } = render(
+      React.createElement(StatusOverlay, { apiBaseUrl: 'http://localhost:3000', onDismiss: vi.fn() }),
+    );
+    await flush();
+    const frame = lastFrame()!;
+    expect(frame).toContain('out:—');
+    expect(frame).toContain('$—');
+    expect(frame).not.toContain('$0.0000');
+    unmount();
+  });
+
+  it('renders Cache Stats with both a Cumulative and a This Session row', async () => {
+    mockFetch({ cache: { totalEntries: 47, hitRate: 0.23, avgConfidence: 0.81 } });
+    const { lastFrame, unmount } = render(
+      React.createElement(StatusOverlay, { apiBaseUrl: 'http://localhost:3000', onDismiss: vi.fn() }),
+    );
+    await flush();
+    const frame = lastFrame()!;
+    expect(frame).toContain('Cache Stats');
+    expect(frame).toContain('Cumulative:');
+    expect(frame).toContain('23.0%');
+    expect(frame).toContain('This Session:');
+    expect(frame).toContain('0 hits');
+    expect(frame).toContain('0 LLM calls saved');
+    unmount();
+  });
+
+  it('renders the Intelligence Efficiency section with v2.0 em-dash placeholders', async () => {
+    const { lastFrame, unmount } = render(
+      React.createElement(StatusOverlay, { apiBaseUrl: 'http://localhost:3000', onDismiss: vi.fn() }),
+    );
+    await flush();
+    const frame = lastFrame()!;
+    expect(frame).toContain('Intelligence Efficiency');
+    expect(frame).toContain('Memory Density: — (v2.0)');
+    expect(frame).toContain('Tokens Saved: — (v2.0)');
+    expect(frame).toContain('Distilled Entries: — (v2.0)');
+    unmount();
+  });
+
+  it('preserves the existing Backends / Model Assignments / Memory / Context sections', async () => {
+    mockFetch(
+      { memory: { incidentCount: 42, entityCount: 88, walSize: '1.2 KB' }, context: { currentTokens: 0, maxTokens: 32768 } },
+      {
+        backends: [{ baseUrl: 'http://localhost:11434/v1', connected: true, responseTimeMs: 35 }],
+        modelRegistry: [{ role: 'worker', model: 'qwen3-0.6b' }],
+        inferenceMode: 'sequential',
+      },
+    );
+    const { lastFrame, unmount } = render(
+      React.createElement(StatusOverlay, { apiBaseUrl: 'http://localhost:3000', onDismiss: vi.fn() }),
+    );
+    await flush();
+    const frame = lastFrame()!;
+    expect(frame).toContain('STATUS DASHBOARD');
+    expect(frame).toContain('Press Esc to dismiss');
+    expect(frame).toContain('Backends');
+    expect(frame).toContain('localhost:11434');
+    expect(frame).toContain('Model Assignments');
+    expect(frame).toContain('worker: qwen3-0.6b');
+    expect(frame).toContain('Memory Stats');
+    expect(frame).toContain('Incidents: 42');
+    expect(frame).toContain('Context Window');
+    expect(frame).toContain('32768 tokens');
+    unmount();
+  });
+
+  it('never renders the literal text undefined, null or NaN on a malformed payload', async () => {
+    mockFetch({ cache: 'nope', memory: null, context: [], latestCall: 42, models: 'x' });
+    const { lastFrame, unmount } = render(
+      React.createElement(StatusOverlay, { apiBaseUrl: 'http://localhost:3000', onDismiss: vi.fn() }),
+    );
+    await flush();
+    const frame = lastFrame()!;
+    expect(frame).not.toContain('undefined');
+    expect(frame).not.toContain('null');
+    expect(frame).not.toContain('NaN');
+    unmount();
+  });
+
+  it('reflects the live session token count when the sessionTokens prop is supplied', async () => {
+    const { lastFrame, unmount } = render(
+      React.createElement(StatusOverlay, {
+        apiBaseUrl: 'http://localhost:3000',
+        onDismiss: vi.fn(),
+        sessionTokens: 8192,
+      }),
+    );
+    await flush();
+    const frame = lastFrame()!;
+    expect(frame).toContain('8192 / 32768 tokens');
+    expect(frame).toContain('25%');
+    unmount();
+  });
+
+  it('dismisses on Esc', async () => {
+    const onDismiss = vi.fn();
+    const { stdin, unmount } = render(
+      React.createElement(StatusOverlay, { apiBaseUrl: 'http://localhost:3000', onDismiss }),
+    );
+    stdin.write('\x1B');
+    await flush();
+    expect(onDismiss).toHaveBeenCalled();
+    unmount();
+  });
+
+  // -- Poll lifecycle (D-14) --
+
+  it('polls /health and /status every 2.5 seconds while mounted', async () => {
+    vi.useFakeTimers();
+    const fetchMock = mockFetch();
+    const { unmount } = render(
+      React.createElement(StatusOverlay, { apiBaseUrl: 'http://localhost:3000', onDismiss: vi.fn() }),
+    );
+
+    await vi.advanceTimersByTimeAsync(10);
+    const afterMount = fetchMock.mock.calls.length;
+    expect(afterMount).toBeGreaterThanOrEqual(2); // /health + /status
+
+    await vi.advanceTimersByTimeAsync(5500); // two more poll ticks
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(afterMount + 4);
+
+    unmount();
+  });
+
+  it('stops polling once unmounted', async () => {
+    vi.useFakeTimers();
+    const fetchMock = mockFetch();
+    const { unmount } = render(
+      React.createElement(StatusOverlay, { apiBaseUrl: 'http://localhost:3000', onDismiss: vi.fn() }),
+    );
+
+    await vi.advanceTimersByTimeAsync(10);
+    unmount();
+    const afterUnmount = fetchMock.mock.calls.length;
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(fetchMock.mock.calls.length).toBe(afterUnmount);
+  });
+});
