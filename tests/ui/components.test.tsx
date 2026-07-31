@@ -497,3 +497,126 @@ describe('ApprovalDestructive', () => {
     expect(onResponse).not.toHaveBeenCalled();
   });
 });
+
+// ---- MarkdownView Tests ----
+describe('MarkdownView', () => {
+  /** Render a Markdown string through the MarkdownView component and return the frame. */
+  async function renderMd(source: string): Promise<string> {
+    const { MarkdownView } = await import('../../src/ui/components/MarkdownView.js');
+    const { lastFrame } = render(React.createElement(MarkdownView, { children: source }));
+    return lastFrame() ?? '';
+  }
+
+  it('renders h1 heading visible without # token', async () => {
+    const frame = await renderMd('# Root cause');
+    expect(frame).toContain('Root cause');
+    expect(frame).not.toContain('#');
+  });
+
+  it('renders h2 heading visible without ## token', async () => {
+    const frame = await renderMd('## Recommended fix');
+    expect(frame).toContain('Recommended fix');
+    expect(frame).not.toContain('##');
+    expect(frame).not.toContain('#');
+  });
+
+  it('renders deeper headings (h3..h6) without # tokens', async () => {
+    const frame = await renderMd('### Level three\n\n###### Level six');
+    expect(frame).toContain('Level three');
+    expect(frame).toContain('Level six');
+    expect(frame).not.toContain('#');
+  });
+
+  it('renders fenced code block without backtick fence markers', async () => {
+    const frame = await renderMd('```typescript\nconst x = 1\n```');
+    expect(frame).toContain('const x = 1');
+    expect(frame).not.toContain('```');
+    expect(frame).not.toContain('`');
+  });
+
+  it('renders inline code without single-backtick markers', async () => {
+    const frame = await renderMd('use `prisma` here');
+    expect(frame).toContain('prisma');
+    expect(frame).not.toContain('`');
+  });
+
+  it('renders bold text without ** markers', async () => {
+    const frame = await renderMd('**important**');
+    expect(frame).toContain('important');
+    expect(frame).not.toContain('**');
+    expect(frame).not.toContain('*');
+  });
+
+  it('renders italic text without * markers', async () => {
+    const frame = await renderMd('*subtle*');
+    expect(frame).toContain('subtle');
+    expect(frame).not.toContain('*');
+  });
+
+  it('renders unordered list with - bullet prefix', async () => {
+    const frame = await renderMd('- one\n- two');
+    expect(frame).toContain('one');
+    expect(frame).toContain('two');
+    expect(frame).toContain('-');
+  });
+
+  it('renders ordered list with numbered prefix', async () => {
+    const frame = await renderMd('1. alpha\n2. beta');
+    expect(frame).toContain('alpha');
+    expect(frame).toContain('beta');
+    expect(frame).toContain('1.');
+    expect(frame).toContain('2.');
+  });
+
+  it('renders loose lists (paragraph-wrapped list items) too', async () => {
+    const frame = await renderMd('- one\n\n- two');
+    expect(frame).toContain('one');
+    expect(frame).toContain('two');
+  });
+
+  it('passes plain text through unchanged', async () => {
+    const frame = await renderMd('plain');
+    expect(frame).toContain('plain');
+  });
+
+  it('renders empty string without crashing', async () => {
+    const frame = await renderMd('');
+    expect(frame.trim()).toBe('');
+  });
+
+  it('renders partial/incomplete markdown without crashing', async () => {
+    const partialHeading = await renderMd('## Ro');
+    expect(partialHeading).toContain('Ro');
+    const partialFence = await renderMd('```partial');
+    expect(partialFence).not.toContain('```');
+  });
+
+  it('renderMarkdown(undefined) returns an empty Box', async () => {
+    const { renderMarkdown } = await import('../../src/ui/components/MarkdownView.js');
+    const { lastFrame } = render(renderMarkdown(undefined));
+    expect((lastFrame() ?? '').trim()).toBe('');
+  });
+
+  it('renderMarkdown produces the same visible output as MarkdownView', async () => {
+    const { renderMarkdown, MarkdownView } = await import(
+      '../../src/ui/components/MarkdownView.js'
+    );
+    const source = '# Title\n\nSome **bold** text';
+    const pure = render(renderMarkdown(source)).lastFrame() ?? '';
+    const component = render(React.createElement(MarkdownView, { children: source })).lastFrame() ?? '';
+    expect(component).toBe(pure);
+  });
+
+  it('renders a mixed document with headings, code, and lists together', async () => {
+    const frame = await renderMd(
+      '# Diagnosis\n\nThe `nginx` upstream is down.\n\n```bash\ndocker restart nginx\n```\n\n- check logs\n- restart service'
+    );
+    expect(frame).toContain('Diagnosis');
+    expect(frame).toContain('nginx');
+    expect(frame).toContain('docker restart nginx');
+    expect(frame).toContain('check logs');
+    expect(frame).toContain('restart service');
+    expect(frame).not.toContain('#');
+    expect(frame).not.toContain('`');
+  });
+});
