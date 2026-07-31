@@ -5,15 +5,15 @@ milestone_name: The Intelligence Layer
 current_phase: 19.3
 current_phase_name: dpev-observability
 status: executing
-stopped_at: Completed 19.3-02-PLAN.md (backend observability contracts)
-last_updated: "2026-07-31T10:47:24.409Z"
+stopped_at: Completed 19.3-03-PLAN.md (DPEV state layer + phase header)
+last_updated: "2026-07-31T11:00:34.271Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 19.3 Plan 01 complete (foundation)
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 32
-  completed_plans: 28
+  completed_plans: 29
   percent: 80
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-03-31)
 ## Current Position
 
 Phase: 19.3 (dpev-observability) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-07-31 — Phase 19.3 Plan 01 complete (foundation)
 
@@ -146,6 +146,9 @@ Progress: [████████░░] 84%
 - [Phase 19.3-02]: dpev:usage carries a real locally-counted inputTokens (Qwen3 BPE) with null output/total/cost per D-11 -- a partial input-only cost would understate the real figure
 - [Phase 19.3-02]: substatus for the parallel path is emitted at dispatch time before scheduler.runParallel, not inside task.execute
 - [Phase 19.3-02]: /status aggregates each dashboard section in its own try/catch -- store failures degrade to 0/null, never HTTP 500
+- [Phase 19.3-03]: handleSSEEvent exported at module scope — SSE routing bugs (D-17) are invisible to reducer-only tests
+- [Phase 19.3-03]: USAGE_UPDATE matches phases by name right-to-left — usage arrives after PHASE_COMPLETE
+- [Phase 19.3-03]: timerColor checks 'complete' before 'execution' so finished execution phases fade to gray
 
 ### Pending Todos
 
@@ -176,8 +179,10 @@ Progress: [████████░░] 84%
 
 ## Session Continuity
 
-Last session: 2026-07-31T10:47:02.110Z
-Stopped at: Completed 19.3-02-PLAN.md (backend observability contracts)
+**Resume file:** None
+
+Last session: 2026-07-31T11:00:34.259Z
+Stopped at: Completed 19.3-03-PLAN.md (DPEV state layer + phase header)
 Resume: Live UAT with nginx 502 demo (full DPEV+E+V flow), then milestone review or next milestone planning.
 
 ## Performance Metrics
@@ -186,3 +191,4 @@ Resume: Live UAT with nginx 502 demo (full DPEV+E+V flow), then milestone review
 |-------|------|----------|-------|
 | Phase 19.3 P01 | 10 min | 3 tasks | 8 files |
 | Phase 19.3 P02 | 20 min | 3 tasks | 11 files |
+| Phase 19.3 P03 | 13 min | 2 tasks | 5 files |
