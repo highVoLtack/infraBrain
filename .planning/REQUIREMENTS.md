@@ -34,6 +34,17 @@ Requirements for v1.3 The Intelligence Layer. Each maps to roadmap phases.
 - [x] **TERM-E05**: Plan rendering shows structured steps (numbered list with risk badges) not raw Markdown text
 - [ ] **TERM-E06**: Session status updates to completed/failed based on actual execution outcome (not just "diagnosis done")
 
+### DPEV Panel Observability (Phase 19.3)
+
+- [ ] **TERM-UX01**: Diagnosis + plan narrative render with terminal-styled headings, code blocks, inline code, bold/italic, lists (not raw `##` / triple-backtick / `**` chars). Single `MarkdownView` component shared across DPEVPanel + replay.
+- [ ] **TERM-UX02**: Every executed step shows the actual command string, exit code, and stdout preview (first N lines, configurable). Stderr shown when exit ≠ 0. No more `[1/0] ✓ []` with empty brackets.
+- [ ] **TERM-UX03**: Active phases show a live spinner + sub-status label (e.g. "Calling gemini-2.5-pro", "Parsing response") from second zero. Phase elapsed-time counter ticks visibly every second with Cyan (LLM) / Yellow (Execution) / dim (complete) coloring.
+- [ ] **TERM-UX04**: Keyboard navigation (↑/↓ + j/k + Enter / Esc) moves a selection cursor through phase headers. Enter on a completed phase expands its full stream; Esc collapses. The DIAGNOSIS Markdown text stays accessible after PLAN begins.
+- [ ] **TERM-UX05**: `s` / Esc dashboard shows non-zero values after ≥1 session: Cache hit-rate, total entries, memory incident count, context-window % of the live session, latest call usage. Polls every 2-3s while overlay open.
+- [ ] **TERM-UX06**: Each completed phase shows `in: X · out: Y · total: Z · $W · Ns` under its header. When the backend reports undefined (Gemini stream), show `–` instead of "undefined". Session footer shows cumulative tokens + cost with `Saved via Memory: $0.00 (v2.0)` placeholder.
+- [ ] **TERM-UX07**: Panels use key-stable Ink components; no artefact lines remain from prior renders during live SSE streaming.
+- [ ] **TERM-UX08**: Selecting an older session from the Sessions list shows the complete D→P→E→V stream including every step's command + output, not just the phase headers. Initial state = all phases collapsed.
+
 ### Parallel Execution
 
 - [x] **EXEC-01**: Discovery commands run in parallel via `Promise.all()` (2-5x speedup)
@@ -167,12 +178,21 @@ Deferred to future release. Tracked but not in current roadmap.
 | TERM-E04 | Phase 19.2 | Planned |
 | TERM-E05 | Phase 19.2 | Complete |
 | TERM-E06 | Phase 19.2 | Planned |
+| TERM-UX01 | Phase 19.3 | Planned |
+| TERM-UX02 | Phase 19.3 | Planned |
+| TERM-UX03 | Phase 19.3 | Planned |
+| TERM-UX04 | Phase 19.3 | Planned |
+| TERM-UX05 | Phase 19.3 | Planned |
+| TERM-UX06 | Phase 19.3 | Planned |
+| TERM-UX07 | Phase 19.3 | Planned |
+| TERM-UX08 | Phase 19.3 | Planned |
 
 **Coverage:**
 - v1.3 requirements: 40 total (complete)
 - v1.3 polish: 4 total (Phase 19.1 complete)
 - v1.3 E2E flow: 6 total (Phase 19.2 planned)
-- Mapped to phases: 50
+- v1.3 UX observability: 8 total (Phase 19.3 planned)
+- Mapped to phases: 58
 
 ---
 *Requirements defined: 2026-04-10*

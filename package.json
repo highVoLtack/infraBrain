@@ -25,6 +25,8 @@
     "express": "^5.2.1",
     "gray-matter": "^4.0.3",
     "ink": "^7.0.0",
+    "mdast-util-from-markdown": "^2.0.3",
+    "micromark": "^4.0.2",
     "p-queue": "^9.1.2",
     "react": "^19.2.5",
     "uuid": "^13.0.0",
