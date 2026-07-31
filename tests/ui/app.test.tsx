@@ -278,6 +278,33 @@ describe('buildReplayState', () => {
     expect(state.executionSteps[0]!.total).toBe(3);
   });
 
+  it('reconstructs what the executor actually writes today — command and status only', () => {
+    // Honest pin on the producer gap. src/execution/executor.ts:341 is the ONLY
+    // step audit emission in src/ and it writes { stepIndex, command, exitCode }.
+    // `step_start` and `step_failed` are declared in AuditEventType but never
+    // emitted, and no site logs risk / target / totalSteps / stdout / stderr.
+    // buildReplayState reads all of them when present; until the producer sends
+    // them, replay shows the command and nothing else. Flip this test when the
+    // executor's audit payload is widened.
+    const entries = [
+      {
+        eventType: 'step_complete',
+        timestamp: '2026-04-17T10:00:00.000Z',
+        metadata: { stepIndex: 0, command: 'systemctl restart nginx', exitCode: 0 },
+      },
+    ];
+
+    const state = buildReplayState('sess-producer-gap', entries);
+    const step = state.executionSteps[0]!;
+    expect(step.command).toBe('systemctl restart nginx');
+    expect(step.status).toBe('success');
+    expect(step.risk).toBe('');
+    expect(step.total).toBe(0);
+    expect(step.stdout).toBeUndefined();
+    expect(step.stderr).toBeUndefined();
+    expect(step.target).toBeUndefined();
+  });
+
   it('ignores execution_start envelopes that carry no per-step metadata', () => {
     // src/execution/executor.ts:86 logs a plan-level execution_start with
     // { planSummary, target, stepCount } and no stepIndex/command. That entry must
@@ -783,6 +810,21 @@ describe('App keyboard arbitration (19.3-06 item A)', () => {
     stdin.write('n');
     await new Promise((r) => setTimeout(r, 100));
     expect(commandLine(lastFrame())).toMatch(new RegExp(`${PROMPT_GLYPH}\\s*n`));
+  });
+
+  it('exits replay mode on Esc (replay registers no handler of its own)', async () => {
+    const { lastFrame, stdin } = render(
+      React.createElement(App, { apiBaseUrl: 'http://localhost:3000' }),
+    );
+    stdin.write('resume sess-abc123');
+    await new Promise((r) => setTimeout(r, 50));
+    stdin.write('\r');
+    await new Promise((r) => setTimeout(r, 150));
+    expect(lastFrame()).toContain('Replay mode');
+
+    stdin.write('\x1B');
+    await new Promise((r) => setTimeout(r, 100));
+    expect(lastFrame()).not.toContain('Replay mode');
   });
 
   it('does not fire the s shortcut while a side panel owns the keyboard', async () => {
