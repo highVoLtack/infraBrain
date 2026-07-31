@@ -103,6 +103,23 @@ export class EntityStore {
   }
 
   /**
+   * List all entity rows, including expired ones (no temporal filtering).
+   * Returns [] on any error -- graceful degradation.
+   * Used by the /status endpoint to compute entityCount (Phase 19.3 D-13).
+   */
+  async listAll(): Promise<Array<Record<string, unknown>>> {
+    try {
+      if (!(await this.ensureReady())) return [];
+      if (!this.table) return [];
+      const results = await this.table.query().toArray();
+      return results;
+    } catch (err) {
+      console.error('EntityStore listAll failed:', err);
+      return [];
+    }
+  }
+
+  /**
    * Search entities by type with optional wing filter.
    * Returns all entities of the given type (including expired).
    */
