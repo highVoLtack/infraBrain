@@ -1,0 +1,28 @@
+#!/bin/sh
+# Block commits containing secrets. Enabled via:
+#   git config core.hooksPath .githooks
+#
+# Why this exists: on 2026-07-31 a check found .env was untracked but NOT
+# gitignored, so one `git add -A` would have staged live credentials into a
+# then-public repo. History was clean (581 commits scanned, no leaks) and
+# .gitignore now covers .env — this hook is the mechanical guarantee that the
+# class of error stays dead rather than depending on discipline.
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks not installed — install with 'brew install gitleaks'." >&2
+  echo "pre-commit: refusing to commit unscanned. To override once: git commit --no-verify" >&2
+  exit 1
+fi
+
+# --staged scans exactly what is about to be committed, not the whole history.
+if ! gitleaks git --staged --no-banner --redact -v; then
+  echo "" >&2
+  echo "pre-commit: BLOCKED — a secret was detected in the staged changes." >&2
+  echo "Findings are redacted above. Do NOT commit and then remove it:" >&2
+  echo "a pushed secret must be treated as burned and rotated at the provider." >&2
+  echo "" >&2
+  echo "Unstage the offending file, confirm it is covered by .gitignore, and retry." >&2
+  exit 1
+fi
+
+exit 0
