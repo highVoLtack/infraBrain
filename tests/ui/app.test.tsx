@@ -270,8 +270,10 @@ describe('StatusOverlay', () => {
     expect(frame).toContain('Cache Stats');
     expect(frame).toContain('Memory Stats');
     expect(frame).toContain('Context Window');
-    expect(frame).toContain('Compression Efficiency');
-    expect(frame).toContain('Caveman/Perc integration: v2.0');
+    // 19.3-05: "Compression Efficiency / Caveman/Perc integration: v2.0" was
+    // superseded by the D-23 "Intelligence Efficiency" section, which carries the
+    // same v2.0 placeholders as three named metrics instead of one prose line.
+    expect(frame).toContain('Intelligence Efficiency');
   });
 
   it('calls onDismiss when Esc is pressed', async () => {
