@@ -153,6 +153,139 @@ describe('buildReplayState', () => {
     expect(state.phases[0]!.name).toBe('discovery');
     expect(state.phases[0]!.status).toBe('complete');
   });
+
+  // ---- Plan 19.3-06: replay parity with the live observability surface (TERM-UX08) ----
+
+  it('initialises expandedPhases to an empty object (D-04: all phases collapsed)', () => {
+    const state = buildReplayState('sess-007', []);
+    expect(state.expandedPhases).toBeDefined();
+    expect(Object.keys(state.expandedPhases!)).toHaveLength(0);
+  });
+
+  it('keeps expandedPhases empty even when phases were reconstructed', () => {
+    const entries = [
+      { eventType: 'dpev_phase_start', timestamp: '2026-04-17T10:00:00.000Z', metadata: { phase: 'diagnosis', model: 'gemini-2.5-pro' } },
+      { eventType: 'dpev_phase_complete', timestamp: '2026-04-17T10:00:03.000Z', metadata: { phase: 'diagnosis', model: 'gemini-2.5-pro', duration_ms: 3000 } },
+    ];
+    const state = buildReplayState('sess-008', entries);
+    expect(state.phases).toHaveLength(1);
+    expect(state.expandedPhases).toEqual({});
+  });
+
+  it('populates step command/risk/target/stdout from step_complete metadata (D-17 parity)', () => {
+    const entries = [
+      {
+        eventType: 'step_complete',
+        timestamp: '2026-04-17T10:00:00.000Z',
+        metadata: { stepIndex: 0, totalSteps: 2, command: 'docker ps', risk: 'read', target: 'nginx', stdout: 'listed\n' },
+      },
+    ];
+
+    const state = buildReplayState('sess-009', entries);
+    expect(state.executionSteps).toHaveLength(1);
+    expect(state.executionSteps[0]).toEqual({
+      stepIndex: 0,
+      total: 2,
+      command: 'docker ps',
+      risk: 'read',
+      target: 'nginx',
+      status: 'success',
+      stdout: 'listed\n',
+      stderr: undefined,
+    });
+  });
+
+  it('populates stderr and a failed status from step_failed metadata', () => {
+    const entries = [
+      {
+        eventType: 'step_failed',
+        timestamp: '2026-04-17T10:00:00.000Z',
+        metadata: { stepIndex: 1, totalSteps: 2, command: 'nginx -s reload', risk: 'write', stderr: 'error' },
+      },
+    ];
+
+    const state = buildReplayState('sess-010', entries);
+    expect(state.executionSteps).toHaveLength(1);
+    expect(state.executionSteps[0]!.status).toBe('failed');
+    expect(state.executionSteps[0]!.stderr).toBe('error');
+    expect(state.executionSteps[0]!.command).toBe('nginx -s reload');
+  });
+
+  it('merges execution_start (pending) and step_complete for the same stepIndex', () => {
+    const entries = [
+      {
+        eventType: 'execution_start',
+        timestamp: '2026-04-17T10:00:00.000Z',
+        metadata: { stepIndex: 0, totalSteps: 1, command: 'ls', risk: 'read' },
+      },
+      {
+        eventType: 'step_complete',
+        timestamp: '2026-04-17T10:00:01.000Z',
+        metadata: { stepIndex: 0, stdout: 'out' },
+      },
+    ];
+
+    const state = buildReplayState('sess-011', entries);
+    expect(state.executionSteps).toHaveLength(1);
+    const step = state.executionSteps[0]!;
+    expect(step.command).toBe('ls');
+    expect(step.risk).toBe('read');
+    expect(step.status).toBe('success');
+    expect(step.stdout).toBe('out');
+    expect(step.total).toBe(1);
+  });
+
+  it('does not overwrite an already-recorded command with a later undefined', () => {
+    const entries = [
+      {
+        eventType: 'execution_start',
+        timestamp: '2026-04-17T10:00:00.000Z',
+        metadata: { stepIndex: 0, totalSteps: 1, command: 'ls', risk: 'read', target: 'nginx' },
+      },
+      {
+        eventType: 'step_complete',
+        timestamp: '2026-04-17T10:00:01.000Z',
+        metadata: { stepIndex: 0, stdout: 'x' },
+      },
+    ];
+
+    const state = buildReplayState('sess-012', entries);
+    const step = state.executionSteps[0]!;
+    expect(step.command).toBe('ls');
+    expect(step.target).toBe('nginx');
+    expect(step.stdout).toBe('x');
+  });
+
+  it('records an execution_start-only step as pending rather than dropping it', () => {
+    const entries = [
+      {
+        eventType: 'execution_start',
+        timestamp: '2026-04-17T10:00:00.000Z',
+        metadata: { stepIndex: 0, totalSteps: 3, command: 'systemctl status nginx', risk: 'read' },
+      },
+    ];
+
+    const state = buildReplayState('sess-013', entries);
+    expect(state.executionSteps).toHaveLength(1);
+    expect(state.executionSteps[0]!.status).toBe('pending');
+    expect(state.executionSteps[0]!.total).toBe(3);
+  });
+
+  it('ignores execution_start envelopes that carry no per-step metadata', () => {
+    // src/execution/executor.ts:86 logs a plan-level execution_start with
+    // { planSummary, target, stepCount } and no stepIndex/command. That entry must
+    // not materialise as a phantom step with an empty command.
+    const entries = [
+      {
+        eventType: 'execution_start',
+        timestamp: '2026-04-17T10:00:00.000Z',
+        metadata: { planSummary: 'restart nginx', target: 'nginx', stepCount: 2 },
+      },
+    ];
+
+    const state = buildReplayState('sess-014', entries);
+    expect(state.executionSteps).toHaveLength(0);
+  });
 });
 
 // ---- Pure function tests: parseOverlayData ----
