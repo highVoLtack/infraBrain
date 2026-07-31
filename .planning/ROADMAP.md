@@ -83,6 +83,24 @@ tuning, no web UI. **Phase 17.1 stays closed** — no exceptions except demonstr
   onward; status derived exclusively from events. Consumers (`App.tsx`, `formatter.ts`) already
   handle `step_failed` and need no change. **Gate 0 — blocks Phase 21.**
   Brief: `phases/20-audit-integrity/20-BRIEF.md` (dossier section M)
+
+  **Goal**: Every attempt at an execution step leaves an attempt-numbered record, a step's status is
+  derived exclusively from those events, and integrity violations surface as a distinct visible state
+  instead of resolving into a plausible outcome.
+  **Requirements**: AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04, AUDIT-05, AUDIT-06, AUDIT-07, AUDIT-08,
+  AUDIT-09, AUDIT-10 (derived from the nine acceptance criteria in `20-BRIEF.md` plus decision D-5;
+  REQUIREMENTS.md has no v1.4 section yet)
+  **Plans:** 8 plans, waves 1-5
+
+  Plans:
+  - [ ] 20-01-PLAN.md — D-4 red proof: failing regression test + persisted output, committed before any fix
+  - [ ] 20-02-PLAN.md — D-5: session-scoped `/history` limit so the fix cannot truncate replay
+  - [ ] 20-03-PLAN.md — step-event types, typed emitter with runtime guard, monotonic timestamps
+  - [ ] 20-04-PLAN.md — structural dependency shapes + SelfHealContext + 18 test mocks
+  - [ ] 20-05-PLAN.md — pure event-only status deriver, cardinality rules, pre-fix fixture
+  - [ ] 20-06-PLAN.md — executor + circuit-breaker per-attempt emissions
+  - [ ] 20-07-PLAN.md — self-healer per-attempt emissions + rationale join key
+  - [ ] 20-08-PLAN.md — compile-time narrowing, emitter property test, green proof, phase gate
 - [ ] **Phase 21: Loop Proof** - The DPEV loop has not run end-to-end since March 2026 (2026-04: 1
   of 9 sessions reached execution, 0 reached verification; 2026-07: 0 of 3). Run the five March
   multi-fault scenarios against v1.3 until `verification: verified`, then check them in as an
@@ -350,7 +368,7 @@ Phase 22's rollback success metric reads the same records.
 | 19.2 | v1.3 | 3/3 | Complete   | 2026-04-17 |
 | 17.1 | v1.3 | 0/? | Frozen -- feature freeze | -- |
 | 19.3 | v1.3 | 6/6 | Complete; UAT source-verified, live interaction open | 2026-07-31 |
-| 20 | v1.4 | 0/? | Planned -- gate 0 | -- |
+| 20 | v1.4 | 0/8 | Planned -- gate 0 (8 plans, waves 1-5) | -- |
 | 21 | v1.4 | 0/? | Blocked by 20 | -- |
 | 22 | v1.4 | 0/? | Blocked by 20 | -- |
 
