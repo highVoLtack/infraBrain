@@ -143,6 +143,146 @@ describe('DPEVPhaseHeader', () => {
     // Now elapsed should be 5s (2s initial + 3s ticked)
     expect(afterTickFrame).toContain('5s');
   });
+
+  // ---- Phase 19.3: substatus slot (D-05) ----
+
+  it('renders the substatus line with a ⟁ prefix when active and substatus is passed as a prop', async () => {
+    const { DPEVPhaseHeader } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    const now = Date.now();
+    const phase = {
+      name: 'discovery',
+      model: 'Qwen3-32B',
+      startedAt: now - 3000,
+      status: 'active' as const,
+      tokens: '',
+    };
+    const { lastFrame } = render(
+      React.createElement(DPEVPhaseHeader, { phase, substatus: 'Searching MemPalace…' })
+    );
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('⟁');
+    expect(frame).toContain('Searching MemPalace…');
+  });
+
+  it('does NOT render substatus when the phase is complete even if the prop is set', async () => {
+    const { DPEVPhaseHeader } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    const phase = {
+      name: 'discovery',
+      model: 'Qwen3-32B',
+      startedAt: 1_000_000,
+      completedAt: 1_004_000,
+      status: 'complete' as const,
+      tokens: '',
+    };
+    const { lastFrame } = render(
+      React.createElement(DPEVPhaseHeader, { phase, substatus: 'Searching MemPalace…' })
+    );
+    const frame = lastFrame() ?? '';
+    expect(frame).not.toContain('⟁');
+    expect(frame).not.toContain('Searching MemPalace…');
+  });
+
+  it('renders substatus from the phase.substatus field when no prop is passed', async () => {
+    const { DPEVPhaseHeader } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    const now = Date.now();
+    const phase = {
+      name: 'routing',
+      model: 'Qwen3-0.6B',
+      startedAt: now - 1000,
+      status: 'active' as const,
+      tokens: '',
+      substatus: 'Routing skill…',
+    };
+    const { lastFrame } = render(React.createElement(DPEVPhaseHeader, { phase }));
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('Routing skill…');
+  });
+
+  it('lets an explicit substatus prop take precedence over phase.substatus', async () => {
+    const { DPEVPhaseHeader } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    const now = Date.now();
+    const phase = {
+      name: 'diagnosis',
+      model: 'gemini-2.5-pro',
+      startedAt: now - 1000,
+      status: 'active' as const,
+      tokens: '',
+      substatus: 'STALE-LABEL-A',
+    };
+    const { lastFrame } = render(
+      React.createElement(DPEVPhaseHeader, { phase, substatus: 'FRESH-LABEL-B' })
+    );
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('FRESH-LABEL-B');
+    expect(frame).not.toContain('STALE-LABEL-A');
+  });
+
+  it('renders no substatus line when the phase is active but has no label', async () => {
+    const { DPEVPhaseHeader } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    const now = Date.now();
+    const phase = {
+      name: 'diagnosis',
+      model: 'gemini-2.5-pro',
+      startedAt: now - 1000,
+      status: 'active' as const,
+      tokens: '',
+    };
+    const { lastFrame } = render(React.createElement(DPEVPhaseHeader, { phase }));
+    const frame = lastFrame() ?? '';
+    expect(frame).not.toContain('⟁');
+  });
+
+  it('still renders the header row (name/model/timer) alongside the substatus line', async () => {
+    const { DPEVPhaseHeader } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    const started = 3_000_000;
+    vi.setSystemTime(started + 7000);
+    const phase = {
+      name: 'execution',
+      model: 'Qwen3-32B',
+      startedAt: started,
+      status: 'active' as const,
+      tokens: '',
+      substatus: 'Running step 1/3…',
+    };
+    const { lastFrame } = render(React.createElement(DPEVPhaseHeader, { phase }));
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('EXECUTION');
+    expect(frame).toContain('Qwen3-32B');
+    expect(frame).toContain('7s');
+    expect(frame).toContain('Running step 1/3…');
+  });
+});
+
+// ---- timerColor Tests (D-08) ----
+describe('timerColor (D-08)', () => {
+  it("returns 'gray' for a complete phase regardless of phase name", async () => {
+    const { timerColor } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    for (const name of ['routing', 'discovery', 'diagnosis', 'plan', 'execution', 'verification']) {
+      expect(timerColor(name, 'complete')).toBe('gray');
+    }
+  });
+
+  it("returns 'yellow' for the execution phase when active", async () => {
+    const { timerColor } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    expect(timerColor('execution', 'active')).toBe('yellow');
+  });
+
+  it("returns 'cyanBright' for LLM phases when active", async () => {
+    const { timerColor } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    for (const name of ['routing', 'discovery', 'diagnosis', 'plan', 'verification']) {
+      expect(timerColor(name, 'active')).toBe('cyanBright');
+    }
+  });
+
+  it("returns 'cyanBright' for an unknown phase name when active", async () => {
+    const { timerColor } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    expect(timerColor('distillation', 'active')).toBe('cyanBright');
+  });
+
+  it("complete beats execution — a finished execution phase is 'gray', not 'yellow'", async () => {
+    const { timerColor } = await import('../../src/ui/components/DPEVPhaseHeader.js');
+    expect(timerColor('execution', 'complete')).toBe('gray');
+  });
 });
 
 // ---- PlanView Tests ----
