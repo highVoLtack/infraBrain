@@ -12,7 +12,7 @@
  * - Replay mode: replaySession provided, renders read-only past session
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useDPEV } from '../hooks/useDPEV.js';
 import { StreamingText } from '../components/StreamingText.js';
@@ -25,10 +25,32 @@ import { CacheHitBanner } from '../components/CacheHitBanner.js';
 import { PlanView } from '../components/PlanView.js';
 import type { DPEVAction, DPEVPhaseState, DPEVState } from '../types.js';
 
+/**
+ * The two facts App.tsx needs from a live session, and nothing more.
+ *
+ * Deliberately primitive-valued: App stores this in state, so a wider projection
+ * (or the whole DPEVState) would re-render HeaderBar / SessionPanel / EntityPanel on
+ * every streamed token — the exact render churn TERM-UX07 is about.
+ */
+export interface DPEVLiveStatus {
+  /** D-12: cumulative session tokens, for StatusOverlay's Context Window bar. */
+  sessionTokens?: number;
+  /** True while Esc would collapse a visibly expanded phase (App must not exit). */
+  collapsible: boolean;
+}
+
 export interface DPEVPanelProps {
   apiBaseUrl: string;
   prompt?: string;
   replaySession?: DPEVState;
+  /**
+   * App.tsx is the sole keyboard arbiter (19.3-06 item A). Ink fires every registered
+   * useInput handler per keystroke, so the accordion must stand down whenever another
+   * surface owns the keyboard. Defaults to true for standalone/replay use.
+   */
+  activeFocus?: boolean;
+  /** Reports {@link DPEVLiveStatus} upward whenever either field changes. */
+  onStatusChange?: (status: DPEVLiveStatus) => void;
 }
 
 /** D-11: nulls mean "the provider stayed silent" — never render 0 / $0.00. */
@@ -116,6 +138,33 @@ export function handlePhaseInput(
   } else if (key.escape) {
     dispatch({ type: 'PHASE_EXPAND', index: currentIdx, expanded: false });
   }
+}
+
+// ---- Pure helper: does Esc have a collapse to perform? (19.3-06 item A) ----
+
+/**
+ * `App.tsx` treats Esc as "exit the live session". That is right unless the focused
+ * phase is expanded, in which case both handlers fire on the same keystroke and the
+ * panel unmounts before its collapse is ever visible (the 19.3-04 finding).
+ *
+ * An *active* phase never counts: D-20 keeps it on `StreamingText`, whose render path
+ * ignores `expandedPhases`, so "collapsing" it changes nothing on screen and Esc must
+ * fall through to exit rather than becoming a dead key.
+ */
+export function canCollapseFocusedPhase(state: DPEVState): boolean {
+  const idx = virtualFocusedIndex(state);
+  const phase = state.phases[idx];
+  if (!phase || phase.status === 'active') return false;
+  return state.expandedPhases?.[idx] === true;
+}
+
+// ---- Pure helper: the projection LiveDPEVPanel reports to App (19.3-06 item B) ----
+
+export function projectLiveStatus(state: DPEVState): DPEVLiveStatus {
+  return {
+    sessionTokens: state.sessionSummary?.totalTokens,
+    collapsible: canCollapseFocusedPhase(state),
+  };
 }
 
 // ---- Pure helper: per-phase usage line (D-09 / D-11 / D-25) ----
@@ -335,9 +384,13 @@ function DPEVPanelContent({
 function LiveDPEVPanel({
   apiBaseUrl,
   prompt,
+  activeFocus,
+  onStatusChange,
 }: {
   apiBaseUrl: string;
   prompt: string;
+  activeFocus: boolean;
+  onStatusChange?: (status: DPEVLiveStatus) => void;
 }): React.ReactElement {
   const { state, dispatch, connected, sseError } = useDPEV(apiBaseUrl, prompt);
   const [cacheError, setCacheError] = useState<string | undefined>();
@@ -414,13 +467,21 @@ function LiveDPEVPanel({
     [apiBaseUrl, state.sessionId, state.pendingApproval, dispatch]
   );
 
+  // Report the two facts App.tsx arbitrates on. Both are primitives, so the effect
+  // fires only when one actually changes — not on every streamed token.
+  const { sessionTokens, collapsible } = projectLiveStatus(state);
+  useEffect(() => {
+    onStatusChange?.({ sessionTokens, collapsible });
+  }, [sessionTokens, collapsible, onStatusChange]);
+
   // Phase accordion navigation (D-03). Disabled whenever an approval gate owns the
-  // keyboard so Y/N keystrokes are never intercepted.
+  // keyboard so Y/N keystrokes are never intercepted, and whenever App has given the
+  // keyboard to another surface (19.3-06 item A).
   useInput(
     (input, key) => {
       handlePhaseInput(state, input, key, dispatch);
     },
-    { isActive: isPhaseInputActive(state) },
+    { isActive: activeFocus && isPhaseInputActive(state) },
   );
 
   return (
@@ -458,6 +519,8 @@ export function DPEVPanel({
   apiBaseUrl,
   prompt,
   replaySession,
+  activeFocus = true,
+  onStatusChange,
 }: DPEVPanelProps): React.ReactElement {
   // Replay mode: render read-only state
   if (replaySession) {
@@ -474,7 +537,14 @@ export function DPEVPanel({
 
   // Live mode: wire useDPEV hook
   if (prompt) {
-    return <LiveDPEVPanel apiBaseUrl={apiBaseUrl} prompt={prompt} />;
+    return (
+      <LiveDPEVPanel
+        apiBaseUrl={apiBaseUrl}
+        prompt={prompt}
+        activeFocus={activeFocus}
+        onStatusChange={onStatusChange}
+      />
+    );
   }
 
   // Idle state

@@ -19,10 +19,85 @@ import { HeaderBar } from './layout/HeaderBar.js';
 import { PanelLayout } from './layout/PanelLayout.js';
 import { StatusOverlay } from './layout/StatusOverlay.js';
 import { DPEVPanel } from './panels/DPEVPanel.js';
+import type { DPEVLiveStatus } from './panels/DPEVPanel.js';
 import { SessionPanel } from './panels/SessionPanel.js';
 import { EntityPanel } from './panels/EntityPanel.js';
 import { useResponsive } from './hooks/useResponsive.js';
 import type { PanelId, DPEVState, DPEVPhaseState, StepState } from './types.js';
+
+// ---- Keyboard arbitration (19.3-06 item A) ----
+
+/**
+ * Ink fires EVERY registered `useInput` handler for each keystroke — handlers are not
+ * exclusive. Before this, `CommandInput`'s active flag was tied to nothing but the
+ * status overlay, so it stayed live through DPEV sessions and approval gates and
+ * swallowed every printable character. Three symptoms shared that root cause: `j`/`k`
+ * navigation typed into the prompt, `Esc` unmounting the panel before its collapse was
+ * visible, and `n` answered at a `[Y/n]` approval ALSO landing in the command box, one
+ * Enter away from being submitted as a command.
+ *
+ * The cure is a single explicit owner rather than another ad hoc boolean: exactly one
+ * surface holds the keyboard at any moment, and every consumer derives its `isActive` /
+ * `activeFocus` from that one value.
+ */
+export type KeyboardOwner =
+  | 'status-overlay'
+  | 'entity-overlay'
+  | 'session-panel'
+  | 'entity-panel'
+  | 'dpev-panel'
+  | 'command-input';
+
+export interface KeyboardContext {
+  showStatusOverlay: boolean;
+  showEntityOverlay: boolean;
+  activePanel: PanelId;
+  /** A live DPEV session is running (or finished but still on screen). */
+  sessionActive: boolean;
+}
+
+/** Modals outrank panels; a Tab-focused panel outranks the session; typing is the floor. */
+export function resolveKeyboardOwner(ctx: KeyboardContext): KeyboardOwner {
+  if (ctx.showStatusOverlay) return 'status-overlay';
+  if (ctx.showEntityOverlay) return 'entity-overlay';
+  if (ctx.activePanel === 'left') return 'session-panel';
+  if (ctx.activePanel === 'right') return 'entity-panel';
+  if (ctx.sessionActive) return 'dpev-panel';
+  return 'command-input';
+}
+
+export type EscapeAction =
+  | 'dismiss-status-overlay'
+  | 'dismiss-entity-overlay'
+  | 'collapse-phase'
+  | 'exit-replay'
+  | 'exit-session'
+  | 'none';
+
+export interface EscapeContext extends KeyboardContext {
+  replayActive: boolean;
+  /** From DPEVPanel's `canCollapseFocusedPhase` — Esc has a visible collapse to do. */
+  collapsibleFocusedPhase: boolean;
+}
+
+/**
+ * `collapse-phase` means "App does nothing": DPEVPanel's own handler collapses the
+ * phase on this same keystroke. It only applies while the panel actually owns the
+ * keyboard — otherwise its handler is inactive and deferring to a collapse that will
+ * never happen would make Esc a dead key.
+ */
+export function resolveEscapeAction(ctx: EscapeContext): EscapeAction {
+  if (ctx.showStatusOverlay) return 'dismiss-status-overlay';
+  if (ctx.showEntityOverlay) return 'dismiss-entity-overlay';
+  if (ctx.replayActive) return 'exit-replay';
+  if (ctx.sessionActive) {
+    const owner = resolveKeyboardOwner(ctx);
+    return owner === 'dpev-panel' && ctx.collapsibleFocusedPhase
+      ? 'collapse-phase'
+      : 'exit-session';
+  }
+  return 'none';
+}
 
 // ---- Pure logic (testable without React) ----
 
@@ -251,7 +326,13 @@ function CommandInput({
       <Text color="cyanBright" bold>{'\u276F'} </Text>
       <Text>{text}</Text>
       <Text color="gray">{isActive ? '_' : ''}</Text>
-      {!text && <Text dimColor> type a command (e.g. debug "nginx is down")</Text>}
+      {!text && (
+        <Text dimColor>
+          {isActive
+            ? ' type a command (e.g. debug "nginx is down")'
+            : ' Tab to focus the prompt'}
+        </Text>
+      )}
     </Box>
   );
 }
@@ -283,6 +364,20 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
   // Entity refresh counter -- increment to trigger EntityPanel re-fetch
   const [entityRefreshKey, setEntityRefreshKey] = useState(0);
 
+  // What the live DPEV panel reports upward: cumulative session tokens (feeds the
+  // StatusOverlay context bar — 19.3-06 item B) and whether Esc has a collapse to do.
+  const [dpevStatus, setDpevStatus] = useState<DPEVLiveStatus>({ collapsible: false });
+
+  const handleDpevStatus = useCallback((next: DPEVLiveStatus) => {
+    // Returning the previous reference bails React out of a re-render, so an
+    // unchanged projection never re-renders the header and side panels.
+    setDpevStatus((prev) =>
+      prev.sessionTokens === next.sessionTokens && prev.collapsible === next.collapsible
+        ? prev
+        : next,
+    );
+  }, []);
+
   // Panel cycling
   const cyclePanel = useCallback(() => {
     setActivePanel((current) => {
@@ -301,6 +396,7 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
           const replayState = buildReplayState(sessionId, data.entries || []);
           setReplaySession(replayState);
           setActivePrompt(undefined);
+          setDpevStatus({ collapsible: false });
           setActivePanel('center');
           setEntityRefreshKey(k => k + 1);
         }
@@ -327,6 +423,7 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
           if (parsed.args) {
             setActivePrompt(parsed.args);
             setReplaySession(undefined);
+            setDpevStatus({ collapsible: false });
           }
           break;
         case 'status':
@@ -361,11 +458,50 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
     [mode],
   );
 
+  // Exactly one surface owns the keyboard at any moment (19.3-06 item A).
+  const keyboardContext: KeyboardContext = {
+    showStatusOverlay,
+    showEntityOverlay,
+    activePanel,
+    sessionActive: activePrompt !== undefined,
+  };
+  const keyboardOwner = resolveKeyboardOwner(keyboardContext);
+
   // Global keyboard handling for overlays and navigation
   useInput(
     (input, key) => {
-      if (showStatusOverlay) {
-        if (key.escape) setShowStatusOverlay(false);
+      if (key.escape) {
+        switch (resolveEscapeAction({
+          ...keyboardContext,
+          replayActive: replaySession !== undefined,
+          collapsibleFocusedPhase: dpevStatus.collapsible,
+        })) {
+          case 'dismiss-status-overlay':
+            setShowStatusOverlay(false);
+            return;
+          case 'dismiss-entity-overlay':
+            setShowEntityOverlay(false);
+            return;
+          case 'exit-replay':
+            setReplaySession(undefined);
+            return;
+          case 'exit-session':
+            setActivePrompt(undefined);
+            setDpevStatus({ collapsible: false });
+            setEntityRefreshKey(k => k + 1);
+            return;
+          // DPEVPanel's own handler collapses the focused phase on this same
+          // keystroke — unmounting the panel here would hide the collapse.
+          case 'collapse-phase':
+          case 'none':
+            return;
+        }
+      }
+
+      // An open overlay is modal: it swallows everything except its own toggles.
+      if (keyboardOwner === 'status-overlay' || keyboardOwner === 'entity-overlay') {
+        if (input === 's') setShowStatusOverlay(v => !v);
+        else if (input === 'g' && mode === 'compact') setShowEntityOverlay(v => !v);
         return;
       }
 
@@ -374,9 +510,11 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
         return;
       }
 
-      if (key.escape) {
-        if (replaySession) { setReplaySession(undefined); return; }
-        if (activePrompt) { setActivePrompt(undefined); setEntityRefreshKey(k => k + 1); return; }
+      // `s` / `g` belong to CommandInput's onShortcut while it owns the keyboard —
+      // routing them here too would toggle the overlay on the `s` of a typed "status".
+      if (keyboardOwner !== 'command-input' && input) {
+        if (input === 's') { setShowStatusOverlay(v => !v); return; }
+        if (input === 'g' && mode === 'compact') { setShowEntityOverlay(v => !v); return; }
       }
     },
     { isActive: true },
@@ -386,7 +524,13 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
   let centerContent: React.ReactElement;
   if (activePrompt) {
     centerContent = (
-      <DPEVPanel key={activePrompt} apiBaseUrl={apiBaseUrl} prompt={activePrompt} />
+      <DPEVPanel
+        key={activePrompt}
+        apiBaseUrl={apiBaseUrl}
+        prompt={activePrompt}
+        activeFocus={keyboardOwner === 'dpev-panel'}
+        onStatusChange={handleDpevStatus}
+      />
     );
   } else if (replaySession) {
     centerContent = (
@@ -413,13 +557,13 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
           <SessionPanel
             apiBaseUrl={apiBaseUrl}
             onSelect={handleSessionSelect}
-            activeFocus={activePanel === 'left' && !showStatusOverlay}
+            activeFocus={keyboardOwner === 'session-panel'}
           />
         }
         rightContent={
           <EntityPanel
             apiBaseUrl={apiBaseUrl}
-            activeFocus={activePanel === 'right' && !showStatusOverlay}
+            activeFocus={keyboardOwner === 'entity-panel'}
             refreshKey={entityRefreshKey}
           />
         }
@@ -427,7 +571,7 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
         entityOverlayContent={
           <EntityPanel
             apiBaseUrl={apiBaseUrl}
-            activeFocus={showEntityOverlay && !showStatusOverlay}
+            activeFocus={keyboardOwner === 'entity-overlay'}
             refreshKey={entityRefreshKey}
           />
         }
@@ -436,12 +580,13 @@ export function App({ apiBaseUrl }: AppProps): React.ReactElement {
         <StatusOverlay
           apiBaseUrl={apiBaseUrl}
           onDismiss={() => setShowStatusOverlay(false)}
+          sessionTokens={dpevStatus.sessionTokens}
         />
       )}
       <CommandInput
         onSubmit={handleCommand}
         onShortcut={handleShortcut}
-        isActive={!showStatusOverlay}
+        isActive={keyboardOwner === 'command-input'}
       />
     </Box>
   );
