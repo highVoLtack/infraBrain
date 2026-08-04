@@ -1,0 +1,72 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-08-04T07:43:01.956Z",
+  "phase": "20",
+  "phase_name": "audit-integrity",
+  "phase_dir": ".planning/phases/20-audit-integrity",
+  "plan": 0,
+  "task": 0,
+  "total_tasks": 8,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 0, "name": "Phase 20 brief with 9 acceptance criteria", "status": "done", "commit": "4fa9063"},
+    {"id": 0, "name": "Criteria hardening: red-proof artifact, attempt_n invariant, terminal cardinality", "status": "done", "commit": "ebca256"},
+    {"id": 0, "name": "CONTEXT.md with locked decisions D-1..D-4", "status": "done", "commit": "9317334"},
+    {"id": 0, "name": "RESEARCH.md, 7 questions answered at file:line", "status": "done", "commit": "f5c5438"},
+    {"id": 0, "name": "D-5 recorded + two research-forced corrections", "status": "done", "commit": "4617e8c"},
+    {"id": 0, "name": "8 PLAN.md files, 5 waves, RED-before-GREEN structurally enforced", "status": "done", "commit": "53d4ec4"},
+    {"id": 0, "name": "Plan check PASSED (gsd-plan-checker, no blockers)", "status": "done", "commit": "n/a"},
+    {"id": 0, "name": "Criterion-8 gate pinned to recorded phase base sha", "status": "done", "commit": "9340774"}
+  ],
+  "remaining_tasks": [
+    {"id": 1, "name": "20-01 wave 1: RED proof — failing regression test + persisted output, touches no src/", "status": "not_started"},
+    {"id": 2, "name": "20-02 wave 1: session-scoped /history limit (D-5)", "status": "not_started"},
+    {"id": 3, "name": "20-03 wave 2: step-event types, typed emitter + runtime guard, monotonic timestamps", "status": "not_started"},
+    {"id": 4, "name": "20-04 wave 3: structural dep shapes + SelfHealContext + 18 mocks across 13 files", "status": "not_started"},
+    {"id": 5, "name": "20-05 wave 3: pure event-only status deriver, cardinality rules, pre-fix fixture", "status": "not_started"},
+    {"id": 6, "name": "20-06 wave 4: executor + circuit-breaker per-attempt emissions", "status": "not_started"},
+    {"id": 7, "name": "20-07 wave 4: self-healer per-attempt emissions + rationale join key", "status": "not_started"},
+    {"id": 8, "name": "20-08 wave 5: compile-time narrowing, emitter property test, green proof, phase gate", "status": "not_started"}
+  ],
+  "blockers": [],
+  "async_jobs": [],
+  "human_actions_pending": [
+    {
+      "action": "Decide whether to add a v1.4 section to REQUIREMENTS.md before executing phase 20",
+      "context": "AUDIT-01..AUDIT-10 exist only in ROADMAP.md and in plan frontmatter; REQUIREMENTS.md has no v1.4 section. Phase 19.3 produced requirement checkbox drift three separate times, so starting a traceability-focused phase with requirements absent from the canonical file repeats the pattern. Orchestrator recommended adding them first. NOT answered by the user.",
+      "blocking": false
+    },
+    {
+      "action": "Decide: execute phase 20 now, or add REQUIREMENTS.md first",
+      "context": "The last question put to the user was (a) add the v1.4 requirements block then run /gsd-execute-phase 20, or (b) execute directly. The user paused instead of answering. Ask again on resume; do not assume.",
+      "blocking": true
+    },
+    {
+      "action": "Repo public -> private, CyberForum mail to the two founders, README corrections",
+      "context": "Non-engineering remainder of v1.4 block 0. The security half is DONE (see decisions): .env gitignored, gitleaks hook active and verified, history confirmed clean across 581 commits. The visibility change is now purely a business decision, not a security fix. README still claims 579 tests (actual: 1318) and Ollama-only (dev runs on Gemini).",
+      "blocking": false
+    },
+    {
+      "action": "Optional: live UAT of phase 19.3 keyboard interaction",
+      "context": "19.3 is source-verified but live keyboard/replay interaction was never exercised by a human. TERM-UX04/07/08 correctly remain Planned. Orchestrator recommended NOT re-testing manually now, because phase 21 builds the E2E suite where that coverage belongs; a manual run produces evidence that expires.",
+      "blocking": false
+    }
+  ],
+  "decisions": [
+    {"decision": "Phase 20 (audit integrity) is gate 0 of v1.4 and blocks phases 21 and 22", "rationale": "Both compute headline metrics from step records. A verification:verified produced against today's records would be the green tick on a rotten record that phase 20 exists to abolish.", "phase": "20"},
+    {"decision": "D-1: historical audit records are never rewritten, migrated, or backfilled", "rationale": "They are evidence of the past, including the flawed past. A record without attempt_n is a legitimate pre-fix state, not a parse error.", "phase": "20"},
+    {"decision": "D-2: append-only from the fix onward; attempt_n on every step event with no exceptions, attempt 1 included", "rationale": "D-1 keeps two schema eras alive in one log, and 'no attempt_n => pre-fix record' is the SOLE discriminant. One new event without it collapses the distinction and makes every historical record indistinguishable from a new bug. Test the emitter, not sample payloads — a sample test cannot establish an exceptionless property.", "phase": "20"},
+    {"decision": "D-3: step status derived exclusively from events; exactly one terminal event per (stepIndex, attempt_n)", "rationale": "Absence of step_failed must never read as success — that was the root cause. Zero terminal events = in-flight if session open, violation if closed; two or more = always a violation. Violations SURFACE as a distinct state, never resolve into a plausible outcome. A rule that silently repairs its own violations cannot be relied on.", "phase": "20"},
+    {"decision": "D-4: the regression test's RED state must be an artifact (RED commit or persisted output)", "rationale": "The bug that opened the phase must be the test that closes it. 'It was red first' existing only in a summary is narration — in two weeks indistinguishable from a test that was never red.", "phase": "20"},
+    {"decision": "D-5: src/api/routes/history.ts is IN scope; App.tsx and formatter.ts stay hard-frozen", "rationale": "Replay defaults to 20 events newest-first (store.ts:165; App.tsx:393 sends no limit) and this fix roughly triples event volume — untouched, it would degrade the very thing it improves. history.ts is a route handler, not a renderer, so the freeze's purpose (payload contract must be right without touching renderers) is intact.", "phase": "20"},
+    {"decision": "attempt_n lives inside metadata, not at the top level", "rationale": "Forced by code, not preference: appendAudit (store.ts:185-209) writes the whole entry to JSONL via JSON.stringify but INSERTs a fixed column list. A top-level field survives in the file and is silently dropped on the exact path replay reads (SQLite via /history).", "phase": "20"},
+    {"decision": "self_heal_attempt and step events COEXIST with a mechanically-enforced division", "rationale": "Settled empirically: self_heal_attempt carries no stepIndex in any of the 98 historical records, so it never was an attributable outcome record. Step events become the canonical outcome record and sole input to status derivation; self_heal_attempt stays LLM-correction rationale and gains stepIndex + attempt_n as a join key. Anti-duplication is a precedence rule made mechanical — a test where self_heal_attempt.outcome:'success' contradicts step_failed must derive FAILED.", "phase": "20"},
+    {"decision": "session_end emission deliberately NOT planned", "rationale": "Would close a 1.8% indeterminate gap for one line, but sits outside 'producer side, step events' and the feature freeze admits no silent exceptions. Plan-checker confirmed criterion 6 is not endangered: 20-05 introduces `indeterminate` as an honest fourth state. That state is needed regardless, since crashed sessions lack a terminal marker even with session_end.", "phase": "20"},
+    {"decision": "Sequencing is by dependency, not calendar — no week numbers", "rationale": "Owner instruction. Each block starts when the previous is genuinely done. Governing chain: loop proof gates the demo, demo gates the funnel.", "phase": "v1.4"},
+    {"decision": "Gemini is a deliberate development stand-in, not architecture drift", "rationale": "Owner: RunPod costs real money and adds spin-up latency per iteration. Rule is 'build against Gemini, behave as if local', then move once the feature set is proven. Consequence recorded in dossier section G: structural fixes transfer to the local backend, numeric tuning does not — so never tune latency/retry constants against Gemini.", "phase": "v1.4"},
+    {"decision": "Phase 17.1 stays frozen", "rationale": "Feature freeze admits no exceptions except demonstrated demo blockers.", "phase": "v1.3"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Ask the user the unanswered question: add the v1.4 requirements block to REQUIREMENTS.md first, or run /gsd-execute-phase 20 directly. Then execute. Waves 1-4 will show THREE suite failures, not two — the third is the intentional RED test.",
+  "context_notes": "Phase 20 is fully planned, plan-checked (PASSED, no blockers), and its one advisory is fixed. Nothing under src/ has been touched — the working tree is clean in src/ and tests/. The phase base SHA recorded at .planning/phases/20-audit-integrity/.phase-base-sha is 53d4ec4, and the criterion-8 freeze gate reads that file, so the check covers the true phase range regardless of how many commits the plans produce. Execution is a clean start at wave 1. The uncommitted .planning noise (config.json, old .gitkeep files, a stale phase-17 .continue-here.md) predates this session and is unrelated."
+}
