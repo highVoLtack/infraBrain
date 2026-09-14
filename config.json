@@ -1,0 +1,44 @@
+{
+  "_comment_connection": "Connection mode: 'gemini-dev' for cloud dev/test, switch to localhost/RunPod for production",
+
+  "_prod_config": {
+    "ollamaBaseUrl": "http://localhost:11434",
+    "modelMap": {
+      "default": "qwen3.5:35b-a3b",
+      "triage": "qwen3.5:9b",
+      "strategic": "qwen3.5:122b-a10b",
+      "forensic": "qwen3.5:35b-a3b",
+      "worker": "glm-4.7-flash",
+      "vision": "qwen3.5:122b-a10b",
+      "embedding": "bge-m3"
+    }
+  },
+
+  "defaultBaseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/",
+  "modelName": "gemini-2.5-flash",
+  "modelMap": {
+    "default": { "model": "gemini-2.5-flash", "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" },
+    "triage": { "model": "gemini-2.5-flash", "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" },
+    "strategic": { "model": "gemini-2.5-pro", "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" },
+    "forensic": { "model": "gemini-2.5-flash", "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" },
+    "worker": { "model": "gemini-2.5-flash", "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" },
+    "vision": { "model": "gemini-2.5-flash", "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" },
+    "embedding": { "model": "gemini-embedding-001", "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/", "apiKey": "${GOOGLE_AI_API_KEY}" }
+  },
+  "apiPort": 3001,
+
+  "_comment_roles": {
+    "default": "Primary model for diagnosis + execution (Gemini Flash — fast, cheap)",
+    "triage": "Skill routing — lightweight",
+    "strategic": "Fix planning + self-heal — deep reasoning (Gemini Pro)",
+    "forensic": "Deep chain-of-thought debugging",
+    "worker": "Lightweight background tasks",
+    "vision": "Visual analysis — Gemini Flash is natively multimodal",
+    "embedding": "Vector embeddings for cache + memory (text-embedding-004)"
+  },
+
+  "selfHealing": {
+    "maxAttempts": 5,
+    "correctionTimeoutMs": 15000
+  }
+}
